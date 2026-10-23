@@ -11,8 +11,9 @@ Production은 Coolify의 `main` branch Auto Deploy와 Nixpacks build pack을 사
 1. 유효한 production 환경변수와 PostgreSQL 연결을 준비한다.
 2. Coolify가 repository를 Nixpacks로 build한다.
 3. 새 컨테이너의 Nixpacks start 명령이 `pnpm release:migrate`로 환경 확인·Prisma 생성·migration과 history trigram index 생성을 실행한다. 실패하면 `&&` 뒤의 서버를 시작하지 않는다. index는 Prisma transaction 밖에서 `CREATE INDEX CONCURRENTLY`로 생성한다.
-4. migration 성공 후 `pnpm start`로 Node 서버를 시작한다.
-5. Coolify가 `/api/health/ready`의 200을 확인한 뒤 새 컨테이너에 트래픽을 보낸다.
+4. `pnpm queue:bootstrap`이 최초 큐의 대기 작업 연결·검사·활성화를 완료한다. 이미 활성화된 큐는 runtime 한 행만 읽고 그대로 사용한다. 실패하면 서버를 시작하지 않는다.
+5. 준비 성공 후 `pnpm start`로 Node 서버를 시작한다.
+6. Coolify가 `/api/health/ready`의 200을 확인한 뒤 새 컨테이너에 트래픽을 보낸다.
 
 Coolify pre-deployment command는 교체 전의 현재 컨테이너에서 실행되므로 새 source에 추가된 migration의 정본으로 사용하지 않는다. post-deployment command는 배포 성공 기록 뒤에 실행되므로 migration gate로 사용하지 않는다. 현재 start 단계 방식은 단일 replica 운영을 전제로 한다. replica를 늘리기 전에는 migration과 concurrent index 생성을 한 번만 수행하는 별도 release runner를 검토한다.
 
@@ -58,26 +59,38 @@ substring history 검색은 `pg_trgm`과 image/video/audio의 prompt/modelKey GI
 
 현재 코드만으로 확인되는 RPO/RTO는 없다. 운영자는 DB backup 주기·보존기간·암호화·접근권한·복원 담당자와 목표 RPO/RTO를 배포 전에 정하고, 격리 restore 소요시간과 실제 asset 복구 범위를 측정해 이 문서의 release 기록에 남겨야 한다.
 
-## 공통 큐 최초 전환
+## 공통 큐 자동 준비와 재배포
 
-기존 서버가 처리 중인 작업은0개라고 가정한다. 이 전환은 구 서버 종료 증빙 파일·세션 검사·처리 중 작업 복구 이관을 요구하지 않는다. 최초 migration은 paused로 시작하므로 일반 rolling Auto Deploy만으로 readiness200이 되지 않는다. 유지보수 시간에 새 접수를 닫고 아래 순서로 새 버전을 준비한 뒤 ingress를 연다.
+Nixpacks start는 `pnpm release:migrate && pnpm queue:bootstrap && pnpm start`다. 최초 전환은 기존 앱 서버가 꺼져 있고 처리 중 작업이0개인 상태를 전제로 한다. 구 서버 종료 증빙·세션 검사·기존 active 복구 이관을 요구하지 않는다.
 
-1. DB backup/격리 restore 확인 후 release:migrate를 적용한다. status에서 현재 epoch를 읽는다.
-2. paused 상태에서 backfill을 반복해 backfillComplete=true까지 실행한다. 종류별100개 keyset batch와 identity/cursor로 중단 후 재실행할 수 있다. pending을 ready로, cleanup uploading/linked는 보호 상태로 옮긴다. 완료·취소·실패 생성 이력은 실행하지 않으며 failed cleanup은 terminal DLQ로 보관한다.
-3. check의 종류별 수·source 대응·보호 intent와 실행 대상 정합성을 확인한다. 예상 밖 processing/uploading row가 있으면 TRANSITION_EXPECTED_IDLE로 중단하며 자동 복구하지 않는다.
-4. 같은 epoch로 activate한다. shared와 epoch 증가, ready200을 확인한 뒤 새 접수를 연다. 이 도구는 DB 작업만 수행한다.
+| DB의 현재 큐 상태 | 배포 시작 동작 |
+| --- | --- |
+| 최초 paused·epoch1·사용 이력 없음 | 대기/보호 intent를100개씩 연결 → 정합성 검사 → 활성화·epoch 증가 → 앱 시작 |
+| 이미 shared·검증 완료 | runtime 한 행만 읽고 앱 시작. active가 있어도 idle 검사·이관·epoch 변경 없음 |
+| 사용 후 paused | QUEUE_BOOTSTRAP_OPERATOR_PAUSED로 실패. 운영자가 중지한 큐를 배포가 자동 재개하지 않음 |
+| 불명확/모순된 상태 또는 준비 실패 | non-zero로 서버 시작 중단. 안전한 오류·단계를 확인하고 원인 수정 후 재배포 |
 
-예를 들어 status의 epoch가1인 최초 전환 명령은 다음과 같다.
+최초 준비는 cursor·source identity와 기존 epoch fencing을 사용한다. 두 시작 프로세스가 경합해도 먼저 끝난 활성화로 수렴하며, 중간 종료·실패 뒤 재실행은 커밋한 batch부터 이어간다. 전체 준비 deadline은90초이고 DB connect2초/query5초/lock2초 제한을 유지한다. deadline 시 연결을 종료해 진행 중 transaction을 rollback하며 이미 커밋한 진행 위치는 보존한다. 대량 기록으로 제한을 넘기면 원인/진행 위치를 확인하고 재배포하거나 아래 수동 도구로 같은 전환을 이어갈 수 있다. health start period는 migration·준비·서버 시작에 필요한 시간을 포함하도록 실제 배포에서 확인한다.
+
+pending을 일반 큐에 연결하고 cleanup uploading/linked 보호 상태는 보존한다. 완료·취소·실패 생성 이력은 실행하지 않으며 failed cleanup은 terminal DLQ로 보관한다. 예상 밖 최초 processing/uploading은 TRANSITION_EXPECTED_IDLE로 중단한다. 준비 도구는 DB 작업만 수행하고 provider 제출·물리 파일 삭제를 하지 않는다. 정상 최초 배포에서는 수동 전환 명령이 필요 없다.
+
+운영 점검/명시적 복구에는 기존 queue:transition을 사용한다. status에서 실제 epoch를 읽고 사용한다. 아래1은 최초 상태의 예시이며 사용 후 운영 중지의 epoch로 그대로 복사하지 않는다.
 
 ```sh
 pnpm queue:transition status
 pnpm queue:transition backfill --expected-epoch=1
-# backfillComplete=true가 될 때까지 같은 명령 반복
+# backfillComplete=true가 될 때까지 반복
 pnpm queue:transition check --expected-epoch=1
 pnpm queue:transition activate --expected-epoch=1
 ```
 
-중단은 현재 epoch로 pause를 실행해 새 선점을 막는다. 기존 실행권의 epoch는 유지해 drain을 허용하며 재활성화 전 check가 미종료 attempt0개를 요구한다. 구 버전 rollback-check는 새 QueueJob/운영 이력·source 변경·shared 전환이 없는 최초 상태에서만 통과한다. 새 이력이 생긴 뒤에는 forward-fix하며 자동 down migration·이력 삭제·구 바이너리 재시작을 제공하지 않는다. cleanup 과거 시도의 synthetic 시간은 이관 receipt 시각이며 과거 실제 실행 시작 시각이 아니다.
+중단은 현재 epoch로 pause를 실행해 새 선점을 막는다. 기존 실행권의 epoch는 유지해 drain을 허용하며 운영자가 명시적으로 재개하기 전 check가 미종료 attempt0개를 요구한다. 구 버전 rollback-check는 새 QueueJob/운영 이력·source 변경·shared 전환이 없는 최초 상태에서만 통과한다. 새 이력이 생긴 뒤에는 forward-fix하며 자동 down migration·이력 삭제·구 바이너리 재시작을 제공하지 않는다.
+
+### DB 영속성과 워커 수명
+
+앱과 별도 PostgreSQL 리소스의 동일 DATABASE_URL·영구 볼륨을 유지한다. 앱 컨테이너를 교체해도 QueueJob·Attempt·Group·Reservation·DLQ·AdminAction은 DB에 남는다. 배포 시작 명령은 DB/volume을 재생성하거나 큐를 비우지 않는다. 영구 볼륨은 backup을 대체하지 않으며 실제 DB 리소스의 volume/연결/backup은 운영 환경에서 확인한다.
+
+실제 워커는 앱 프로세스 안에서 실행되어 앱 종료 시 함께 종료된다. 새 워커는 DB의 대기 작업을 다시 발견한다. 종료 시 최대25초 drain하고 이후 만료된 실행권은 기존 정책으로 복구한다. 결과 불명확 원격 실행은 reconciliation DLQ·uncertain 예약으로 유지하며 새 유료 요청을 자동 제출하지 않는다. 웹 배포 동안 긴 실행까지 계속 유지해야 한다면 같은 PostgreSQL을 사용하는 별도 워커 프로세스/컨테이너가 대안이다. 큐 기록 보존만을 위해 별도 broker를 추가할 필요는 없다.
 
 ## 보안 감사와 로컬 검증
 
@@ -216,7 +229,7 @@ curl -i --cookie '<admin-session-cookie>' https://<host>/api/health/metrics
 ## 운영 확인 항목
 
 - [ ] Coolify가 `main`, Nixpacks, Auto Deploy와 repository의 `nixpacks.toml` start command를 사용했는가
-- [ ] deployment log에서 `release:migrate` 성공 뒤 Next.js server가 시작됐는가
+- [ ] deployment log에서 `release:migrate`와 `queue:bootstrap` 성공 뒤 Next.js server가 시작됐는가
 - [ ] `/api/health/ready`가 내부 probe와 공개 endpoint에서 200이고 Coolify가 새 컨테이너를 healthy로 표시하는가
 - [ ] 이전 버전 worker가 SIGTERM 이후 drain되고 35초 stop grace period 안에 종료됐는가
 - [ ] SIGTERM에서 새 작업이 claim되지 않고 25초 drain 뒤 프로세스가 종료되는가

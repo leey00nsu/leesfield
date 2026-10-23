@@ -2,4 +2,4 @@
 nixPkgs = ["...", "wget", "ffmpeg"]
 
 [start]
-cmd = "pnpm release:migrate && pnpm start"
+cmd = "pnpm release:migrate && pnpm queue:bootstrap && pnpm start"

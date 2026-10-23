@@ -18,6 +18,16 @@ const quoted = value => {
 };
 const error = code => { throw new Error(code); };
 const sha = value => createHash("sha256").update(JSON.stringify(value)).digest("hex");
+// Prisma stores timestamp-without-time-zone columns in UTC. Keep this client's
+// interpretation and Date binds independent of the release host's TZ.
+const transitionTypes = {
+  getTypeParser(oid, format) {
+    if (oid === pg.types.builtins.TIMESTAMP && format !== "binary") {
+      return value => new Date(value.replace(" ", "T") + "Z");
+    }
+    return pg.types.getTypeParser(oid, format);
+  },
+};
 const eligible = d => d.kind === "storage_cleanup"
   ? `s.status IN ('pending','uploading','linked','failed')`
   : `s.status = 'pending'`;
@@ -28,7 +38,7 @@ async function insert(db, table, data, returning = "id") {
   const columns = Object.keys(data);
   const sql = "INSERT INTO " + quoted(table) + " (" + columns.map(quoted).join(",") + ") VALUES (" +
     columns.map((_, i) => "$" + (i + 1)).join(",") + ") RETURNING " + quoted(returning);
-  return (await db.query(sql, Object.values(data))).rows[0];
+  return (await db.query(sql, Object.values(data).map(value => value instanceof Date ? value.toISOString() : value))).rows[0];
 }
 async function counts(db) {
   const result = {};
@@ -180,16 +190,21 @@ async function verify(db, runtime, cursor) {
 
 /** All mutations are explicit, epoch-fenced and restricted to the selected DB.
  * @param {string} action
- * @param {{expectedEpoch?: number}} options
+ * @param {{expectedEpoch?: number, runtimeOnly?: boolean, signal?: AbortSignal}} options
  */
 export async function runQueueTransition(action, options = {}, environment = process.env) {
   if (!["status", "backfill", "check", "activate", "pause", "rollback-check"].includes(action)) error("TRANSITION_ACTION_REQUIRED");
   if (!environment.DATABASE_URL) error("TRANSITION_DATABASE_URL_REQUIRED");
-  const db = new pg.Client({ connectionString: environment.DATABASE_URL, connectionTimeoutMillis: 2000, application_name: "leesfield-queue-transition", query_timeout: 5000 });
-  await db.connect();
+  options.signal?.throwIfAborted();
+  const db = new pg.Client({ connectionString: environment.DATABASE_URL, connectionTimeoutMillis: 2000, application_name: "leesfield-queue-transition", query_timeout: 5000, types: transitionTypes });
+  const abort = () => { void db.end().catch(() => {}); };
+  options.signal?.addEventListener("abort", abort, { once: true });
   try {
+    await db.connect();
+    options.signal?.throwIfAborted();
     if (action === "status") {
       const runtime = (await db.query('SELECT mode, epoch, "migrationVerified", "migrationCursor" FROM "QueueRuntime" WHERE id = 1')).rows[0];
+      if (options.runtimeOnly) return { runtime };
       return { runtime, sourceCounts: await counts(db) };
     }
     return await locked(db, options.expectedEpoch, async runtime => {
@@ -229,7 +244,10 @@ export async function runQueueTransition(action, options = {}, environment = pro
       await db.query(`UPDATE "QueueRuntime" SET mode = 'shared', epoch = epoch + 1, "updatedAt" = clock_timestamp() WHERE id = 1`);
       return { activated: true, ...report, epoch: runtime.epoch + 1, previousEpoch: runtime.epoch };
     });
-  } finally { await db.end(); }
+  } finally {
+    options.signal?.removeEventListener("abort", abort);
+    await db.end();
+  }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

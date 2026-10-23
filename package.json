@@ -32,6 +32,7 @@
     "db:restore": "node --env-file-if-exists=.env scripts/production/restore-db.mjs",
     "db:verify-restore": "node --env-file-if-exists=.env scripts/production/verify-restore.mjs",
     "queue:transition": "node --env-file-if-exists=.env scripts/production/job-queue-transition.mjs",
+    "queue:bootstrap": "node --env-file-if-exists=.env scripts/production/job-queue-bootstrap.mjs",
     "db:seed:model-catalog": "node scripts/seed-model-catalog.mjs",
     "gen:admin-password-hash": "node scripts/generate-admin-password-hash.mjs",
     "license:check": "node scripts/security/verify-licenses.mjs",

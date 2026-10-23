@@ -48,7 +48,7 @@ describe.skipIf(!postgresIntegrationEnabled)("paused queue transition against re
   }
   async function cleanup(id: string, status: string, attempts = 0, future = false) {
     await db.query(`INSERT INTO "MediaCleanupTask" (id,"storageProvider","storageObjectId",reason,status,attempts,"retryAt","updatedAt")
-      VALUES ($1,'leemage',$1,'upload_failed',$2,$3,$4,now())`, [id, status, attempts, new Date(Date.now() + (future ? 60_000 : -60_000))]);
+      VALUES ($1,'leemage',$1,'upload_failed',$2,$3,$4,now())`, [id, status, attempts, new Date(Date.now() + (future ? 60_000 : -60_000)).toISOString()]);
   }
   async function restoreLegacyDump() {
     const url = new URL(environment.DATABASE_URL!);
