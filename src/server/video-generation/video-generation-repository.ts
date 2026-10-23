@@ -1,3 +1,6 @@
+import { enqueueGenerationTx } from "@/server/job-queue/handlers/generation-registration";
+import { lockQueueTransaction, withQueueTransaction } from "@/server/job-queue/job-queue-transaction";
+import { inQueueDomainTransaction } from "@/server/job-queue/job-queue-domain-transaction";
 import { generationOutputUrl, generationOutputAssetSelect, generationOutputDuration } from "@/server/history/generation-output-availability";
 import { snapshotRequest } from '@/server/generation-request/request-snapshot';
 import type { CinemaSnapshot } from "@/shared/cinema/cinema-contract";
@@ -65,8 +68,8 @@ export async function createVideoGenerationRecord(
     status: "pending" as const,
     progress: 0,
   };
-  if (!transaction && refs.length === 0) return prisma.videoGeneration.create({ data });
   const create = async (tx: Prisma.TransactionClient) => {
+    await lockQueueTransaction(tx);
     const record = await tx.videoGeneration.create({ data });
     await linkGenerationInputAssets(tx, {
       requestId,
@@ -74,9 +77,10 @@ export async function createVideoGenerationRecord(
       ownerEmail,
       refs,
     });
+    await enqueueGenerationTx(tx, "video", record);
     return record;
   };
-  return transaction ? create(transaction) : prisma.$transaction(create);
+  return transaction ? create(transaction) : withQueueTransaction(create);
 }
 
 export async function saveVideoGenerationResult(
@@ -87,9 +91,10 @@ export async function saveVideoGenerationResult(
   errorMessage?: string,
   lease?: GenerationLease,
   artifacts?: GeneratedMediaArtifact[],
+  transaction?: Prisma.TransactionClient,
 ) {
   if (artifacts?.length) {
-    await prisma.$transaction(async (tx) => {
+    await inQueueDomainTransaction(transaction, async (tx) => {
       const updated = lease
         ? await tx.videoGeneration.updateMany({
             where: {
@@ -98,7 +103,7 @@ export async function saveVideoGenerationResult(
               cancelRequestedAt: null,
               executionLeaseToken: lease.token,
               executionLeaseVersion: lease.version,
-              executionLeaseUntil: { gt: new Date() },
+              ...(transaction ? {} : { executionLeaseUntil: { gt: new Date() } }),
             },
             data: {
               status,
@@ -165,7 +170,7 @@ export async function saveVideoGenerationResult(
     return;
   }
   if (lease) {
-    await prisma.$transaction(async (tx) => {
+    await inQueueDomainTransaction(transaction, async (tx) => {
       const updated = await tx.videoGeneration.updateMany({
         where: {
           id: generationId,
@@ -173,7 +178,7 @@ export async function saveVideoGenerationResult(
           cancelRequestedAt: null,
           executionLeaseToken: lease.token,
           executionLeaseVersion: lease.version,
-          executionLeaseUntil: { gt: new Date() },
+          ...(transaction ? {} : { executionLeaseUntil: { gt: new Date() } }),
         },
         data: {
           status,
@@ -202,8 +207,9 @@ export async function saveVideoGenerationResult(
     return;
   }
 
+  const db = transaction ?? prisma;
   const operations: Prisma.PrismaPromise<unknown>[] = [
-    prisma.videoGeneration.update({
+    db.videoGeneration.update({
       where: { id: generationId },
       data: {
         status,
@@ -215,12 +221,12 @@ export async function saveVideoGenerationResult(
 
   if (result?.videos?.length) {
     operations.push(
-      prisma.videoGenerationVideo.deleteMany({
+      db.videoGenerationVideo.deleteMany({
         where: { generationId },
       }),
     );
     operations.push(
-      prisma.videoGenerationVideo.createMany({
+      db.videoGenerationVideo.createMany({
         data: result.videos.map((video) => ({
           generationId,
           url: video.url,
@@ -232,7 +238,8 @@ export async function saveVideoGenerationResult(
     );
   }
 
-  await prisma.$transaction(operations);
+  if (transaction) await Promise.all(operations);
+  else await prisma.$transaction(operations);
 }
 
 export async function updateVideoGenerationStatus(

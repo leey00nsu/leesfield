@@ -24,6 +24,7 @@ export type QueueMetricSnapshot = {
   processing: number;
   oldestPendingAgeSeconds: number | null;
   failedCleanup: number;
+  shared?: import("@/server/job-queue/job-queue-snapshot").SharedQueueSnapshot;
 };
 
 export type DatabasePoolSnapshot = {
@@ -189,6 +190,7 @@ export function recordQueueSnapshot(snapshot: QueueMetricSnapshot) {
         ? null
         : Math.max(0, Math.floor(snapshot.oldestPendingAgeSeconds)),
     failedCleanup: Math.max(0, Math.floor(snapshot.failedCleanup)),
+    ...(snapshot.shared ? { shared: snapshot.shared } : {}),
   };
 }
 

@@ -3,6 +3,10 @@ import { Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 
 import { prisma } from "@/server/db/prisma";
+import { withQueueTransaction, lockQueueTransaction } from "@/server/job-queue/job-queue-transaction";
+import { inQueueDomainTransaction } from "@/server/job-queue/job-queue-domain-transaction";
+import { enqueueQueueJobTx, queueScopeDigest } from "@/server/job-queue/job-queue-registration";
+import { requestQueueCancellationTx } from "@/server/job-queue/job-queue-recovery";
 import { findAssetLibraryIds, usesAssetLibraryQuery } from "./asset-library-search";
 import { lockOrganization } from "./asset-organization-repository";
 import {
@@ -226,15 +230,22 @@ async function failOperation(
 }
 
 async function cancelOperation(ownerEmail: string, operationId: string) {
-  await prisma.mediaOperation.updateMany({
-    where: { id: operationId, ownerEmail, status: { in: [...activeOperationStatuses] } },
-    data: { status: "cancelled", errorCode: null, errorMessage: null },
+  await withQueueTransaction(async tx => {
+    const operation = await tx.mediaOperation.findFirst({ where: { id: operationId, ownerEmail } });
+    if (!operation) throw new MediaOperationNotFoundError();
+    const job = await tx.queueJob.findFirst({ where: { executionId: operationId, executionType: "media_operation" } });
+    if (job) await requestQueueCancellationTx(tx, job.id);
+    await tx.mediaOperation.updateMany({
+      where: { id: operationId, ownerEmail, status: { in: [...activeOperationStatuses] } },
+      data: { status: "cancelled", errorCode: null, errorMessage: null },
+    });
   });
   return getOperation(ownerEmail, operationId);
 }
 
 async function claimPendingServerOperation(operationId: string) {
-  return prisma.$transaction(async (tx) => {
+  return withQueueTransaction(async (tx) => {
+    if ((await tx.queueRuntime.findUnique({ where: { id: 1 } }))?.mode === "shared") return null;
     const now = new Date();
     await lockMediaOperationClaims(tx);
     await recoverMediaOperationRows(tx, now);
@@ -292,13 +303,15 @@ async function completeServerOperation(
   artifacts: GeneratedMediaArtifact[],
   now: Date,
   lease?: MediaOperationLease,
+  transaction?: Prisma.TransactionClient,
 ) {
-  return prisma.$transaction(async (tx) => {
+  return inQueueDomainTransaction(transaction, async (tx) => {
+    const leaseFilter = lease ? { ...mediaOperationLeaseWhere(lease), ...(transaction ? { executionLeaseUntil: undefined } : {}) } : {};
     const operation = await tx.mediaOperation.findFirst({
       where: {
         id: operationId,
         ownerEmail,
-        ...(lease ? mediaOperationLeaseWhere(lease) : {}),
+        ...leaseFilter,
       },
       select: operationSelect,
     });
@@ -340,7 +353,7 @@ async function completeServerOperation(
         id: operationId,
         ownerEmail,
         status: "processing",
-        ...(lease ? mediaOperationLeaseWhere(lease) : {}),
+        ...leaseFilter,
       },
       data: { status: "uploading", progress: 90 },
     });
@@ -408,7 +421,7 @@ async function completeServerOperation(
           id: operationId,
           ownerEmail,
           status: "uploading",
-          ...mediaOperationLeaseWhere(lease),
+          ...leaseFilter,
         },
         data: {
           status: "completed",
@@ -444,7 +457,7 @@ async function listTerminalOperationOutputs(ownerEmail: string, operationId: str
 }
 
 async function deleteTerminalOperationOutput(ownerEmail: string, operationId: string, assetId: string) {
-  await prisma.$transaction(async (tx) => {
+  await withQueueTransaction(async (tx) => {
     const asset = await tx.mediaAsset.findFirst({
       where: {
         id: assetId,
@@ -477,7 +490,7 @@ async function deleteTerminalOperationOutput(ownerEmail: string, operationId: st
 }
 
 async function markTerminalOperationOutputDeleting(ownerEmail: string, operationId: string, assetId: string) {
-  return prisma.$transaction(async (tx) => {
+  return withQueueTransaction(async (tx) => {
     const updated = await tx.mediaAsset.updateMany({
       where: {
         id: assetId,
@@ -512,6 +525,7 @@ async function markTerminalOperationOutputDeleting(ownerEmail: string, operation
 async function createOperation(ownerEmail: string, input: CreateMediaOperationInput, options?: { transaction: Prisma.TransactionClient; executionId: string }) {
   try {
     const create = async (tx: Prisma.TransactionClient) => {
+      await lockQueueTransaction(tx);
       const node = await tx.generationGraphNode.findFirst({
         where: { id: input.graphNodeId, graphId: input.graphId, graph: { ownerEmail } },
         select: { id: true, graphId: true, kind: true, configVersion: true },
@@ -582,7 +596,7 @@ async function createOperation(ownerEmail: string, input: CreateMediaOperationIn
         throw new MediaOperationConflictError("MEDIA_OPERATION_TARGET_INVALID");
       }
 
-      return tx.mediaOperation.create({
+      const operation = await tx.mediaOperation.create({
         data: {
           ...(options ? { id: options.executionId } : {}),
           ownerEmail,
@@ -602,8 +616,13 @@ async function createOperation(ownerEmail: string, input: CreateMediaOperationIn
         },
         select: operationSelect,
       });
+      if (definition.executionMode === "server-operation") await enqueueQueueJobTx(tx, {
+        kind: "media_operation", source: { type: "media_operation", id: operation.id },
+        snapshotRef: "media-operation:" + operation.id, ownerScopeDigest: queueScopeDigest(ownerEmail),
+      });
+      return operation;
     };
-    return await (options ? create(options.transaction) : prisma.$transaction(create));
+    return await (options ? create(options.transaction) : withQueueTransaction(create));
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       throw new MediaOperationConflictError("MEDIA_OPERATION_ACTIVE");
@@ -618,7 +637,7 @@ async function createUploadSession(
   presign: StoragePresignResult,
   ownerQuota: bigint,
 ) {
-  return prisma.$transaction(async (tx) => {
+  return withQueueTransaction(async (tx) => {
     await tx.$queryRaw`SELECT CAST(pg_advisory_xact_lock(hashtext(${`media-assets:${ownerEmail}`})) AS TEXT)`;
     const [assets, uploads] = await Promise.all([
       tx.mediaAsset.aggregate({
@@ -723,7 +742,7 @@ async function claimUpload(
   uploadId: string,
   now: Date,
 ): Promise<ClaimUploadResult> {
-  const result = await prisma.$transaction(async (tx): Promise<ClaimUploadResult | { kind: "expired" }> => {
+  const result = await withQueueTransaction(async (tx): Promise<ClaimUploadResult | { kind: "expired" }> => {
     const session = await tx.mediaUploadSession.findFirst({
       where: { id: uploadId, ownerEmail },
       include: uploadSessionInclude,
@@ -800,7 +819,7 @@ async function getPendingUpload(ownerEmail: string, uploadId: string, now: Date)
 }
 
 async function failUpload(ownerEmail: string, uploadId: string, errorCode: string) {
-  await prisma.$transaction(async (tx) => {
+  await withQueueTransaction(async (tx) => {
     const session = await tx.mediaUploadSession.findFirst({
       where: { id: uploadId, ownerEmail },
       select: {
@@ -844,7 +863,7 @@ async function completeUpload(input: {
   inspected: InspectedMedia;
   now: Date;
 }) {
-  return prisma.$transaction(async (tx) => {
+  return withQueueTransaction(async (tx) => {
     const session = await tx.mediaUploadSession.findFirst({
       where: { id: input.uploadId, ownerEmail: input.ownerEmail },
       include: uploadSessionInclude,
@@ -1042,8 +1061,9 @@ async function listAudioGenerationInputs(ownerEmail: string, assetIds: readonly 
   });
 }
 
-async function getAssetUsage(ownerEmail: string, assetId: string) {
-  const asset = await prisma.mediaAsset.findFirst({
+async function getAssetUsage(ownerEmail: string, assetId: string, transaction?: Prisma.TransactionClient) {
+  const usageDb = transaction ?? prisma;
+  const asset = await usageDb.mediaAsset.findFirst({
     where: { id: assetId, ownerEmail },
     select: {
       coveringProjects: { where: { ownerEmail }, select: { id: true } },
@@ -1070,7 +1090,7 @@ async function getAssetUsage(ownerEmail: string, assetId: string) {
     },
   });
   if (!asset) throw new MediaAssetNotFoundError();
-  const inputNodes = await prisma.generationGraphNode.findMany({
+  const inputNodes = await usageDb.generationGraphNode.findMany({
     where: {
       graph: { ownerEmail },
       OR: [
@@ -1100,7 +1120,7 @@ async function getAssetUsage(ownerEmail: string, assetId: string) {
 }
 
 async function markAssetDeleting(ownerEmail: string, assetId: string) {
-  return prisma.$transaction(async (tx) => {
+  return withQueueTransaction(async (tx) => {
     await lockOrganization(tx, ownerEmail);
     const covers = await tx.assetProject.findMany({ where: { ownerEmail, coverAssetId: assetId }, select: { id: true } });
     if (covers.length) throw new MediaAssetInUseError([], [], [], covers.map(({ id }) => id));
@@ -1134,7 +1154,7 @@ async function markAssetDeleting(ownerEmail: string, assetId: string) {
 }
 
 async function restoreAsset(ownerEmail: string, assetId: string) {
-  await prisma.$transaction(async (tx) => {
+  await withQueueTransaction(async (tx) => {
     await tx.mediaAsset.updateMany({
       where: { id: assetId, ownerEmail, status: "deleting" },
       data: { status: "completed" },
@@ -1159,7 +1179,7 @@ async function restoreAsset(ownerEmail: string, assetId: string) {
 }
 
 async function deleteAsset(ownerEmail: string, assetId: string) {
-  await prisma.$transaction(async (tx) => {
+  await withQueueTransaction(async (tx) => {
     const asset = await tx.mediaAsset.findFirst({
       where: { id: assetId, ownerEmail },
       select: { storageProvider: true, storageObjectId: true },
@@ -1179,7 +1199,7 @@ async function deleteAsset(ownerEmail: string, assetId: string) {
 }
 
 async function expireUploads(now: Date, limit: number, scope?: { ownerEmail: string; graphId: string; graphNodeId: string }) {
-  return prisma.$transaction(async (tx) => {
+  return withQueueTransaction(async (tx) => {
     const sessions = await tx.mediaUploadSession.findMany({
       where: {
         status: { in: ["pending", "confirming"] }, expiresAt: { lte: now },

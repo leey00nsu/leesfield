@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { useSharedQueueFixture } from "@/test-utils/job-queue-postgres";
 import { randomUUID } from "node:crypto";
 import { afterAll, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/server/db/prisma";
@@ -10,13 +11,18 @@ import { getMonitoringRequestDetail } from "@/server/monitoring/request-detail";
 import { getImageGenerationByRequestId } from "@/server/image-generation/image-generation-repository";
 import { createMediaAssetService } from "@/server/media-assets/media-asset-service";
 import { mediaAssetRepository } from "@/server/media-assets/media-asset-repository";
-import { processStorageCleanupTask } from "@/server/media-assets/media-cleanup-worker";
-import { claimStorageCleanups } from "@/server/media-assets/media-cleanup-repository";
+import { createQueueRunner } from "@/server/job-queue/job-queue-runner";
+import { createStorageCleanupHandler } from "@/server/job-queue/handlers/storage-cleanup-handler";
 
 describe.skipIf(!postgresIntegrationEnabled)("history visibility and file lifetime", () => {
   const suffix = randomUUID();
   const owner = `visibility-${suffix}@example.com`;
+  useSharedQueueFixture(() => [owner]);
   const other = `foreign-${suffix}@example.com`;
+  async function drainCleanup() {
+    const runner = createQueueRunner([createStorageCleanupHandler(storage)]);
+    try { await runner.pump(); await runner.drain(); } finally { await runner.stop(); }
+  }
   afterAll(async () => {
     await prisma.generationInputAsset.deleteMany({ where: { ownerEmail: owner } });
     await prisma.imageGeneration.deleteMany({ where: { ownerEmail: owner } });
@@ -59,7 +65,7 @@ describe.skipIf(!postgresIntegrationEnabled)("history visibility and file lifeti
   it("preserves original output records and disables raw URL fallbacks after deleting an unused generated file", async () => {
     const file = await output();
     const record = await generation(file.id);
-    await service.remove(owner, file.id);
+    await service.remove(owner, file.id); await drainCleanup();
     expect(deleteSpy).toHaveBeenCalledWith(file.storageObjectId);
     expect(await prisma.mediaAsset.findUnique({ where: { id: file.id } })).toMatchObject({ status: "failed", storageUrl: null, legacyUrl: null });
     expect(await prisma.imageGenerationImage.findFirst({ where: { generationId: record.id } })).toMatchObject({ assetId: file.id, url: file.storageUrl });
@@ -76,7 +82,7 @@ describe.skipIf(!postgresIntegrationEnabled)("history visibility and file lifeti
     const kept = await output();
     const record = await generation(gone.id);
     await prisma.imageGenerationImage.create({ data: { generationId: record.id, assetId: kept.id, url: kept.storageUrl!, createdAt: new Date(Date.now() + 1000) } });
-    await service.remove(owner, gone.id);
+    await service.remove(owner, gone.id); await drainCleanup();
     expect(await getOwnedHistoryRecord(owner, record.requestId, { type: "image", origin: "generation" })).toMatchObject({ url: kept.storageUrl });
     expect((await getImageGenerationByRequestId(record.requestId, owner))?.images.map(item => item.url)).toEqual(["", kept.storageUrl]);
     expect((await getMonitoringRequestDetail("image", record.requestId, owner))?.assets).toHaveLength(1);
@@ -98,12 +104,11 @@ describe.skipIf(!postgresIntegrationEnabled)("history visibility and file lifeti
     const file = await output();
     const record = await generation(file.id);
     deleteSpy.mockRejectedValueOnce(new Error("storage offline"));
-    await expect(service.remove(owner, file.id)).rejects.toThrow();
+    await service.remove(owner, file.id); await drainCleanup();
     expect(await prisma.mediaAsset.findUnique({ where: { id: file.id } })).toMatchObject({ status: "deleting" });
     const pending = await prisma.mediaCleanupTask.findFirstOrThrow({ where: { assetId: file.id, reason: "asset_delete" } });
-    const task = (await claimStorageCleanups(new Date(Date.now() + 1000), 100)).find((item) => item.id === pending.id);
-    expect(task).toBeDefined();
-    await processStorageCleanupTask(task!, storage);
+    await prisma.queueJob.updateMany({ where: { sourceId: pending.id }, data: { availableAt: new Date(Date.now() - 1000) } });
+    await drainCleanup();
     expect(await prisma.mediaAsset.findUnique({ where: { id: file.id } })).toMatchObject({ status: "failed", storageUrl: null });
     expect(await prisma.imageGenerationImage.findFirst({ where: { generationId: record.id } })).toMatchObject({ assetId: file.id });
     expect(await prisma.mediaCleanupTask.findUnique({ where: { id: pending.id } })).toMatchObject({ status: "completed" });
@@ -116,7 +121,7 @@ describe.skipIf(!postgresIntegrationEnabled)("history visibility and file lifeti
       const record = type === "video" ? await prisma.videoGeneration.create({ data: { ...data, videos: { create: outputData } } }) : await prisma.audioGeneration.create({ data: { ...data, audios: { create: outputData } } });
       await setHistoryVisibility(owner, record.requestId, { type, hidden: true });
       expect((await getHistory(new URLSearchParams({ type, hidden: "true" }), owner)).items.find((item) => item.id === record.requestId)).toMatchObject({ resultUrl: file.storageUrl });
-      await service.remove(owner, file.id);
+      await service.remove(owner, file.id); await drainCleanup();
       expect((await getHistory(new URLSearchParams({ type, hidden: "true" }), owner)).items.find((item) => item.id === record.requestId)).toMatchObject({ resultUrl: null });
       expect(await getMonitoringRequestDetail(type, record.requestId, owner)).toMatchObject({ assets: [] });
       expect(await getOwnedHistoryRecord(owner, record.requestId, { type, origin: "generation" })).toMatchObject({ url: null });
@@ -125,7 +130,7 @@ describe.skipIf(!postgresIntegrationEnabled)("history visibility and file lifeti
     const edit = await prisma.mediaAsset.create({ data: { ownerEmail: owner, type: "image", origin: "media_operation", sourceOperationId: operation.id, storageProvider: "leemage", storageObjectId: randomUUID(), storageUrl: "https://storage.example/edit", mimeType: "image/png" } });
     await setHistoryVisibility(owner, operation.id, { type: "image", origin: "edit", hidden: true });
     expect(await getHistoryRecordItem(owner, operation.id, { type: "image", origin: "edit" })).toMatchObject({ id: operation.id, hidden: true, origin: "edit" });
-    await service.remove(owner, edit.id);
+    await service.remove(owner, edit.id); await drainCleanup();
     expect((await getHistory(new URLSearchParams({ hidden: "true" }), owner)).items.find((item) => item.id === operation.id)).toMatchObject({ origin: "edit", assetId: edit.id, resultUrl: null });
     await setHistoryVisibility(owner, operation.id, { type: "image", origin: "edit", hidden: false });
     expect((await getHistory(new URLSearchParams(), owner)).items.find((item) => item.id === operation.id)).toMatchObject({ origin: "edit", resultUrl: null });

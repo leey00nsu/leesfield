@@ -594,6 +594,7 @@ model MediaCleanupTask {
   assetId           String?
   status            MediaCleanupTaskStatus @default(uploading)
   attempts          Int                    @default(0)
+  queueRevision     Int                    @default(0)
   retryAt           DateTime
   leaseToken        String?
   leaseUntil        DateTime?
@@ -807,4 +808,240 @@ model NodeExecutionSubmission {
   @@unique([ownerEmail, apiKeyId, graphId, nodeId, idempotencyHash], map: "NodeExecutionSubmission_scope_key")
   @@index([graphId, nodeId])
   @@index([nodeId])
+}
+
+enum QueueJobKind {
+  generate_image
+  generate_video
+  generate_audio
+  media_operation
+  assistant
+  storage_cleanup
+}
+
+enum QueueSourceType {
+  image_generation
+  video_generation
+  audio_generation
+  media_operation
+  assistant_execution
+  storage_cleanup
+}
+
+enum QueueJobStatus {
+  suspended
+  ready
+  retry_wait
+  active
+  succeeded
+  dead_letter
+  reconciliation_required
+  cancelled
+  abandoned
+}
+
+enum QueueRuntimeMode {
+  paused
+  shared
+}
+
+enum QueueAttemptPhase {
+  claimed
+  remote_started
+  settling
+  ended
+}
+
+enum QueueAttemptOutcome {
+  succeeded
+  failed
+  cancelled
+  retrying
+  protected
+  reconciliation_required
+}
+
+enum QueueReservationDisposition {
+  held
+  uncertain
+}
+
+enum QueueDeadLetterClassification {
+  terminal
+  reconciliation
+}
+
+enum QueueDeadLetterState {
+  open
+  redriven
+  resolved
+  abandoned
+}
+
+model QueueRuntime {
+  id                Int              @id @default(1)
+  mode              QueueRuntimeMode @default(paused)
+  epoch             Int              @default(1)
+  nextKindCursor    Int              @default(0)
+  migrationCursor   Json             @default("{}")
+  migrationVerified Boolean          @default(false)
+  updatedAt         DateTime         @default(now()) @updatedAt
+}
+
+model QueueOrderGroup {
+  id               String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerScopeDigest String
+  opaqueKey        String
+  nextSequence     BigInt     @default(1)
+  headSequence     BigInt     @default(1)
+  blockedByJobId   String?    @unique @db.Uuid
+  closedAt         DateTime?
+  version          Int        @default(0)
+  createdAt        DateTime   @default(now())
+  jobs             QueueJob[] @relation("OrderedJobs")
+  blockedByJob     QueueJob?  @relation("GroupBlocker", fields: [blockedByJobId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@unique([ownerScopeDigest, opaqueKey])
+  @@unique([id, ownerScopeDigest])
+}
+
+model QueueJob {
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kind             QueueJobKind
+  sourceType       QueueSourceType
+  sourceId         String
+  sourceRevision   Int             @default(0)
+  snapshotRef      String
+  ownerScopeDigest String
+  executionType    QueueSourceType
+  executionId      String
+  orderGroupId     String?         @db.Uuid
+  sequence         BigInt?
+  status           QueueJobStatus  @default(ready)
+  availableAt      DateTime        @default(now())
+  maxAttempts      Int             @default(1)
+  retryDelayMs     Int             @default(0)
+  policyVersion    Int             @default(1)
+  cycle            Int             @default(1)
+  version          Int             @default(0)
+  cancelRequestedAt DateTime?
+  currentAttemptId String?         @db.Uuid
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @default(now()) @updatedAt
+  orderGroup       QueueOrderGroup? @relation("OrderedJobs", fields: [orderGroupId, ownerScopeDigest], references: [id, ownerScopeDigest], onDelete: Restrict, onUpdate: NoAction)
+  blockingGroup    QueueOrderGroup? @relation("GroupBlocker")
+  attempts         QueueAttempt[]  @relation("JobAttempts")
+  currentAttempt   QueueAttempt?   @relation("CurrentAttempt", fields: [id, currentAttemptId], references: [jobId, id], onDelete: NoAction, onUpdate: NoAction)
+  resources        QueueJobResource[]
+  deadLetters      QueueDeadLetter[]
+  adminActions     QueueAdminAction[]
+
+  @@unique([kind, sourceType, sourceId, sourceRevision], map: "QueueJob_source_identity")
+  @@unique([orderGroupId, sequence])
+  @@unique([id, currentAttemptId])
+  @@index([kind, status, availableAt, createdAt, id])
+  @@index([ownerScopeDigest, createdAt, id])
+}
+
+model QueueAttempt {
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  jobId             String              @db.Uuid
+  lifetimeOrdinal   Int
+  cycle             Int
+  cycleOrdinal      Int
+  executionType     QueueSourceType
+  executionId       String
+  workerInstanceId  String              @db.Uuid
+  leaseToken        String              @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  leaseVersion      Int
+  leaseUntil        DateTime
+  heartbeatAt       DateTime            @default(now())
+  runtimeEpoch      Int
+  phase             QueueAttemptPhase   @default(claimed)
+  outcome           QueueAttemptOutcome?
+  remoteEvidenceRef String?
+  startedAt         DateTime            @default(now())
+  finishedAt        DateTime?
+  job               QueueJob            @relation("JobAttempts", fields: [jobId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  currentForJob     QueueJob?            @relation("CurrentAttempt")
+  reservations      QueueReservation[]
+  deadLetter        QueueDeadLetter?
+
+  @@unique([jobId, lifetimeOrdinal])
+  @@unique([jobId, cycle, cycleOrdinal])
+  @@unique([jobId, id])
+  @@index([finishedAt, leaseUntil])
+}
+
+model QueueResource {
+  key            String  @id
+  staticCapacity Int?
+  modelType      ModelCatalogType?
+  modelKey       String?
+  requirements   QueueJobResource[]
+  reservations   QueueReservation[]
+}
+
+model QueueJobResource {
+  jobId       String        @db.Uuid
+  resourceKey String
+  job         QueueJob      @relation(fields: [jobId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  resource    QueueResource @relation(fields: [resourceKey], references: [key], onDelete: Restrict, onUpdate: NoAction)
+
+  @@id([jobId, resourceKey])
+  @@index([resourceKey])
+}
+
+model QueueReservation {
+  attemptId   String                      @db.Uuid
+  resourceKey String
+  disposition QueueReservationDisposition @default(held)
+  createdAt   DateTime                    @default(now())
+  releasedAt  DateTime?
+  attempt     QueueAttempt                @relation(fields: [attemptId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  resource    QueueResource               @relation(fields: [resourceKey], references: [key], onDelete: Restrict, onUpdate: NoAction)
+
+  @@id([attemptId, resourceKey])
+  @@index([resourceKey, releasedAt])
+}
+
+model QueueDeadLetter {
+  id               String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  jobId            String                        @db.Uuid
+  failedAttemptId  String                        @unique @db.Uuid
+  classification   QueueDeadLetterClassification
+  state            QueueDeadLetterState          @default(open)
+  safeErrorCode    String
+  phase            String
+  detail           Json?
+  createdAt        DateTime                      @default(now())
+  resolvedAt       DateTime?
+  detailPurgedAt   DateTime?
+  version          Int                           @default(0)
+  job              QueueJob                      @relation(fields: [jobId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  failedAttempt    QueueAttempt                  @relation(fields: [jobId, failedAttemptId], references: [jobId, id], onDelete: Restrict, onUpdate: NoAction)
+  actions          QueueAdminAction[]
+
+  @@unique([jobId, failedAttemptId])
+  @@index([state, classification, createdAt, id])
+}
+
+model QueueAdminAction {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestId          String           @unique
+  requestFingerprint String
+  actorDigest        String
+  action             String
+  jobId              String?          @db.Uuid
+  deadLetterId       String?          @db.Uuid
+  expectedVersion    Int?
+  safeReason         String
+  before             Json?
+  after              Json?
+  outcome            String
+  createdAt          DateTime         @default(now())
+  job                QueueJob?        @relation(fields: [jobId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  deadLetter         QueueDeadLetter?  @relation(fields: [deadLetterId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([jobId, createdAt, id])
 }

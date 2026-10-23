@@ -1,6 +1,10 @@
 import { Prisma, type AssistantExecution } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/server/db/prisma";
+import { withQueueTransaction, lockQueueTransaction } from "@/server/job-queue/job-queue-transaction";
+import { inQueueDomainTransaction } from "@/server/job-queue/job-queue-domain-transaction";
+import { enqueueQueueJobTx, queueScopeDigest } from "@/server/job-queue/job-queue-registration";
+import { requestQueueCancellationTx } from "@/server/job-queue/job-queue-recovery";
 import type { PromptProvenance } from "@/shared/generation-graph/prompt-provenance";
 import { NodeExecutionActiveError, NodeExecutionNotFoundError, NodeExecutionInputError, NodeExecutionSelectionConflictError } from "@/server/node-executions/node-execution-errors";
 import { assistantItemsSchema, assistantSelectionSchema, assistantTextForPort, assistantTextResult, type AssistantItem, type AssistantOutputMode } from "@/shared/generation-graph/assistant-output";
@@ -39,6 +43,7 @@ export async function createAssistantExecution(input: {
   snapshot: AssistantInputSnapshot;
 }, options?: { transaction: Prisma.TransactionClient; executionId: string }) {
   const create = async (tx: Prisma.TransactionClient) => {
+    await lockQueueTransaction(tx);
     await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(${CLAIM_LOCK})`);
     const active = await tx.assistantExecution.count({ where: {
       graphNodeId: input.graphNodeId, ownerEmail: input.ownerEmail,
@@ -69,9 +74,11 @@ export async function createAssistantExecution(input: {
         executionId: execution.id, ownerEmail: input.ownerEmail, assetId, portId, sortOrder,
       })),
     });
+    await enqueueQueueJobTx(tx, { kind: "assistant", source: { type: "assistant_execution", id: execution.id },
+      snapshotRef: "assistant:" + execution.id, ownerScopeDigest: queueScopeDigest(input.ownerEmail) });
     return execution;
   };
-  return options ? create(options.transaction) : prisma.$transaction(create);
+  return options ? create(options.transaction) : withQueueTransaction(create);
 }
 
 export async function listAssistantExecutions(ownerEmail: string, graphId: string, graphNodeId: string) {
@@ -124,17 +131,20 @@ export async function selectAssistantItem(ownerEmail: string, graphId: string, g
 }
 
 export async function cancelAssistantExecution(ownerEmail: string, graphId: string, graphNodeId: string, id: string) {
-  const row = await getAssistantExecution(ownerEmail, graphId, graphNodeId, id);
-  if (row.status === "pending") {
-    await prisma.assistantExecution.updateMany({ where: { id, status: "pending" }, data: { status: "cancelled", finishedAt: new Date() } });
-  } else if (row.status === "processing") {
-    await prisma.assistantExecution.updateMany({ where: { id, status: "processing" }, data: { cancelRequestedAt: new Date() } });
-  }
+  await withQueueTransaction(async tx => {
+    const row = await tx.assistantExecution.findFirst({ where: { id, ownerEmail, graphId, graphNodeId } });
+    if (!row) throw new NodeExecutionNotFoundError();
+    const job = await tx.queueJob.findFirst({ where: { executionId: id, executionType: "assistant_execution" } });
+    if (job) await requestQueueCancellationTx(tx, job.id);
+    if (row.status === "pending") await tx.assistantExecution.updateMany({ where: { id, status: "pending" }, data: { status: "cancelled", finishedAt: new Date() } });
+    else if (row.status === "processing") await tx.assistantExecution.updateMany({ where: { id, status: "processing" }, data: { cancelRequestedAt: new Date() } });
+  });
   return getAssistantExecution(ownerEmail, graphId, graphNodeId, id);
 }
 
 export async function claimAssistantExecution(id: string): Promise<{ row: AssistantExecution; lease: AssistantLease } | null> {
   return prisma.$transaction(async (tx) => {
+    if ((await tx.queueRuntime.findUnique({ where: { id: 1 } }))?.mode === "shared") return null;
     await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(${CLAIM_LOCK})`);
     const now = new Date();
     await tx.assistantExecution.updateMany({
@@ -170,12 +180,12 @@ export async function renewAssistantLease(id: string, lease: AssistantLease) {
   if (!result.count) throw new AssistantLeaseLostError();
 }
 
-export async function settleAssistantExecution(id: string, lease: AssistantLease, result: { text: string; items?: AssistantItem[] } | { errorCode: string }) {
-  return prisma.$transaction(async tx => {
+export async function settleAssistantExecution(id: string, lease: AssistantLease, result: { text: string; items?: AssistantItem[] } | { errorCode: string }, transaction?: Prisma.TransactionClient) {
+  return inQueueDomainTransaction(transaction, async tx => {
   await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(${CLAIM_LOCK})`);
   const items = "text" in result && result.items ? assistantItemsSchema.parse(result.items) : null;
   const update = await tx.assistantExecution.updateMany({
-    where: { id, ...leaseWhere(lease) },
+    where: { id, ...leaseWhere(lease), ...(transaction ? { executionLeaseUntil: undefined } : {}) },
     data: "text" in result
       ? { status: "completed", outputText: result.text, outputListJson: items ?? Prisma.DbNull, selectedItemId: items?.[0].id ?? null, finishedAt: new Date(), executionLeaseToken: null, executionLeaseUntil: null }
       : { status: "failed", errorCode: result.errorCode, finishedAt: new Date(), executionLeaseToken: null, executionLeaseUntil: null },

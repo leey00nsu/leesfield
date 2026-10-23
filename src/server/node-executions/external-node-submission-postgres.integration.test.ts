@@ -1,10 +1,14 @@
 // @vitest-environment node
+import { claimFixtureQueueJob, removeFixtureQueueJobs } from "@/test-utils/job-queue-postgres";
+import { assistantQueueHandler } from "@/server/job-queue/handlers/assistant-handler";
+import { settleQueueSuccess } from "@/server/job-queue/job-queue-settlement";
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/server/db/prisma";
+import { queueScopeDigest } from "@/server/job-queue/job-queue-registration";
 import { postgresIntegrationEnabled } from "@/test-utils/postgres-integration";
 import { externalNodeSubmission, ExternalExecutionReplay } from "./external-node-submission";
-import { createAssistantExecution, claimAssistantExecution, settleAssistantExecution, selectAssistantItem, cancelAssistantExecution } from "@/server/assistant-executions/assistant-execution-repository";
+import { createAssistantExecution, selectAssistantItem, cancelAssistantExecution } from "@/server/assistant-executions/assistant-execution-repository";
 import { createImageGenerationRecord } from "@/server/image-generation/image-generation-repository";
 import { createVideoGenerationRecord } from "@/server/video-generation/video-generation-repository";
 import { createAudioGenerationRecord } from "@/server/audio-generation/audio-generation-repository";
@@ -33,11 +37,20 @@ describe.skipIf(!postgresIntegrationEnabled)("external node atomic submission", 
   const graphs: string[] = [], modelKeys: string[] = [];
   let assetId: string;
   beforeAll(async () => {
+    await prisma.queueRuntime.update({ where: { id: 1 }, data: { mode: "shared", migrationVerified: true } });
     await prisma.apiKey.create({ data: { id: apiKeyId, ownerEmail, label: "Atomic test", keyHash: randomUUID(), maskedKey: "test" } });
     const asset = await prisma.mediaAsset.create({ data: { ownerEmail, type: "video", origin: "upload", mimeType: "video/mp4", storageProvider: "s3", storageObjectId: randomUUID(), storageUrl: "https://storage.example/video.mp4", bytes: 200, durationMs: 10_000, width: 128, height: 128 } });
     assetId = asset.id;
   });
+  afterEach(async () => {
+    const jobs = await prisma.queueJob.findMany({ where: { ownerScopeDigest: queueScopeDigest(ownerEmail) }, select: { sourceId: true } });
+    await removeFixtureQueueJobs(jobs.map(j => j.sourceId));
+  });
   afterAll(async () => {
+    const ids = (await prisma.queueJob.findMany({ where: { ownerScopeDigest: queueScopeDigest(ownerEmail) }, select: { id: true } })).map(job => job.id);
+    await prisma.queueJobResource.deleteMany({ where: { jobId: { in: ids } } });
+    await prisma.queueJob.deleteMany({ where: { id: { in: ids } } });
+    await prisma.queueResource.deleteMany({ where: { modelKey: { in: modelKeys } } });
     await prisma.imageGeneration.deleteMany({ where: { ownerEmail } });
     await prisma.videoGeneration.deleteMany({ where: { ownerEmail } });
     await prisma.audioGeneration.deleteMany({ where: { ownerEmail } });
@@ -46,6 +59,7 @@ describe.skipIf(!postgresIntegrationEnabled)("external node atomic submission", 
     await prisma.mediaAsset.deleteMany({ where: { ownerEmail } });
     await prisma.modelCatalog.deleteMany({ where: { key: { in: modelKeys } } });
     await prisma.apiKey.deleteMany({ where: { id: apiKeyId } });
+    await prisma.queueRuntime.update({ where: { id: 1 }, data: { mode: "paused", migrationVerified: false } });
   });
   async function fixture(kind: CanonicalNodeKind, legacyFrames = false) {
     const modelKey = kind.startsWith("generate.") ? "external-model-" + randomUUID() : null;
@@ -191,9 +205,10 @@ describe.skipIf(!postgresIntegrationEnabled)("external node atomic submission", 
     const f = await fixture("generate.assistant");
     const id = await f.submit();
     await expect(generationGraphRepository.remove(ownerEmail, f.graph.id)).rejects.toThrow("GRAPH_ACTIVE_EXECUTION");
-    const claim = await claimAssistantExecution(id);
+    const claim = await claimFixtureQueueJob(assistantQueueHandler);
+    expect(claim.job.executionId).toBe(id);
     expect(claim).toBeTruthy();
-    await settleAssistantExecution(id, claim!.lease, { items: [{ id: id + ":1", text: "first" }, { id: id + ":2", text: "second" }], text: "1. first\n\n2. second" });
+    await settleQueueSuccess(claim!.lease, assistantQueueHandler, { items: [{ id: id + ":1", text: "first" }, { id: id + ":2", text: "second" }], text: "1. first\n\n2. second" });
     const selection = { action: "select-item", itemId: id + ":2", expectedSelectionVersion: 0 };
     const chosen = await selectAssistantItem(ownerEmail, f.graph.id, f.nodeId, id, selection);
     expect(chosen.selectionVersion).toBe(1);

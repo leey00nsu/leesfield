@@ -1,11 +1,12 @@
 // @vitest-environment node
 import Ajv from "ajv";
 import { afterEach, expect, it, vi } from "vitest";
-import { prisma } from "@/server/db/prisma";
+vi.hoisted(() => vi.resetModules());
 import { listModelCatalogRecords } from "@/server/model-catalog/catalog-repository";
 import { invalidateModelCatalogCache } from "@/server/model-catalog/catalog-service";
 import * as runtime from "@/server/model-catalog/runtime-models";
-import { pumpGenerationJobs } from "./generation-worker";
+import { getImageRuntimeState, getVideoRuntimeState, getAudioRuntimeState } from "./generation-payload";
+import { createQueueRunner } from "@/server/job-queue/job-queue-runner";
 
 vi.mock("@/server/db/prisma", () => ({ prisma: {
   imageGeneration: { findFirst: vi.fn(async () => ({ id: "pending" })) },
@@ -13,7 +14,8 @@ vi.mock("@/server/db/prisma", () => ({ prisma: {
   audioGeneration: { findFirst: vi.fn(async () => null) },
 } }));
 vi.mock("@/server/model-catalog/catalog-repository", () => ({ listModelCatalogRecords: vi.fn() }));
-vi.mock("./execution-lease", async (original) => ({ ...await original<typeof import("./execution-lease")>(), claimPendingGenerationJobs: vi.fn(async () => []) }));
+vi.mock("@/server/job-queue/job-queue-scheduler", () => ({ claimQueueJob: vi.fn(async () => null) }));
+vi.mock("@/server/job-queue/job-queue-recovery", () => ({ recoverExpiredQueueAttempts: vi.fn(async () => 0) }));
 afterEach(() => { vi.restoreAllMocks(); invalidateModelCatalogCache(); });
 
 it("keeps real catalog/runtime/Ajv cold after warmup through TTL and empty worker passes", async () => {
@@ -28,18 +30,19 @@ it("keeps real catalog/runtime/Ajv cold after warmup through TTL and empty worke
   });
   vi.mocked(listModelCatalogRecords).mockImplementation(async () => structuredClone(models) as never);
   const compile = vi.spyOn(Ajv.prototype, "compile");
-  await pumpGenerationJobs();
+  const runner = createQueueRunner([]);
+  const warm = () => Promise.all([getImageRuntimeState(), getVideoRuntimeState(), getAudioRuntimeState()]);
+  await warm();
   expect(compile.mock.calls.length).toBeGreaterThanOrEqual(140);
   compile.mockClear();
   for (let pass = 0; pass < 5; pass++) {
     clock += 60_000;
-    await pumpGenerationJobs();
+    await warm(); await runner.pump();
   }
   expect(listModelCatalogRecords).toHaveBeenCalledTimes(6);
   expect(compile).not.toHaveBeenCalled();
   const getRuntime = vi.spyOn(runtime, "getRuntimeCatalog");
-  vi.mocked(prisma.imageGeneration.findFirst).mockResolvedValue(null);
-  for (let pass = 0; pass < 5; pass++) { clock += 60_000; await pumpGenerationJobs(); }
+  for (let pass = 0; pass < 5; pass++) { clock += 60_000; await runner.pump(); }
   expect(getRuntime).not.toHaveBeenCalled();
   expect(listModelCatalogRecords).toHaveBeenCalledTimes(6);
   expect(compile).not.toHaveBeenCalled();

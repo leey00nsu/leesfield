@@ -1,3 +1,6 @@
+import { enqueueGenerationTx } from "@/server/job-queue/handlers/generation-registration";
+import { lockQueueTransaction, withQueueTransaction } from "@/server/job-queue/job-queue-transaction";
+import { inQueueDomainTransaction } from "@/server/job-queue/job-queue-domain-transaction";
 import { generationOutputUrl, generationOutputAssetSelect } from "@/server/history/generation-output-availability";
 import { snapshotRequest } from '@/server/generation-request/request-snapshot';
 import type { CinemaSnapshot } from "@/shared/cinema/cinema-contract";
@@ -72,8 +75,8 @@ export async function createImageGenerationRecord(
     status: "pending" as const,
     progress: 0,
   };
-  if (!transaction && refs.length === 0) return prisma.imageGeneration.create({ data });
   const create = async (tx: Prisma.TransactionClient) => {
+    await lockQueueTransaction(tx);
     const record = await tx.imageGeneration.create({ data });
     await linkGenerationInputAssets(tx, {
       requestId,
@@ -81,9 +84,10 @@ export async function createImageGenerationRecord(
       ownerEmail,
       refs,
     });
+    await enqueueGenerationTx(tx, "image", record);
     return record;
   };
-  return transaction ? create(transaction) : prisma.$transaction(create);
+  return transaction ? create(transaction) : withQueueTransaction(create);
 }
 
 export async function saveImageGenerationResult(
@@ -94,9 +98,10 @@ export async function saveImageGenerationResult(
   errorMessage?: string,
   artifacts?: GeneratedMediaArtifact[],
   lease?: GenerationLease,
+  transaction?: Prisma.TransactionClient,
 ) {
   if (lease) {
-    await prisma.$transaction(async (tx) => {
+    await inQueueDomainTransaction(transaction, async (tx) => {
       const updated = await tx.imageGeneration.updateMany({
         where: {
           id: generationId,
@@ -104,7 +109,7 @@ export async function saveImageGenerationResult(
           cancelRequestedAt: null,
           executionLeaseToken: lease.token,
           executionLeaseVersion: lease.version,
-          executionLeaseUntil: { gt: new Date() },
+          ...(transaction ? {} : { executionLeaseUntil: { gt: new Date() } }),
         },
         data: {
           status,
@@ -177,7 +182,7 @@ export async function saveImageGenerationResult(
   }
 
   if (artifacts?.length) {
-    await prisma.$transaction(async tx => {
+    await inQueueDomainTransaction(transaction, async tx => {
       const generation = await tx.imageGeneration.update({where: {id: generationId}, data: {status, progress, errorMessage: errorMessage ?? null}, select: {ownerEmail: true, requestId: true}});
       if (!generation.ownerEmail) throw new Error("GENERATION_OWNER_REQUIRED");
       await tx.imageGenerationImage.deleteMany({where: {generationId}});
@@ -199,8 +204,9 @@ export async function saveImageGenerationResult(
     });
     return;
   }
+  const db = transaction ?? prisma;
   const operations: Prisma.PrismaPromise<unknown>[] = [
-    prisma.imageGeneration.update({
+    db.imageGeneration.update({
       where: { id: generationId },
       data: {
         status,
@@ -212,12 +218,12 @@ export async function saveImageGenerationResult(
 
   if (result?.images?.length) {
     operations.push(
-      prisma.imageGenerationImage.deleteMany({
+      db.imageGenerationImage.deleteMany({
         where: { generationId },
       })
     );
     operations.push(
-      prisma.imageGenerationImage.createMany({
+      db.imageGenerationImage.createMany({
         data: result.images.map((image) => ({
           generationId,
           url: image.url,
@@ -228,7 +234,8 @@ export async function saveImageGenerationResult(
     );
   }
 
-  await prisma.$transaction(operations);
+  if (transaction) await Promise.all(operations);
+  else await prisma.$transaction(operations);
 }
 
 export async function updateImageGenerationStatus(

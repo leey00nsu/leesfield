@@ -1,3 +1,4 @@
+import { withQueueTransaction } from "@/server/job-queue/job-queue-transaction";
 import { fileTypeFromBuffer } from "file-type";
 import {
   LeemageClient,
@@ -438,7 +439,7 @@ async function uploadOne(
         isAnimated: metadata.imageVariants?.isAnimated,
       })
     : null;
-  const asset = await prisma.$transaction(async (tx) => {
+  const asset = await withQueueTransaction(async (tx) => {
     const created = await tx.mediaAsset.create({
       data: {
         ownerEmail,

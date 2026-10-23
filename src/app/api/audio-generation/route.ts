@@ -1,3 +1,4 @@
+import { queueKnownErrorResponse } from "@/server/job-queue/job-queue-http";
 import { getSession } from "@/server/auth/session";
 import { assertSessionMutationOrigin } from "@/server/http/request-origin";
 import { enforceRateLimit } from "@/server/rate-limit/enforce";
@@ -123,6 +124,8 @@ async function postHandler(request: Request) {
       body = bounded.body;
     }
   } catch (error) {
+    const queueError = queueKnownErrorResponse(error);
+    if (queueError) return queueError;
     if (error instanceof BodyLimitError) {
       return buildErrorResponse(error.code, error.status);
     }
@@ -175,6 +178,8 @@ async function postHandler(request: Request) {
     return buildGenerationSuccessResponse(record);
   } catch (error) {
     await finalizeSubmission(admitted.requestId, "failed");
+    const queueError = queueKnownErrorResponse(error);
+    if (queueError) return queueError;
     logSafeError("generation.create.failure", error, {
       requestId: admitted.requestId,
       kind: "audio",
@@ -195,6 +200,8 @@ async function guardedPostHandler(request: Request) {
   try {
     return await withHeavyBodyPermit(() => postHandler(request));
   } catch (error) {
+    const queueError = queueKnownErrorResponse(error);
+    if (queueError) return queueError;
     if (error instanceof BodyLimitError) {
       return buildErrorResponse(error.code, error.status);
     }

@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+vi.hoisted(() => vi.resetModules());
 
 const mocks = vi.hoisted(() => {
   const tx = {
+    $executeRaw: vi.fn(),
     $queryRaw: vi.fn(),
     mediaUploadSession: {
       aggregate: vi.fn(),

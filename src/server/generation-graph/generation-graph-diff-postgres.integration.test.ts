@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { useSharedQueueFixture, claimFixtureQueueJob } from "@/test-utils/job-queue-postgres";
 
 import { randomUUID } from "node:crypto";
 import { afterAll, describe, expect, it, vi } from "vitest";
@@ -17,6 +18,10 @@ import { mediaAssetRepository } from "@/server/media-assets/media-asset-reposito
 import { createMediaAssetService } from "@/server/media-assets/media-asset-service";
 import type { CreateMediaOperationInput } from "@/shared/media-assets/media-asset-contract";
 import { appendCapturedFrameResult } from "@/features/node-studio/model/generation-result-nodes";
+import { mediaOperationQueueHandler } from "@/server/job-queue/handlers/media-operation-handler";
+import { withQueueTransaction } from "@/server/job-queue/job-queue-transaction";
+import { enqueueQueueJobTx, queueScopeDigest } from "@/server/job-queue/job-queue-registration";
+import { settleQueueSuccess } from "@/server/job-queue/job-queue-settlement";
 import { nodeOutputService } from "./node-output-service";
 
 const integration = describe.skipIf(!postgresIntegrationEnabled);
@@ -53,6 +58,7 @@ function updateInput(
 
 integration("generation graph diff writes", () => {
   const ownerEmail = `it-graph-diff-${randomUUID()}@example.com`;
+  useSharedQueueFixture(() => [ownerEmail]);
   const graphIds: string[] = [];
 
   afterAll(async () => {
@@ -246,10 +252,13 @@ integration("generation graph diff writes", () => {
     await prisma.generationGraphNode.create({ data: { id: hiddenId, graphId: graph.id, kind, x: 0, y: 0, configVersion: 1, config: config as Prisma.InputJsonValue } });
     // This row represents a request accepted before the temporary availability gate.
     const operation = await prisma.mediaOperation.create({ data: { ownerEmail, graphId: graph.id, graphNodeId: hiddenId, type: kind, configVersion: 1, parameters: config.parameters as Prisma.InputJsonValue, expectedOutputCount: 1 } });
-    const claimed = await mediaAssetRepository.claimPendingServerOperation(operation.id);
+    await withQueueTransaction(tx => enqueueQueueJobTx(tx, { kind: "media_operation", source: { type: "media_operation", id: operation.id },
+      ownerScopeDigest: queueScopeDigest(ownerEmail), snapshotRef: "media-operation:" + operation.id }));
+    const claimed = await claimFixtureQueueJob(mediaOperationQueueHandler);
     expect(claimed).not.toBeNull();
     if (!claimed) throw new Error("The admitted operation was not claimed.");
-    const ids = await mediaAssetRepository.completeServerOperation(ownerEmail, operation.id, [{ type: "video", storageProvider: "leemage", storageObjectId: randomUUID(), storageUrl: "https://storage.example/completed.mp4", mimeType: "video/mp4", bytes: 64, width: 16, height: 16, durationMs: 100 }], new Date(), claimed.lease);
+    await settleQueueSuccess(claimed.lease, mediaOperationQueueHandler, [{ type: "video", storageProvider: "leemage", storageObjectId: randomUUID(), storageUrl: "https://storage.example/completed.mp4", mimeType: "video/mp4", bytes: 64, width: 16, height: 16, durationMs: 100 }]);
+    const ids = (await mediaAssetRepository.getOperation(ownerEmail, operation.id)).outputs.map(a => a.id);
     expect(ids).toHaveLength(1);
     expect(await readExternalNodeExecution(ownerEmail, graph.id, hiddenId, operation.id)).toMatchObject({ status: "completed", outputAssetIds: ids });
     expect((await generationGraphRepository.get(ownerEmail, graph.id)).nodes[0]).toMatchObject({ config, selectedOutputAssetId: ids[0] });

@@ -1,3 +1,6 @@
+import { withQueueTransaction } from "@/server/job-queue/job-queue-transaction";
+import { inQueueDomainTransaction } from "@/server/job-queue/job-queue-domain-transaction";
+import { QueueContractError } from "@/server/job-queue/contracts";
 import { createHmac } from "node:crypto";
 
 import { Prisma } from "@prisma/client";
@@ -228,6 +231,7 @@ export function createInMemorySubmissionLedger(): SubmissionLedgerSeam {
 
 export async function beginSubmission(
   input: BeginSubmissionInput,
+  transaction?: Prisma.TransactionClient,
 ): Promise<BeginSubmissionResult> {
   if (ledgerOverride) return await ledgerOverride.begin(input);
   const limits: AdmissionLimits = {
@@ -241,7 +245,8 @@ export async function beginSubmission(
     : null;
   const expiresAt = new Date(now.getTime() + limits.reservationTtlMs);
 
-  return await prisma.$transaction(async (tx) => {
+  return await inQueueDomainTransaction(transaction, async (tx) => {
+    if ((await tx.queueRuntime.findUnique({ where: { id: 1 } }))?.mode !== "shared") throw new QueueContractError("QUEUE_PAUSED");
     // Serializes admission across processes: counts and inserts stay consistent.
     await tx.$executeRaw(
       Prisma.sql`SELECT pg_advisory_xact_lock(hashtext('leesfield:generation-admission'))`,
@@ -373,7 +378,7 @@ export async function finalizeSubmission(
     await ledgerOverride.finalize(requestId, state);
     return;
   }
-  await prisma.$transaction(async (tx) => {
+  await withQueueTransaction(async (tx) => {
     await tx.generationSubmission.updateMany({
       where: { requestId },
       data: { state },
@@ -390,7 +395,7 @@ export async function expireStaleSubmissions(
   limit = 200,
 ): Promise<number> {
   if (ledgerOverride) return await ledgerOverride.expireStale(now, limit);
-  return prisma.$transaction(async (tx) => {
+  return withQueueTransaction(async (tx) => {
     const stale = await tx.generationSubmission.findMany({
       where: { state: "preparing", expiresAt: { lt: now } },
       select: { id: true, requestId: true },

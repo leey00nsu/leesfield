@@ -1,12 +1,10 @@
+import { withQueueTransaction } from "@/server/job-queue/job-queue-transaction";
 import { createHash } from "node:crypto";
-import { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db/prisma";
 import { mediaAssetRepository } from "@/server/media-assets/media-asset-repository";
 import { MediaAssetInUseError } from "@/server/media-assets/media-asset-errors";
 import { lockOrganization } from "@/server/media-assets/asset-organization-repository";
-import { deleteHistoryStorageFile } from "@/server/media-assets/leemage-media-storage";
 import {
-  completeStorageCleanup,
   isCleanupClient,
   queueStorageCleanup,
 } from "@/server/media-assets/media-cleanup-repository";
@@ -31,7 +29,7 @@ export async function deleteHistoryFiles(ownerEmail: string, outputs: {id: strin
     if (asset.storageUrl) covered.add(asset.storageUrl);
     if (asset.legacyUrl) covered.add(asset.legacyUrl);
     if (asset.status === "failed" && !asset.storageUrl && !asset.legacyUrl) continue;
-    const cleanup = await prisma.$transaction(async (tx) => {
+    const cleanup = await withQueueTransaction(async (tx) => {
       await lockOrganization(tx, ownerEmail);
       const covers = await tx.assetProject.findMany({ where: { ownerEmail, coverAssetId: asset.id }, select: { id: true } });
       if (covers.length) throw new MediaAssetInUseError([], [], [], covers.map(({ id }) => id));
@@ -46,23 +44,8 @@ export async function deleteHistoryFiles(ownerEmail: string, outputs: {id: strin
         assetId: asset.id,
       });
     });
-    try {
-      const usage = await mediaAssetRepository.getAssetUsage(ownerEmail, asset.id);
-      if (usage.graphIds.length || usage.operationIds.length || usage.generationRequestIds.length || usage.projectCoverIds?.length) {
-        await mediaAssetRepository.restoreAsset(ownerEmail, asset.id);
-        throw new MediaAssetInUseError(usage.graphIds, usage.operationIds, usage.generationRequestIds, usage.projectCoverIds);
-      }
-      await deleteHistoryStorageFile(asset.storageProvider === "leemage" ? asset.storageObjectId : null, asset.storageUrl ?? asset.legacyUrl);
-    } catch (error) {
-      throw error;
-    }
-    // Keep the identity for graph references, but make reads and executions reject it.
-    await prisma.$transaction(async (tx) => {
-      await tx.mediaAsset.update({where: {id: asset.id}, data: {status: "failed", storageUrl: null, legacyUrl: null, imageVariants: Prisma.DbNull}});
-      if (cleanup && isCleanupClient(tx)) {
-        await completeStorageCleanup(tx, { id: cleanup.id });
-      }
-    });
+    void cleanup; // Physical deletion is owned by the shared queue.
+
   }
   for (const output of outputs) {
     const url = output.url ?? output.storageUrl ?? output.legacyUrl ?? null;
@@ -76,11 +59,7 @@ export async function deleteHistoryFiles(ownerEmail: string, outputs: {id: strin
           reason: "history_delete",
         })
       : null;
-    try {
-      await deleteHistoryStorageFile(null, url);
-    } catch (error) {
-      throw error;
-    }
-    if (cleanup) await completeStorageCleanup(undefined, { id: cleanup.id });
+    void cleanup;
+
   }
 }

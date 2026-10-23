@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { useSharedQueueFixture } from "@/test-utils/job-queue-postgres";
 
 import { randomUUID } from "node:crypto";
 
@@ -17,6 +18,7 @@ import {
 const integration = describe.skipIf(!postgresIntegrationEnabled);
 
 integration("generation submission ledger", () => {
+  useSharedQueueFixture(() => []);
   const createdRequestIds: string[] = [];
   const createdModelKeys: string[] = [];
 

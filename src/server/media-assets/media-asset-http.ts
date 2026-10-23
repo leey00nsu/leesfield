@@ -3,6 +3,7 @@ import {
   buildInvalidRequestResponse,
   jsonWithNoStore,
 } from "@/server/http/response";
+import { queueKnownErrorResponse } from "@/server/job-queue/job-queue-http";
 
 import {
   AssetOrganizationNotFoundError,
@@ -22,6 +23,8 @@ import {
 } from "./media-asset-errors";
 
 export function buildMediaAssetKnownErrorResponse(error: unknown) {
+  const queueError = queueKnownErrorResponse(error);
+  if (queueError) return queueError;
   if (error instanceof AssetOrganizationNotFoundError) return buildErrorResponse(error.message, 404);
   if (error instanceof AssetMetadataConflictError) return buildErrorResponse(error.code, 409);
   if (error instanceof MediaAssetInputError) {

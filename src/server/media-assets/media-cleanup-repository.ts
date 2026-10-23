@@ -2,6 +2,9 @@ import { Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 
 import { prisma } from "@/server/db/prisma";
+import { withQueueTransaction, lockQueueTransaction } from "@/server/job-queue/job-queue-transaction";
+import { enqueueQueueJobTx, queueScopeDigest } from "@/server/job-queue/job-queue-registration";
+import { QueueContractError } from "@/server/job-queue/contracts";
 
 export const MEDIA_CLEANUP_MAX_ATTEMPTS = 5;
 export const MEDIA_CLEANUP_LEASE_MS = 60_000;
@@ -20,7 +23,7 @@ export type MediaCleanupReason =
   | "submission_failed"
   | "expired_upload";
 
-export type CleanupClient = Pick<Prisma.TransactionClient, "mediaCleanupTask">;
+export type CleanupClient = Prisma.TransactionClient;
 
 export function isCleanupClient(client: unknown): client is CleanupClient {
   return Boolean(client && typeof client === "object" && "mediaCleanupTask" in client);
@@ -54,8 +57,8 @@ export type ClaimedStorageCleanup = Prisma.MediaCleanupTaskGetPayload<{
   };
 }>;
 
-function db(client?: CleanupClient): CleanupClient {
-  return client ?? prisma;
+function inCleanupTransaction<T>(client: CleanupClient | undefined, run: (tx: CleanupClient) => Promise<T>) {
+  return client ? run(client) : withQueueTransaction(run);
 }
 
 function retryDelayMs(attempt: number) {
@@ -92,151 +95,84 @@ function identity(input: Pick<StorageCleanupIntent, "storageProvider" | "storage
   };
 }
 
-/** Registers an object before its remote upload starts. */
-export async function createStorageCleanupIntent(
-  client: CleanupClient | undefined,
-  input: StorageCleanupIntent,
-) {
-  const now = input.now ?? new Date();
-  return db(client).mediaCleanupTask.upsert({
-    where: identity(input),
-    create: {
-      ownerEmail: input.ownerEmail ?? null,
-      requestId: input.requestId ?? null,
-      storageProvider: input.storageProvider,
-      storageObjectId: input.storageObjectId,
-      storageUrl: input.storageUrl ?? null,
-      reason: input.reason,
-      assetId: input.assetId ?? null,
-      status: "uploading",
-      retryAt: input.retryAt ?? cleanupUploadRetryAt(now),
-    },
-    update: {
-      ownerEmail: input.ownerEmail ?? undefined,
-      requestId: input.requestId ?? undefined,
-      storageUrl: input.storageUrl ?? undefined,
-      reason: input.reason,
-      assetId: input.assetId ?? undefined,
-      status: "uploading",
-      attempts: 0,
-      retryAt: input.retryAt ?? cleanupUploadRetryAt(now),
-      leaseToken: null,
-      leaseUntil: null,
-      lastError: null,
-    },
-  });
-}
-
-/** Makes an already-created intent eligible for remote deletion. */
-export async function queueStorageCleanup(
-  client: CleanupClient | undefined,
-  input: StorageCleanupIntent,
-) {
-  const now = input.now ?? new Date();
-  return db(client).mediaCleanupTask.upsert({
-    where: identity(input),
-    create: {
-      ownerEmail: input.ownerEmail ?? null,
-      requestId: input.requestId ?? null,
-      storageProvider: input.storageProvider,
-      storageObjectId: input.storageObjectId,
-      storageUrl: input.storageUrl ?? null,
-      reason: input.reason,
-      assetId: input.assetId ?? null,
-      status: "pending",
-      retryAt: input.retryAt ?? now,
-    },
-    update: {
-      ownerEmail: input.ownerEmail ?? undefined,
-      requestId: input.requestId ?? undefined,
-      storageUrl: input.storageUrl ?? undefined,
-      reason: input.reason,
-      assetId: input.assetId ?? undefined,
-      status: "pending",
-      attempts: 0,
-      retryAt: input.retryAt ?? now,
-      leaseToken: null,
-      leaseUntil: null,
-      lastError: null,
-    },
-  });
-}
-
-/** Links the intent and the durable asset in one caller-owned transaction. */
-export async function linkStorageCleanupToAsset(
-  client: CleanupClient | undefined,
-  input: StorageCleanupIntent & { assetId: string },
-) {
-  const now = input.now ?? new Date();
-  return db(client).mediaCleanupTask.upsert({
-    where: identity(input),
-    create: {
-      ownerEmail: input.ownerEmail ?? null,
-      requestId: input.requestId ?? null,
-      storageProvider: input.storageProvider,
-      storageObjectId: input.storageObjectId,
-      storageUrl: input.storageUrl ?? null,
-      reason: input.reason,
-      assetId: input.assetId,
-      status: "linked",
-      retryAt: now,
-    },
-    update: {
-      ownerEmail: input.ownerEmail ?? undefined,
-      requestId: input.requestId ?? undefined,
-      storageUrl: input.storageUrl ?? undefined,
-      reason: input.reason,
-      assetId: input.assetId,
-      status: "linked",
-      retryAt: now,
-      leaseToken: null,
-      leaseUntil: null,
-      lastError: null,
-    },
-  });
-}
-
-export async function completeStorageCleanup(
-  client: CleanupClient | undefined,
-  input: { id?: string; storageProvider?: string; storageObjectId?: string },
-) {
-  const task = db(client).mediaCleanupTask;
-  const data = { status: "completed" as const, leaseToken: null, leaseUntil: null, lastError: null };
-  if (input.id) {
-    return task.updateMany({ where: { id: input.id }, data });
+/** New revisions fence earlier cleanup work; active deletion cannot be relinked. */
+async function changeIntent(tx: CleanupClient, input: StorageCleanupIntent, status: "uploading" | "pending" | "linked") {
+  await lockQueueTransaction(tx);
+  const old = await tx.mediaCleanupTask.findUnique({ where: identity(input) });
+  if (old) {
+    const jobs = await tx.queueJob.findMany({ where: { sourceType: "storage_cleanup", sourceId: old.id,
+      OR: [
+        { status: { in: ["active", "reconciliation_required", "dead_letter"] } },
+        { attempts: { some: { reservations: { some: { releasedAt: null } } } } },
+      ] } });
+    if (jobs.length) throw new QueueContractError("QUEUE_CLEANUP_REQUIRES_OPERATOR");
+    await tx.queueJob.updateMany({ where: { sourceType: "storage_cleanup", sourceId: old.id,
+      status: { in: ["ready", "suspended", "retry_wait"] } }, data: { status: "cancelled", version: { increment: 1 } } });
   }
-  if (input.storageProvider && input.storageObjectId) {
-    return task.updateMany({
-      where: {
-        storageProvider: input.storageProvider,
-        storageObjectId: input.storageObjectId,
-      },
-      data,
-    });
-  }
-  return { count: 0 };
+  const now = input.now ?? new Date();
+  const task = await tx.mediaCleanupTask.upsert({
+    where: identity(input),
+    create: { ownerEmail: input.ownerEmail ?? null, requestId: input.requestId ?? null,
+      storageProvider: input.storageProvider, storageObjectId: input.storageObjectId,
+      storageUrl: input.storageUrl ?? null, reason: input.reason, assetId: input.assetId ?? null,
+      status, retryAt: input.retryAt ?? (status === "uploading" ? cleanupUploadRetryAt(now) : now) },
+    update: { ownerEmail: input.ownerEmail ?? undefined, requestId: input.requestId ?? undefined,
+      storageUrl: input.storageUrl ?? undefined, reason: input.reason, assetId: input.assetId ?? undefined,
+      status, retryAt: input.retryAt ?? (status === "uploading" ? cleanupUploadRetryAt(now) : now),
+      attempts: 0, leaseToken: null, leaseUntil: null, lastError: null, queueRevision: { increment: 1 } },
+  });
+  await enqueueQueueJobTx(tx, {
+    kind: "storage_cleanup", source: { type: "storage_cleanup", id: task.id, revision: task.queueRevision },
+    snapshotRef: "cleanup:" + task.id + ":" + task.queueRevision,
+    ownerScopeDigest: queueScopeDigest(task.ownerEmail ?? "storage:" + task.storageProvider),
+    suspended: status !== "pending", availableAt: task.retryAt,
+  });
+  return task;
+}
+export function createStorageCleanupIntent(client: CleanupClient | undefined, input: StorageCleanupIntent) {
+  return inCleanupTransaction(client, tx => changeIntent(tx, input, "uploading"));
+}
+export function queueStorageCleanup(client: CleanupClient | undefined, input: StorageCleanupIntent) {
+  return inCleanupTransaction(client, tx => changeIntent(tx, input, "pending"));
+}
+export function linkStorageCleanupToAsset(client: CleanupClient | undefined, input: StorageCleanupIntent & { assetId: string }) {
+  return inCleanupTransaction(client, tx => changeIntent(tx, input, "linked"));
+}
+export function completeStorageCleanup(client: CleanupClient | undefined,
+  input: { id?: string; storageProvider?: string; storageObjectId?: string }) {
+  return inCleanupTransaction(client, async tx => {
+    await lockQueueTransaction(tx);
+    const where = input.id ? { id: input.id } : input.storageProvider && input.storageObjectId
+      ? { storageProvider: input.storageProvider, storageObjectId: input.storageObjectId } : { id: "" };
+    const tasks = await tx.mediaCleanupTask.findMany({ where });
+    const ids = tasks.map(t => t.id);
+    if (await tx.queueJob.count({ where: { sourceType: "storage_cleanup", sourceId: { in: ids },
+      status: { in: ["active", "reconciliation_required"] } } })) throw new QueueContractError("QUEUE_CLEANUP_REQUIRES_OPERATOR");
+    await tx.queueJob.updateMany({ where: { sourceType: "storage_cleanup", sourceId: { in: ids },
+      status: { in: ["ready", "retry_wait", "suspended"] } }, data: { status: "cancelled", version: { increment: 1 } } });
+    return tx.mediaCleanupTask.updateMany({ where, data: { status: "completed", leaseToken: null, leaseUntil: null, lastError: null } });
+  });
+}
+export function releaseStorageCleanupsForRequest(client: CleanupClient | undefined, requestId: string, now = new Date()) {
+  return inCleanupTransaction(client, async tx => {
+    await lockQueueTransaction(tx);
+    const tasks = await tx.mediaCleanupTask.findMany({ where: { requestId, status: { in: ["uploading", "linked"] } } });
+    for (const task of tasks) await changeIntent(tx, { ...task, reason: "submission_failed", now, retryAt: now }, "pending");
+    return { count: tasks.length };
+  });
 }
 
-/** Failed/expired submissions release their upload intents for reconciliation. */
-export async function releaseStorageCleanupsForRequest(
-  client: CleanupClient | undefined,
-  requestId: string,
-  now = new Date(),
-) {
-  return db(client).mediaCleanupTask.updateMany({
-    where: {
-      requestId,
-      status: { in: ["uploading", "linked"] },
-    },
-    data: {
-      status: "pending",
-      reason: "submission_failed",
-      attempts: 0,
-      retryAt: now,
-      leaseToken: null,
-      leaseUntil: null,
-      lastError: null,
-    },
+/** Grace expiry keeps the revision and never reclaims active remote deletion. */
+export function activateExpiredCleanupIntents(now = new Date(), limit = 100) {
+  return withQueueTransaction(async tx => {
+    const tasks = await tx.mediaCleanupTask.findMany({ where: { status: "uploading", retryAt: { lte: now } },
+      orderBy: [{ retryAt: "asc" }, { id: "asc" }], take: limit });
+    for (const task of tasks) {
+      await tx.mediaCleanupTask.update({ where: { id: task.id }, data: { status: "pending" } });
+      await tx.queueJob.updateMany({ where: { sourceType: "storage_cleanup", sourceId: task.id, sourceRevision: task.queueRevision, status: "suspended" },
+        data: { status: "ready", availableAt: now, version: { increment: 1 } } });
+    }
+    return tasks.length;
   });
 }
 
@@ -245,6 +181,7 @@ export async function claimStorageCleanups(
   limit = 20,
 ): Promise<ClaimedStorageCleanup[]> {
   return prisma.$transaction(async (tx) => {
+    if ((await tx.queueRuntime.findUnique({ where: { id: 1 } }))?.mode === "shared") return [];
     await tx.mediaCleanupTask.updateMany({
       where: { status: "processing", leaseUntil: { lte: now } },
       data: { status: "pending", retryAt: now, leaseToken: null, leaseUntil: null },
@@ -322,20 +259,10 @@ export async function failStorageCleanup(
   });
 }
 
-/** Operator or a scheduled repair can make terminal failures retryable. */
-export async function requeueFailedStorageCleanups(limit = 100) {
-  const tasks = await prisma.mediaCleanupTask.findMany({
-    where: { status: "failed" },
-    orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
-    take: limit,
-    select: { id: true },
-  });
-  if (tasks.length === 0) return 0;
-  const result = await prisma.mediaCleanupTask.updateMany({
-    where: { id: { in: tasks.map((task) => task.id) }, status: "failed" },
-    data: { status: "pending", attempts: 0, retryAt: new Date(), lastError: null },
-  });
-  return result.count;
+/** Redrive requires an authenticated operator request and preserved DLQ history. */
+export async function requeueFailedStorageCleanups(limit = 100): Promise<number> {
+  void limit;
+  throw new QueueContractError("QUEUE_USE_DLQ_REDRIVE");
 }
 
 export async function queueExpiredUploadCleanup(

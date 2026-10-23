@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { useSharedQueueFixture } from "@/test-utils/job-queue-postgres";
 import { randomUUID } from "node:crypto";
 import { afterAll, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/server/db/prisma";
@@ -7,11 +8,14 @@ import { assetOrganizationRepository as repository } from "./asset-organization-
 import { createMediaAssetService, mediaAssetService } from "./media-asset-service";
 import { mediaAssetRepository } from "./media-asset-repository";
 import { findAssetModelOptions } from "./asset-library-search";
+import { createQueueRunner } from "@/server/job-queue/job-queue-runner";
+import { createStorageCleanupHandler } from "@/server/job-queue/handlers/storage-cleanup-handler";
 import { getAssetLibraryUsage } from "./asset-library-usage";
 
 describe.skipIf(!postgresIntegrationEnabled)("asset organization operations and server search", () => {
   const suffix = randomUUID();
   const owner = `library-${suffix}@example.com`;
+  useSharedQueueFixture(() => [owner]);
   const other = `foreign-library-${suffix}@example.com`;
   afterAll(async () => {
     await prisma.generationGraph.deleteMany({ where: { ownerEmail: { in: [owner, other] } } });
@@ -207,6 +211,8 @@ describe.skipIf(!postgresIntegrationEnabled)("asset organization operations and 
     await expect(getAssetLibraryUsage(owner, file.id)).resolves.toMatchObject({ graphIds: [], inUse: false });
     await expect(mediaAssetRepository.getAssetUsage(owner, file.id)).resolves.toMatchObject({ graphIds: [] });
     await expect(service.remove(owner, file.id)).resolves.toBeUndefined();
+    const runner = createQueueRunner([createStorageCleanupHandler(storage)]);
+    try { await runner.pump(); await runner.drain(); } finally { await runner.stop(); }
     expect(storage.delete).toHaveBeenCalledExactlyOnceWith(file.storageObjectId);
     await expect(prisma.mediaAsset.findUnique({ where: { id: file.id } })).resolves.toMatchObject({ status: "failed", storageUrl: null });
   });

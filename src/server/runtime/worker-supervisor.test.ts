@@ -7,11 +7,7 @@ import {
 
 function fakeDependencies() {
   return {
-    generation: {
-      start: vi.fn(),
-      stop: vi.fn().mockResolvedValue(undefined),
-    },
-    mediaOperation: {
+    queue: {
       start: vi.fn(),
       stop: vi.fn().mockResolvedValue(undefined),
     },
@@ -32,7 +28,7 @@ describe("worker supervisor", () => {
     vi.clearAllMocks();
   });
 
-  it("starts both workers once and drains them once", async () => {
+  it("starts the shared registry once and drains them once", async () => {
     const dependencies = fakeDependencies();
     const runtimeProcess = fakeProcess();
     const supervisor = createWorkerSupervisor(
@@ -40,10 +36,9 @@ describe("worker supervisor", () => {
       runtimeProcess as never,
     );
 
-    supervisor.start();
-    supervisor.start();
-    expect(dependencies.generation.start).toHaveBeenCalledTimes(1);
-    expect(dependencies.mediaOperation.start).toHaveBeenCalledTimes(1);
+    await supervisor.start();
+    await supervisor.start();
+    expect(dependencies.queue.start).toHaveBeenCalledTimes(1);
     expect(runtimeProcess.once).toHaveBeenCalledTimes(2);
 
     const firstStop = supervisor.stop({ drainTimeoutMs: 123 });
@@ -51,8 +46,7 @@ describe("worker supervisor", () => {
     expect(secondStop).toBe(firstStop);
     await firstStop;
 
-    expect(dependencies.generation.stop).toHaveBeenCalledWith({ drainTimeoutMs: 123 });
-    expect(dependencies.mediaOperation.stop).toHaveBeenCalledWith({ drainTimeoutMs: 123 });
+    expect(dependencies.queue.stop).toHaveBeenCalledWith({ drainTimeoutMs: 123 });
     expect(dependencies.disconnect).toHaveBeenCalledTimes(1);
     expect(runtimeProcess.removeListener).toHaveBeenCalledTimes(2);
   });
@@ -63,13 +57,13 @@ describe("worker supervisor", () => {
     const drain = new Promise<void>((resolve) => {
       releaseDrain = resolve;
     });
-    dependencies.generation.stop.mockReturnValueOnce(drain);
+    dependencies.queue.stop.mockReturnValueOnce(drain);
     const runtimeProcess = fakeProcess();
     const supervisor = createWorkerSupervisor(
       dependencies,
       runtimeProcess as never,
     );
-    supervisor.start();
+    await supervisor.start();
 
     const signalHandler = runtimeProcess.once.mock.calls.find(
       ([signal]) => signal === "SIGTERM",

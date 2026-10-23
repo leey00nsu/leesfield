@@ -2,7 +2,7 @@
 
 ## Coolify 배포와 시작
 
-Node.js 서버가 시작될 때 `src/instrumentation.ts`의 `register()`가 환경을 검증한 뒤 generation worker, media-operation worker와 media-cleanup worker supervisor를 한 번만 시작한다. Edge runtime과 production build 단계에서는 worker를 시작하지 않는다. 생성 요청이 worker를 직접 다시 시작하려는 기존 경로도 남아 있지만 supervisor의 singleton guard를 통과한다.
+Node.js 서버가 시작될 때 instrumentation이 환경·큐 schema를 확인하고 공통 작업 큐 supervisor를 한 번만 시작한다. generation·서버 편집·assistant·파일 정리는 같은 runner를 사용한다. Edge runtime과 production build에서는 시작하지 않으며 기존 worker 진입점은 singleton 호환 wrapper다.
 
 Production은 Coolify의 `main` branch Auto Deploy와 Nixpacks build pack을 사용한다. repository root의 `nixpacks.toml`이 production start 명령과 health probe에 필요한 package를 정의한다. GitHub Actions 성공 여부는 현재 Coolify webhook 배포의 선행 조건이 아니다.
 
@@ -58,6 +58,27 @@ substring history 검색은 `pg_trgm`과 image/video/audio의 prompt/modelKey GI
 
 현재 코드만으로 확인되는 RPO/RTO는 없다. 운영자는 DB backup 주기·보존기간·암호화·접근권한·복원 담당자와 목표 RPO/RTO를 배포 전에 정하고, 격리 restore 소요시간과 실제 asset 복구 범위를 측정해 이 문서의 release 기록에 남겨야 한다.
 
+## 공통 큐 최초 전환
+
+기존 서버가 처리 중인 작업은0개라고 가정한다. 이 전환은 구 서버 종료 증빙 파일·세션 검사·처리 중 작업 복구 이관을 요구하지 않는다. 최초 migration은 paused로 시작하므로 일반 rolling Auto Deploy만으로 readiness200이 되지 않는다. 유지보수 시간에 새 접수를 닫고 아래 순서로 새 버전을 준비한 뒤 ingress를 연다.
+
+1. DB backup/격리 restore 확인 후 release:migrate를 적용한다. status에서 현재 epoch를 읽는다.
+2. paused 상태에서 backfill을 반복해 backfillComplete=true까지 실행한다. 종류별100개 keyset batch와 identity/cursor로 중단 후 재실행할 수 있다. pending을 ready로, cleanup uploading/linked는 보호 상태로 옮긴다. 완료·취소·실패 생성 이력은 실행하지 않으며 failed cleanup은 terminal DLQ로 보관한다.
+3. check의 종류별 수·source 대응·보호 intent와 실행 대상 정합성을 확인한다. 예상 밖 processing/uploading row가 있으면 TRANSITION_EXPECTED_IDLE로 중단하며 자동 복구하지 않는다.
+4. 같은 epoch로 activate한다. shared와 epoch 증가, ready200을 확인한 뒤 새 접수를 연다. 이 도구는 DB 작업만 수행한다.
+
+예를 들어 status의 epoch가1인 최초 전환 명령은 다음과 같다.
+
+```sh
+pnpm queue:transition status
+pnpm queue:transition backfill --expected-epoch=1
+# backfillComplete=true가 될 때까지 같은 명령 반복
+pnpm queue:transition check --expected-epoch=1
+pnpm queue:transition activate --expected-epoch=1
+```
+
+중단은 현재 epoch로 pause를 실행해 새 선점을 막는다. 기존 실행권의 epoch는 유지해 drain을 허용하며 재활성화 전 check가 미종료 attempt0개를 요구한다. 구 버전 rollback-check는 새 QueueJob/운영 이력·source 변경·shared 전환이 없는 최초 상태에서만 통과한다. 새 이력이 생긴 뒤에는 forward-fix하며 자동 down migration·이력 삭제·구 바이너리 재시작을 제공하지 않는다. cleanup 과거 시도의 synthetic 시간은 이관 receipt 시각이며 과거 실제 실행 시작 시각이 아니다.
+
 ## 보안 감사와 로컬 검증
 
 `.github/workflows/production-security.yml`은 dependency 또는 workflow 변경과 매주 schedule에서 `pnpm security:production`을 실행한다. 이 workflow는 알려진 production dependency 취약점을 알리는 감사 신호이며 Coolify Auto Deploy를 차단하는 gate가 아니다. 프로젝트 lockfile은 source-map-js를1.2.2로 고정해 indexed source-map offset의 event-loop DoS(GHSA-68fv-2mgg-jv7q) 패치를 포함한다. 의존성 override를 갱신하거나 제거할 때는 실제 설치 버전과 production audit 및 build를 함께 확인한다.
@@ -111,7 +132,7 @@ Graph generation event stream은 인증된 owner scope당 최대 5개, Node 프�
 
 ## 종료와 재시작
 
-`SIGTERM` 또는 `SIGINT`를 받으면 supervisor가 새 claim을 막고 세 worker의 interval을 중지한다. 이미 claim한 generation, media operation과 cleanup task는 최대 25초 동안 drain하며, 같은 signal handler를 여러 번 등록하지 않는다. drain 시간이 지나면 프로세스는 종료되고 아직 실행 중인 lease는 만료 뒤 다음 worker tick에서 recovery 대상이 된다.
+SIGTERM/SIGINT에서 supervisor는 공통 runner의 새 선점을 중지하고 최대25초 drain 뒤 DB를 disconnect한다. 같은 signal handler를 중복 등록하지 않는다. 기한 초과 실행은 로컬 AbortSignal로 이전 소유자의 새 I/O와 결과 확정을 막으며, 미종료 attempt는 다음 서버의 만료 복구에서 발견한다. FFmpeg 자원 반환은 child close로 실제 종료를 확인한 뒤 수행한다.
 
 lease 만료가 provider의 원격 실행까지 취소한다는 보장은 없다. 원격 결과를 다시 제출해 중복 과금할 수 있는 작업은 원격 id/jobId와 durable submission이 확인되지 않는 한 자동 재생성하지 않는다.
 
@@ -129,19 +150,31 @@ Leemage 파일은 presign → bounded PUT → confirm 순서로 처리한다. up
 
 운영 중에는 `IO_RESPONSE_TOO_LARGE`, `IO_STREAM_ABORTED`, provider 429/5xx, upload timeout을 구분해 기록해야 한다. 원격 provider가 취소를 지원하지 않아 lease 만료 뒤 side effect가 남을 수 있으므로, 해당 request/job ID를 reconcile·cleanup 확인 항목으로 남긴다.
 
-## 복구 규칙
+## 공통 큐와 복구 규칙
 
-- lease가 없는 legacy `processing`/`uploading` generation은 자동 재실행하지 않고 `failed`와 `EXECUTION_LEASE_RECOVERY_REQUIRED`로 수렴한다. 취소가 기록된 row는 `cancelled`로 수렴한다.
-- lease가 만료된 generation은 `failed`와 `EXECUTION_LEASE_EXPIRED`로 수렴하며 이전 worker의 heartbeat와 terminal write는 fencing 조건에서 거절된다.
-- 서버 media operation(Remove Background, Video Stitch, Video Trim)은 인스턴스 전체에서 합쳐 최대 2개만 claim한다. 각 claim은 60초 lease를 갖고 10초마다 heartbeat를 갱신하며, legacy lease 없는 row는 `MEDIA_OPERATION_LEASE_RECOVERY_REQUIRED`, 만료 row는 `MEDIA_OPERATION_LEASE_EXPIRED`로 수렴한다. 영상 FFmpeg 작업은 lease 갱신 실패·취소 때 abort 신호를 받아 중단하고, terminal DB 쓰기는 lease token/version으로 fencing한다.
-- Modal 작업은 저장된 submission과 remote `jobId`가 있으면 상태·결과 조회를 재개한다. POST 직후 ID 저장이 불확실하면 동일 durable payload와 idempotency key로 먼저 reconcile하며, 확인되지 않은 비멱등 작업을 임의로 다시 만들지 않는다.
-- provider/storage 결과 commit이 lease를 잃으면 DB 결과를 저장하지 않는다. media operation이 upload 단계에서 lease를 잃으면 이미 생성된 storage object를 정리하고, 확인되지 않은 원격 side effect는 후속 cleanup/reconcile 관찰 대상으로 남는다.
+QueueJob 등록은 업무 접수와 같은 transaction이다. paused 또는 DB 불가의 생성/편집/assistant 접수는503/Retry-After30으로 거절한다. cleanup intent의 업로드 보호·결과 연결·고아 정리 기록은 paused에서도 허용하여 기존 실행의 drain을 보장하고, 해당 작업의 실제 선점은 shared에서만 수행한다. 공통 runner는2초 fallback polling과 commit 알림, 종류별 순환 분배를 사용한다. 클러스터 자원 한도는 생성4+현재 모델별 cap, 서버 편집2, assistant4, 정리2이며 임의의 합산 한도는 없다. 포화 자원·실패한 순서 묶음은 다른 독립 작업의 선점을 막지 않는다.
+
+- 실행권은 공통 QueueAttempt의 token/version/epoch·60초 lease·10초 heartbeat다. 기존 업무 lease 열은 projection이며 독립 실행 권한이 아니다.
+- 실행권 상실 후 이전 소유자의 완료/결과 저장은 거절한다. 업무 결과·자산·노드 선택·큐 완료는 같은 transaction에서 확정한다.
+- 생성·편집·assistant는 기본1회이며 유료/불명확 원격 호출을 자동 재생성하지 않는다. 원격 미시작이 확실한 실패만 예약을 반환한다. 실행 후 미확정 상태는 reconciliation DLQ와 uncertain 자원 예약을 유지한다.
+- 명시적 순서 묶음은 선행 성공 뒤에만 후속을 실행한다. 실패·취소·포기·상세 TTL 만료로 자동 진행하지 않는다. 묶음을 끝내려면 운영자가 group cancel을 사용한다.
+- 알려진 Modal job은 관리자 reconcile로 GET 조회하고 완료된 결과만 collect 전용 새 실행으로 회수한다. 새 GPU POST나 원래 실패 row/ledger 덮어쓰기는 하지 않는다. 지원하지 않는 provider·실행 중·근거 부족은 미확정 상태로 보존한다.
+
+## DLQ 운영
+
+내부 경로 /api/internal/job-queue/dead-letters의 목록과 개별 상세에서 종류·오류 코드·기간·처리 상태로 페이지 조회한다. 목록 기본20/최대100이며 상세는 안전한 시도·원격 참조·차단/재투입 이력만 반환한다. prompt·파일 본문·credential·전체 URL은 반환하지 않는다.
+
+관리자 변경 경로는 개별 dead-letters/:id/redrive, reconcile, abandon, batch와 groups/:id/cancel이다. production에서는 session의 adminEmail이 설정 관리자와 일치해야 하며 mutation origin을 검증한다. 변경은 actor10/전체30회 분당 제한, 단건16KiB·일괄32KiB 본문, 일괄 최대20개를 적용한다. requestId(UUID), expectedVersion, reason(3~120자의 안전한 대문자 코드)을 보내며 동일 requestId/본문은 같은 결과, 다른 본문 또는 오래된 version은409다. 성공·거절을 QueueAdminAction으로 감사한다.
+
+redrive는 shared에서만 허용하며 현재 owner·snapshot·모델·자산·active-node/admission과 미확정 예약을 검증한다. 생성/편집/assistant는 원래 실패와 연결한 새 업무 ID, cleanup은 같은 object/revision의 새 cycle을 만든다. 원본 실패와 원래 순서는 유지한다. paused에서도 reconcile/abandon은 가능하지만 포기만으로 원격 종료나 자원 반환을 확정하지 않는다. 일괄 조작도 같은 단건 검사를 수행하고 항목별 결과를 반환한다.
+
+JOB_QUEUE_DETAIL_RETENTION_DAYS는 기본30일, 허용1~365일이다. 공통 maintenance가 하루100개씩 resolved/abandoned 상세만 비운다. 미해결·순서 차단·미해제 예약은 정리하지 않으며 identity·누적 attempt·DLQ tombstone·request 감사는 유지한다. 삭제된 입력을 현재 값으로 대체하지 않고 재투입 불가 사유를 표시한다.
 
 ## Media storage cleanup
 
 원격 object를 만드는 모든 현재 경로는 `MediaCleanupTask`에 provider/object identity를 unique key로 먼저 기록한다. Leemage 업로드는 presign 뒤 bounded PUT 전에 `uploading` intent를 저장하고, MediaAsset과 provenance를 commit하는 transaction에서 task를 `linked`로 연결한다. DB 저장 실패, 제출 실패, 만료 upload, lease 만료와 History 삭제 실패는 같은 identity의 `pending` task로 남아 cleanup worker가 재처리한다.
 
-cleanup worker는 2초 주기, process당 동시 2개, task lease 60초를 사용한다. retry는 60초부터 exponential backoff로 최대 1시간까지 늘어나며 5회 실패하면 `failed`와 안전한 `lastError`를 남긴다. 원격 404는 성공으로 처리한다. worker는 asset usage와 generation/media output provenance를 다시 조회해 참조 중인 asset을 삭제하지 않고 task를 `linked`로 복구한다. 일반 cleanup은 unreferenced asset만 제거하며, `history_delete`는 F062 계약에 따라 원격 삭제 후 failed tombstone과 missing-reference identity를 유지한다.
+파일 정리도 공통 runner가 클러스터 전체 최대2개를 실행한다. 재시도는 cycle 총5회,60초부터 최대1시간 지연이며 마지막 실패는 terminal DLQ와 안전한 lastError에 남긴다.404는 성공이다. 실행 직전 asset usage/provenance를 다시 확인하여 참조 중이면 linked/suspended로 복구한다. uploading grace 전과 linked는 선점하지 않는다. intent 변경은 queueRevision을 증가시켜 오래된 완료를 차단한다. 파일·History 삭제는 deleting으로 즉시 숨긴 뒤 물리 삭제를 큐에서 수행하며 완료 후 failed tombstone과 누락 참조 ID를 유지한다.
 
 운영자는 다음 상태를 DB에서 확인한다.
 
@@ -152,15 +185,15 @@ GROUP BY status, reason
 ORDER BY status, reason;
 ```
 
-`failed` row는 `lastError`, attempts, retryAt, requestId를 기준으로 storage 상태와 함께 조사한다. 원인이 해소된 뒤에는 유지보수 작업에서 `requeueFailedStorageCleanups(limit)`를 호출해 attempts를 초기화하고 재처리한다. `linked` task를 직접 삭제하거나 asset row를 직접 제거하지 않는다. 이 helper를 호출하는 운영 경로와 실제 Leemage bucket retention/versioning은 배포 환경에서 별도로 확인한다.
+failed cleanup은 lastError·누적 attempts·requestId와 DLQ/attempt를 함께 조사한다. 원인 해결 뒤 관리자 redrive로 새 cycle을 요청한다. requeueFailedStorageCleanups는 QUEUE_USE_DLQ_REDRIVE로 거절하며 attempts 초기화나 직접 processor 호출로 큐를 우회하지 않는다. linked/task/asset을 직접 삭제하지 않는다. 실제 Leemage retention/versioning은 별도 운영 설정이다.
 
 ## Health와 관측성
 
 운영 probe는 다음 두 endpoint를 분리해 사용한다.
 
 - `GET /api/health/live`는 process가 HTTP를 받을 수 있는지만 확인하며 DB, storage, provider와 worker를 호출하지 않는다. 응답은 200이다.
-- `GET /api/health/ready`는 PostgreSQL `SELECT 1`을 최대 2초 기다리고 supervisor의 generation/media-operation/cleanup worker가 시작·중지 상태가 아니며 heartbeat age 10초 이하인지 확인한다. 모든 조건이 맞으면 200, 하나라도 실패하면 503이다. provider 장애는 readiness 자체를 영구히 실패시키는 조건으로 사용하지 않는다.
-- `GET /api/health/metrics`는 로그인 session의 `adminEmail`이 있는 경우에만 사용할 수 있다. DB queue snapshot을 읽지 못하면 503을 반환한다. 이 endpoint는 image/video/audio/media operation의 pending·processing 수, 가장 오래된 pending age, failed cleanup 수, worker 상태와 heartbeat, process-local metrics, PostgreSQL pool 상태를 반환한다.
+- `GET /api/health/ready`는 PostgreSQL `SELECT 1`을 최대 2초 기다리고 QueueRuntime이 shared/검증 완료이고 공통 runner가 schema 준비·시작 상태이며 중지 중이 아니고 heartbeat age10초 이하인지 확인한다. 모든 조건이 맞으면 200, 하나라도 실패하면 503이다. provider 장애는 readiness 자체를 영구히 실패시키는 조건으로 사용하지 않는다.
+- `GET /api/health/metrics`는 로그인 session의 `adminEmail`이 있는 경우에만 사용할 수 있다. DB queue snapshot을 읽지 못하면 503을 반환한다. 이 endpoint는 여섯 kind의 준비·재시도·차단·실행·보호·최종 실패, 자원별 cap/예약/uncertain과 DLQ 상태·원인·재투입 결과, 공통 runner 상태와 heartbeat, process-local metrics, PostgreSQL pool 상태를 반환한다.
 
 Coolify application health check는 HTTP `GET`, host `localhost`, internal port `3000`, path `/api/health/ready`를 사용한다. interval 10초, timeout 3초, retries 6회, start period 120초로 설정한다. 설정 저장만으로 실행 중 컨테이너가 바뀌지 않으므로 다음 deploy 또는 명시적 redeploy 후 실제 health 상태를 확인한다. 모든 컨테이너가 unhealthy면 proxy가 애플리케이션 응답 대신 `404` 또는 `No available server`를 반환할 수 있으므로, 설정 직후 deployment log와 내부 probe를 함께 확인한다.
 
@@ -168,9 +201,9 @@ Coolify application health check는 HTTP `GET`, host `localhost`, internal port 
 
 HTTP metric map은 최대 64개 route key, DB operation은 16개, provider는 8개, worker failure kind는 8개로 제한한다. process uptime·memory, HTTP status bucket·duration, DB/provider duration, pool의 `total/idle/active/waiting`을 기록한다. queue depth와 oldest pending은 PostgreSQL에서 조회하는 전역 상태이고, HTTP/provider/worker counter와 pool 상태는 인스턴스별 상태다. process-local counter는 재시작 시 초기화되며 여러 인스턴스의 합계로 해석하지 않는다.
 
-log는 JSON 한 줄의 timestamp, event와 허용된 운영 필드만 출력한다. requestId·jobId·route·provider·worker·status·duration과 오류 타입을 사용하며 request body, prompt, owner email, API key, credential, full URL과 오류 원문은 기록하지 않는다. field 길이와 줄바꿈도 제한한다.
+log는 JSON 한 줄의 timestamp, event와 허용된 운영 필드만 출력한다. requestId·jobId·sourceId·executionId·attemptId·leaseVersion·runtimeEpoch·route·provider·worker·status·duration과 오류 타입을 사용하며 request body, prompt, owner email, API key, credential, full URL과 오류 원문은 기록하지 않는다. field 길이와 줄바꿈도 제한한다.
 
-초기 운영 경보 기준은 `/api/health/ready` 503이 3회 연속, queue `oldestPendingAgeSeconds`가 300초 초과, `failedCleanup`이 1 이상, pool `waiting`이 60초 이상 지속되는 경우다. 외부 collector·alert rule 자체는 이 저장소에 설치되어 있지 않으므로 배포 환경에서 이 응답과 로그를 수집하도록 연결한다.
+초기 운영 경보 기준은 `/api/health/ready` 503이 3회 연속, queue `oldestPendingAgeSeconds`가 300초 초과, 최종 실패/DLQ 미해결·reconciliation이1 이상 또는 가장 오래된 미해결/차단이300초 초과, pool `waiting`이 60초 이상 지속되는 경우다. 외부 collector·alert rule 자체는 이 저장소에 설치되어 있지 않으므로 배포 환경에서 이 응답과 로그를 수집하도록 연결한다.
 
 간단한 probe는 다음처럼 실행한다.
 

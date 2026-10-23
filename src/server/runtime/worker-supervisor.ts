@@ -1,30 +1,8 @@
 import { logSafeError } from "@/server/observability/request-observability";
-import {
-  GENERATION_WORKER_DRAIN_TIMEOUT_MS,
-  getGenerationWorkerState,
-  startGenerationWorker,
-  stopGenerationWorker,
-} from "@/server/generation-worker/generation-worker";
-import {
-  getMediaOperationWorkerState,
-  MEDIA_OPERATION_WORKER_DRAIN_TIMEOUT_MS,
-  startMediaOperationWorker,
-  stopMediaOperationWorker,
-} from "@/server/media-operations/media-operation-worker";
+import { startSharedQueue, stopSharedQueue, getSharedQueueState } from "@/server/job-queue/job-queue-runtime";
 import { prisma } from "@/server/db/prisma";
-import { startAssistantWorker, stopAssistantWorker } from "@/server/assistant-executions/assistant-worker";
-import {
-  getMediaCleanupWorkerState,
-  MEDIA_CLEANUP_WORKER_DRAIN_TIMEOUT_MS,
-  startMediaCleanupWorker,
-  stopMediaCleanupWorker,
-} from "@/server/media-assets/media-cleanup-worker";
 
-const DEFAULT_DRAIN_TIMEOUT_MS = Math.max(
-  GENERATION_WORKER_DRAIN_TIMEOUT_MS,
-  MEDIA_OPERATION_WORKER_DRAIN_TIMEOUT_MS,
-  MEDIA_CLEANUP_WORKER_DRAIN_TIMEOUT_MS,
-);
+const DEFAULT_DRAIN_TIMEOUT_MS = 25_000;
 
 export type WorkerSupervisorStopOptions = {
   drainTimeoutMs?: number;
@@ -32,15 +10,12 @@ export type WorkerSupervisorStopOptions = {
 };
 
 type WorkerLifecycle = {
-  start(): void;
+  start(): void | Promise<void>;
   stop(options: { drainTimeoutMs: number }): Promise<void>;
 };
 
 export type WorkerSupervisorDependencies = {
-  generation: WorkerLifecycle;
-  mediaOperation: WorkerLifecycle;
-  assistant?: WorkerLifecycle;
-  cleanup?: WorkerLifecycle;
+  queue: WorkerLifecycle;
   disconnect(): Promise<void>;
 };
 
@@ -57,19 +32,7 @@ type SupervisorGlobal = typeof globalThis & {
 };
 
 const defaultDependencies: WorkerSupervisorDependencies = {
-  generation: {
-    start: startGenerationWorker,
-    stop: stopGenerationWorker,
-  },
-  mediaOperation: {
-    start: startMediaOperationWorker,
-    stop: stopMediaOperationWorker,
-  },
-  assistant: { start: startAssistantWorker, stop: stopAssistantWorker },
-  cleanup: {
-    start: startMediaCleanupWorker,
-    stop: stopMediaCleanupWorker,
-  },
+  queue: { start: startSharedQueue, stop: stopSharedQueue },
   disconnect: () => prisma.$disconnect(),
 };
 
@@ -78,6 +41,7 @@ export function createWorkerSupervisor(
   runtimeProcess: SupervisorProcess = process,
 ) {
   let started = false;
+  let startPromise: Promise<void> | null = null;
   let stopping = false;
   let stopPromise: Promise<void> | null = null;
 
@@ -88,15 +52,13 @@ export function createWorkerSupervisor(
     });
   };
 
-  function start() {
-    if (started || stopping) return;
-    dependencies.generation.start();
-    dependencies.mediaOperation.start();
-    dependencies.assistant?.start();
-    dependencies.cleanup?.start();
+  function start(): Promise<void> {
+    if (stopping || started) return Promise.resolve();
+    if (startPromise) return startPromise;
     runtimeProcess.once("SIGTERM", onSignal);
     runtimeProcess.once("SIGINT", onSignal);
-    started = true;
+    startPromise = Promise.resolve(dependencies.queue.start()).then(() => { if (!stopping) started = true; });
+    return startPromise;
   }
 
   function stop({
@@ -104,7 +66,7 @@ export function createWorkerSupervisor(
     exit = false,
   }: WorkerSupervisorStopOptions = {}) {
     if (stopPromise) return stopPromise;
-    if (!started && !stopping) {
+    if (!started && !startPromise && !stopping) {
       if (exit) runtimeProcess.exit(0);
       return Promise.resolve();
     }
@@ -115,12 +77,8 @@ export function createWorkerSupervisor(
     runtimeProcess.removeListener("SIGINT", onSignal);
 
     stopPromise = (async () => {
-      const workerResults = await Promise.allSettled([
-        dependencies.generation.stop({ drainTimeoutMs }),
-        dependencies.mediaOperation.stop({ drainTimeoutMs }),
-        ...(dependencies.assistant ? [dependencies.assistant.stop({ drainTimeoutMs })] : []),
-        ...(dependencies.cleanup ? [dependencies.cleanup.stop({ drainTimeoutMs })] : []),
-      ]);
+      const workerResults = await Promise.allSettled([dependencies.queue.stop({ drainTimeoutMs })]);
+      await startPromise?.catch(() => undefined);
       const disconnectResult = await Promise.allSettled([
         dependencies.disconnect(),
       ]);
@@ -142,9 +100,7 @@ export function createWorkerSupervisor(
     return {
       started,
       stopping,
-      generation: getGenerationWorkerState(),
-      mediaOperation: getMediaOperationWorkerState(),
-      cleanup: getMediaCleanupWorkerState(),
+      queue: getSharedQueueState(),
     };
   }
 
@@ -158,7 +114,7 @@ function getDefaultSupervisor() {
 }
 
 export function startWorkerSupervisor() {
-  getDefaultSupervisor().start();
+  return getDefaultSupervisor().start();
 }
 
 export function stopWorkerSupervisor(options?: WorkerSupervisorStopOptions) {

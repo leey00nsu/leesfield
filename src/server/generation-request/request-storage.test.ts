@@ -1,15 +1,20 @@
 import {beforeEach,describe,it,expect,vi} from 'vitest';
+vi.hoisted(() => vi.resetModules());
 import {createImageGenerationRecord} from '@/server/image-generation/image-generation-repository';
 import {createVideoGenerationRecord} from '@/server/video-generation/video-generation-repository';
 import {createAudioGenerationRecord} from '@/server/audio-generation/audio-generation-repository';
 import {restoreRequest} from './request-snapshot';
 const mocks=vi.hoisted(()=>({create:vi.fn(async(value)=>value),catalog:vi.fn(),link:vi.fn(),transaction:vi.fn()}));
+// Snapshot projection is this suite's boundary; atomic queue registration is
+// exercised against real PostgreSQL by job-queue-generation integration.
+vi.mock('@/server/job-queue/handlers/generation-registration',()=>({enqueueGenerationTx:vi.fn()}));
 vi.mock('@/server/db/prisma',()=>({prisma:{
  imageGeneration:{create:mocks.create},videoGeneration:{create:mocks.create},audioGeneration:{create:mocks.create},
  $transaction:mocks.transaction,
 }}));
 vi.mock('@/server/model-catalog/catalog-service',()=>({getModelCatalog:mocks.catalog}));
 beforeEach(()=>{vi.clearAllMocks();mocks.transaction.mockImplementation(async (callback)=>callback({
+ $executeRaw:vi.fn(),
  imageGeneration:{create:mocks.create},videoGeneration:{create:mocks.create},audioGeneration:{create:mocks.create},
  generationInputAsset:{createMany:mocks.link},
 }));mocks.catalog.mockResolvedValue(['image','video','audio'].map(type=>({type,key:type,parameters:{width:{},height:{},steps:{},seed:{},fps:{},durationSec:{}}})));});

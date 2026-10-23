@@ -56,11 +56,23 @@ function assertActive(signal: AbortSignal) {
 
 async function run(binary: "ffmpeg" | "ffprobe", args: string[], signal?: AbortSignal) {
   try {
-    return await runFile(binary, args, {
-      timeout: PROCESS_TIMEOUT_MS,
-      maxBuffer: 1024 * 1024,
-      signal,
-      windowsHide: true,
+    if (signal) assertActive(signal);
+    return await new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
+      let failure: Error | null = null;
+      let result = { stdout: "", stderr: "" };
+      // execFile's AbortSignal callback can reject before the process exits.
+      // Resolve/reject only from close so the queue can rely on termination.
+      const child = execFile(binary, args, {
+        timeout: PROCESS_TIMEOUT_MS, killSignal: "SIGKILL", maxBuffer: 1024 * 1024,
+        windowsHide: true, encoding: "utf8",
+      }, (error, stdout, stderr) => { failure = error; result = { stdout, stderr }; });
+      const abort = () => { child.kill("SIGKILL"); };
+      child.once("close", () => {
+        signal?.removeEventListener("abort", abort);
+        if (failure) reject(failure); else resolve(result);
+      });
+      signal?.addEventListener("abort", abort, { once: true });
+      if (signal?.aborted) abort();
     });
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {

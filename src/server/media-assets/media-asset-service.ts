@@ -316,8 +316,7 @@ export function createMediaAssetService(
         const marked = typeof repository.markTerminalOperationOutputDeleting === "function"
           ? await repository.markTerminalOperationOutputDeleting(ownerEmail, operationId, asset.id)
           : asset;
-        if (marked.storageProvider === "leemage") await boundedStorage(storage.delete(marked.storageObjectId));
-        await repository.deleteTerminalOperationOutput(ownerEmail, operationId, asset.id);
+        void marked; // The common cleanup handler owns the remote deletion.
       } catch {
         // The cleanup ledger keeps the hidden provenance row for a later retry.
       }
@@ -637,8 +636,7 @@ export function createMediaAssetService(
       if (usage.graphIds.length > 0 || usage.operationIds.length > 0 || usage.generationRequestIds.length > 0 || Boolean(usage.projectCoverIds?.length)) {
         throw new MediaAssetInUseError(usage.graphIds, usage.operationIds, usage.generationRequestIds, usage.projectCoverIds);
       }
-      const asset = await repository.markAssetDeleting(ownerEmail, assetId);
-      let storageDeleted = false;
+      await repository.markAssetDeleting(ownerEmail, assetId);
       try {
         const racedUsage = await repository.getAssetUsage(ownerEmail, assetId);
         if (racedUsage.graphIds.length > 0 || racedUsage.operationIds.length > 0 || racedUsage.generationRequestIds.length > 0 || Boolean(racedUsage.projectCoverIds?.length)) {
@@ -649,11 +647,7 @@ export function createMediaAssetService(
             racedUsage.projectCoverIds,
           );
         }
-        if (asset.storageProvider === "leemage") {
-          await storage.delete(asset.storageObjectId);
-          storageDeleted = true;
-        }
-        await repository.deleteAsset(ownerEmail, assetId);
+        // Logical deletion is visible immediately; physical deletion is queued.
       } catch (error) {
         if (error instanceof MediaAssetInUseError) {
           await repository.restoreAsset(ownerEmail, assetId);
@@ -663,9 +657,6 @@ export function createMediaAssetService(
         // request marked the asset deleting. The durable task already records
         // the successful remote deletion in that case.
         if (error instanceof MediaAssetNotFoundError) return;
-        if (!storageDeleted && asset.storageProvider === "leemage") {
-          throw new MediaStorageUnavailableError();
-        }
         throw error;
       }
     },

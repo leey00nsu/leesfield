@@ -262,6 +262,10 @@ export async function claimPendingGenerationJobs({
   now = new Date(),
 }: ClaimPendingGenerationJobsInput): Promise<ClaimedGeneration[]> {
   return prisma.$transaction(async (tx) => {
+    // Once shared mode is enabled the old scheduler cannot claim or recover
+    // source rows owned by the common queue.
+    const runtime = await tx.queueRuntime.findUnique({ where: { id: 1 } });
+    if (runtime?.mode === "shared") return [];
     await tx.$executeRaw(
       Prisma.sql`SELECT pg_advisory_xact_lock(${EXECUTION_ADVISORY_LOCK_KEY})`,
     );

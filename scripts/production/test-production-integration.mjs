@@ -190,6 +190,7 @@ async function main() {
     NODE_ENV: "test",
     ...testSelectionEnvironment,
     DATABASE_URL: databaseUrl,
+    PRODUCTION_TEST_POSTGRES_CONTAINER: containerName,
     SESSION_PASSWORD: "production-integration-test-session-password",
   };
 

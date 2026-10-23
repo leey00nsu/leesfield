@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { useSharedQueueFixture, claimFixtureQueueJob } from "@/test-utils/job-queue-postgres";
 
 import { randomBytes, randomUUID } from "node:crypto";
 import { vi } from "vitest";
@@ -8,7 +9,9 @@ import { encryptModelApiKey } from "@/server/model-catalog/model-credential";
 import { nodeExecutionService } from "@/server/node-executions/node-execution-service";
 import { postgresIntegrationEnabled } from "@/test-utils/postgres-integration";
 import { createAssistantExecution, claimAssistantExecution, latestAssistantText, settleAssistantExecution, selectAssistantItem } from "./assistant-execution-repository";
-import { processAssistantJobs, stopAssistantWorker } from "./assistant-worker";
+import { createQueueRunner } from "@/server/job-queue/job-queue-runner";
+vi.mock("./assistant-worker", () => ({ startAssistantWorker: vi.fn() }));
+import { assistantQueueHandler } from "@/server/job-queue/handlers/assistant-handler";
 import { getAssetLibraryUsage } from "@/server/media-assets/asset-library-usage";
 import { mediaAssetRepository } from "@/server/media-assets/media-asset-repository";
 
@@ -21,6 +24,7 @@ vi.mock("@/server/http/safe-remote", async (importOriginal) => ({
 describe.skipIf(!postgresIntegrationEnabled)("Assistant execution persistence", () => {
   const suffix = randomUUID();
   const ownerEmail = `assistant-${suffix}@example.com`;
+  useSharedQueueFixture(() => [ownerEmail]);
   const graphId = `assistant-graph-${suffix}`;
   const firstId = `assistant-a-${suffix}`;
   const secondId = `assistant-b-${suffix}`;
@@ -69,7 +73,6 @@ describe.skipIf(!postgresIntegrationEnabled)("Assistant execution persistence", 
   });
 
   afterAll(async () => {
-    await stopAssistantWorker();
     await prisma.generationGraph.deleteMany({ where: { id: graphId } });
     await prisma.mediaAsset.deleteMany({ where: { ownerEmail: { in: [ownerEmail, "other-" + ownerEmail] } } });
     await prisma.modelCatalog.deleteMany({ where: { key: modelKey } });
@@ -78,6 +81,10 @@ describe.skipIf(!postgresIntegrationEnabled)("Assistant execution persistence", 
     else process.env.MODEL_CREDENTIAL_ENCRYPTION_KEY = oldKey;
   });
 
+  async function processAssistantJobs() {
+    const runner = createQueueRunner([assistantQueueHandler]);
+    try { await runner.pump(); await runner.drain(); } finally { await runner.stop(); }
+  }
   async function run(nodeId: string) {
     const started = await nodeExecutionService.execute(ownerEmail, graphId, nodeId, { expectedGraphVersion: 1 });
     expect(started.mediaType).toBe("text");
@@ -174,7 +181,8 @@ describe.skipIf(!postgresIntegrationEnabled)("Assistant execution persistence", 
     expect(await claimAssistantExecution(pending.id)).toBeNull();
     const next = await createAssistantExecution({ ownerEmail, graphId, graphNodeId: firstId, modelKey,
       snapshot: { instruction: "claim", text: null, assets: [] } });
-    const claimed = await claimAssistantExecution(next.id);
+    const claimed = await claimFixtureQueueJob(assistantQueueHandler);
+    expect(claimed.job.executionId).toBe(next.id);
     expect(claimed).not.toBeNull();
     if (!claimed) return;
     await prisma.assistantExecution.update({ where: { id: next.id }, data: { cancelRequestedAt: new Date() } });

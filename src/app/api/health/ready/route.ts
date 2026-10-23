@@ -18,6 +18,7 @@ export const GET = withRequestObservability(
         checks: {
           database: snapshot.database,
           workers: snapshot.workers,
+          queue: snapshot.queue,
         },
       },
       { status: snapshot.ready ? 200 : 503 },

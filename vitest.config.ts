@@ -9,6 +9,10 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/setup-tests.ts"],
+    // Unit suites must never fall through a mock into a developer's .env DB.
+    env: process.env.PRODUCTION_INTEGRATION_TEST === "1" ? {} : {
+      DATABASE_URL: "postgresql://unit:unit@127.0.0.1:1/leesfield_unit_no_database",
+    },
     testTimeout: 10000,
     include: suiteSelection.include ?? configDefaults.include,
     maxWorkers: process.env.PRODUCTION_INTEGRATION_TEST === "1" ? 1 : undefined,

@@ -1,3 +1,4 @@
+import { lockQueueTransaction, withQueueTransaction } from "@/server/job-queue/job-queue-transaction";
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db/prisma";
@@ -31,7 +32,8 @@ export function externalNodeSubmission(input: {
     context: {
       apiKeyId,
       async commit<T>(snapshot: unknown, kind: string, modelKey: string | null, run: (tx: Prisma.TransactionClient, executionId: string) => Promise<T>): Promise<T> {
-        return prisma.$transaction(async tx => {
+        return withQueueTransaction(async tx => {
+          await lockQueueTransaction(tx);
           // Same lock as classic generation admission: count + creation are indivisible.
           await tx.$queryRaw`SELECT CAST(pg_advisory_xact_lock(hashtext('leesfield:generation-admission')) AS TEXT)`;
           const existing = await lookup(tx);
@@ -56,7 +58,7 @@ export function externalNodeSubmission(input: {
             inputSnapshot: JSON.parse(JSON.stringify(snapshot)) as Prisma.InputJsonValue,
           } });
           return result;
-        }, { maxWait: 10_000, timeout: 15_000 });
+        });
       },
     } satisfies ExternalNodeSubmission,
   };

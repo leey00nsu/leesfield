@@ -5,6 +5,7 @@ const fields = new Set([
   "errorCode", "provider", "modelKey", "operation", "phase", "kind", "outcome",
   "worker", "state", "pending", "processing", "oldestPendingAgeSeconds",
   "failedCleanup", "attempt", "maxBytes", "actualBytes",
+  "sourceId", "executionId", "attemptId", "leaseVersion", "runtimeEpoch",
 ]);
 const identifier = /^[A-Za-z0-9_$./:-]{1,96}$/;
 const codePattern = /^[A-Z][A-Z0-9_]{1,63}$/;

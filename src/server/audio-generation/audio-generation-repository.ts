@@ -1,3 +1,6 @@
+import { enqueueGenerationTx } from "@/server/job-queue/handlers/generation-registration";
+import { lockQueueTransaction, withQueueTransaction } from "@/server/job-queue/job-queue-transaction";
+import { inQueueDomainTransaction } from "@/server/job-queue/job-queue-domain-transaction";
 import { generationOutputUrl, generationOutputAssetSelect, generationOutputDuration } from "@/server/history/generation-output-availability";
 import { snapshotRequest } from '@/server/generation-request/request-snapshot';
 import { Prisma } from "@prisma/client";
@@ -59,8 +62,8 @@ export async function createAudioGenerationRecord(
     status: "pending" as const,
     progress: 0,
   };
-  if (!transaction && refs.length === 0) return prisma.audioGeneration.create({ data });
   const create = async (tx: Prisma.TransactionClient) => {
+    await lockQueueTransaction(tx);
     const record = await tx.audioGeneration.create({ data });
     await linkGenerationInputAssets(tx, {
       requestId,
@@ -68,9 +71,10 @@ export async function createAudioGenerationRecord(
       ownerEmail,
       refs,
     });
+    await enqueueGenerationTx(tx, "audio", record);
     return record;
   };
-  return transaction ? create(transaction) : prisma.$transaction(create);
+  return transaction ? create(transaction) : withQueueTransaction(create);
 }
 
 export async function saveAudioGenerationResult(
@@ -81,9 +85,10 @@ export async function saveAudioGenerationResult(
   errorMessage?: string,
   lease?: GenerationLease,
   artifacts?: GeneratedMediaArtifact[],
+  transaction?: Prisma.TransactionClient,
 ) {
   if (artifacts?.length) {
-    await prisma.$transaction(async (tx) => {
+    await inQueueDomainTransaction(transaction, async (tx) => {
       const updated = lease
         ? await tx.audioGeneration.updateMany({
             where: {
@@ -92,7 +97,7 @@ export async function saveAudioGenerationResult(
               cancelRequestedAt: null,
               executionLeaseToken: lease.token,
               executionLeaseVersion: lease.version,
-              executionLeaseUntil: { gt: new Date() },
+              ...(transaction ? {} : { executionLeaseUntil: { gt: new Date() } }),
             },
             data: {
               status,
@@ -157,7 +162,7 @@ export async function saveAudioGenerationResult(
     return;
   }
   if (lease) {
-    await prisma.$transaction(async (tx) => {
+    await inQueueDomainTransaction(transaction, async (tx) => {
       const updated = await tx.audioGeneration.updateMany({
         where: {
           id: generationId,
@@ -165,7 +170,7 @@ export async function saveAudioGenerationResult(
           cancelRequestedAt: null,
           executionLeaseToken: lease.token,
           executionLeaseVersion: lease.version,
-          executionLeaseUntil: { gt: new Date() },
+          ...(transaction ? {} : { executionLeaseUntil: { gt: new Date() } }),
         },
         data: {
           status,
@@ -192,8 +197,9 @@ export async function saveAudioGenerationResult(
     return;
   }
 
+  const db = transaction ?? prisma;
   const operations: Prisma.PrismaPromise<unknown>[] = [
-    prisma.audioGeneration.update({
+    db.audioGeneration.update({
       where: { id: generationId },
       data: {
         status,
@@ -205,12 +211,12 @@ export async function saveAudioGenerationResult(
 
   if (result?.audios?.length) {
     operations.push(
-      prisma.audioGenerationAudio.deleteMany({
+      db.audioGenerationAudio.deleteMany({
         where: { generationId },
       }),
     );
     operations.push(
-      prisma.audioGenerationAudio.createMany({
+      db.audioGenerationAudio.createMany({
         data: result.audios.map((audio) => ({
           generationId,
           url: audio.url,
@@ -220,7 +226,8 @@ export async function saveAudioGenerationResult(
     );
   }
 
-  await prisma.$transaction(operations);
+  if (transaction) await Promise.all(operations);
+  else await prisma.$transaction(operations);
 }
 
 export async function updateAudioGenerationStatus(

@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { useSharedQueueFixture } from "@/test-utils/job-queue-postgres";
 
 import { randomUUID } from "node:crypto";
 
@@ -15,6 +16,7 @@ const integration = describe.skipIf(!postgresIntegrationEnabled);
 integration("MediaAsset PostgreSQL lifecycle", () => {
   const suffix = randomUUID();
   const ownerEmail = `f059-${suffix}@example.com`;
+  useSharedQueueFixture(() => [ownerEmail]);
   const graphId = `f059-graph-${suffix}`;
   const nodeId = `f059-node-${suffix}`;
   const sourceAssetId = `f059-source-${suffix}`;

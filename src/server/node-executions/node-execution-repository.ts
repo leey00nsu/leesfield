@@ -1,3 +1,6 @@
+import { withQueueTransaction } from "@/server/job-queue/job-queue-transaction";
+import { requestQueueCancellationTx } from "@/server/job-queue/job-queue-recovery";
+import { inQueueDomainTransaction } from "@/server/job-queue/job-queue-domain-transaction";
 import { parseImageVariants } from "@/shared/media-assets/image-variants";
 import { Prisma } from "@prisma/client";
 
@@ -358,51 +361,30 @@ async function cancelExecution(
   const read = () => findExecution(ownerEmail, graphId, graphNodeId, executionId, sourceKind);
   const record = await read();
   if (!(activeStatuses as readonly string[]).includes(record.status)) return record;
-  const cancelRequestedAt = new Date();
-  const where = { requestId: executionId, ownerEmail, graphNodeId };
-  if (record.mediaType === "image") {
-    if (record.status === "pending") {
-      const cancelled = await prisma.imageGeneration.updateMany({
-        where: { ...where, status: "pending" },
-        data: { status: "cancelled", progress: 0, cancelRequestedAt },
+  await withQueueTransaction(async tx => {
+    const model = record.mediaType === "image" ? tx.imageGeneration
+      : record.mediaType === "video" ? tx.videoGeneration : tx.audioGeneration;
+    const source = await (model.findFirst as typeof tx.imageGeneration.findFirst)({
+      where: { requestId: executionId, ownerEmail, graphNodeId },
+    });
+    if (!source) return;
+    const type = record.mediaType === "image" ? "image_generation"
+      : record.mediaType === "video" ? "video_generation" : "audio_generation";
+    const job = await tx.queueJob.findFirst({ where: { executionType: type, executionId: source.id } });
+    if (job) await requestQueueCancellationTx(tx, job.id);
+    const cancelRequestedAt = new Date();
+    if (source.status === "pending") {
+      const cancelled = await (model.updateMany as typeof tx.imageGeneration.updateMany)({
+        where: { id: source.id, status: "pending" },
+        data: { cancelRequestedAt, status: "cancelled", progress: 0 },
       });
-      if (cancelled.count === 1) {
-        return read();
-      }
+      if (cancelled.count === 1) return;
     }
-    await prisma.imageGeneration.updateMany({
-      where: { ...where, status: { in: ["processing", "uploading"] } },
+    await (model.updateMany as typeof tx.imageGeneration.updateMany)({
+      where: { id: source.id, status: { in: ["processing", "uploading"] } },
       data: { cancelRequestedAt },
     });
-  } else if (record.mediaType === "video") {
-    if (record.status === "pending") {
-      const cancelled = await prisma.videoGeneration.updateMany({
-        where: { ...where, status: "pending" },
-        data: { status: "cancelled", progress: 0, cancelRequestedAt },
-      });
-      if (cancelled.count === 1) {
-        return read();
-      }
-    }
-    await prisma.videoGeneration.updateMany({
-      where: { ...where, status: { in: ["processing", "uploading"] } },
-      data: { cancelRequestedAt },
-    });
-  } else {
-    if (record.status === "pending") {
-      const cancelled = await prisma.audioGeneration.updateMany({
-        where: { ...where, status: "pending" },
-        data: { status: "cancelled", progress: 0, cancelRequestedAt },
-      });
-      if (cancelled.count === 1) {
-        return read();
-      }
-    }
-    await prisma.audioGeneration.updateMany({
-      where: { ...where, status: { in: ["processing", "uploading"] } },
-      data: { cancelRequestedAt },
-    });
-  }
+  });
   return read();
 }
 
@@ -502,9 +484,10 @@ async function completeGeneration(
   generationId: string,
   artifacts: GeneratedMediaArtifact[],
   lease?: GenerationLease,
+  transaction?: Prisma.TransactionClient,
 ) {
   assertArtifacts(mediaType, artifacts);
-  return prisma.$transaction(async (tx) => {
+  return inQueueDomainTransaction(transaction, async (tx) => {
     const model = mediaType === "image"
       ? tx.imageGeneration
       : mediaType === "video"
@@ -520,7 +503,7 @@ async function completeGeneration(
           ? {
               executionLeaseToken: lease.token,
               executionLeaseVersion: lease.version,
-              executionLeaseUntil: { gt: new Date() },
+              ...(transaction ? {} : { executionLeaseUntil: { gt: new Date() } }),
             }
           : {}),
       },
@@ -543,7 +526,7 @@ async function completeGeneration(
             ? {
                 executionLeaseToken: lease.token,
                 executionLeaseVersion: lease.version,
-                executionLeaseUntil: { gt: new Date() },
+                ...(transaction ? {} : { executionLeaseUntil: { gt: new Date() } }),
               }
             : {}),
         },

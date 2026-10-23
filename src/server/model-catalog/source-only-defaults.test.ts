@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
+vi.hoisted(() => vi.resetModules());
 vi.mock("./catalog-service", () => ({ getModelCatalog: vi.fn() }));
-vi.mock("@/server/db/prisma", () => ({ prisma: { imageGeneration: { create: vi.fn(async ({data}) => data) } } }));
+vi.mock("@/server/job-queue/handlers/generation-registration", () => ({ enqueueGenerationTx: vi.fn() }));
+vi.mock("@/server/db/prisma", () => {
+  const tx = { imageGeneration: { create: vi.fn(async ({data}) => data) }, $executeRaw: vi.fn() };
+  return { prisma: { ...tx, $transaction: vi.fn(async callback => callback(tx)) } };
+});
 import { getModelCatalog } from "./catalog-service";
 import { modelCatalogInputSchema } from "./catalog-schema";
 import { normalizeGradioModel, contractAuthoringDefaults, getGradioContract, gradioInputValues } from "@/shared/model-catalog/gradio-contract";

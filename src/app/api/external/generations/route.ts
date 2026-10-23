@@ -1,3 +1,4 @@
+import { queueKnownErrorResponse } from "@/server/job-queue/job-queue-http";
 import { z } from "zod";
 import { withExternalApi } from "@/server/external-api/route-handler";
 import { enforceRateLimit } from "@/server/rate-limit/enforce";
@@ -63,6 +64,8 @@ async function postHandler(request: Request) {
     try {
       input = await readExternalGenerationRequest(request);
     } catch (error) {
+    const queueError = queueKnownErrorResponse(error);
+    if (queueError) return queueError;
       if (error instanceof ExternalRequestError)
         return buildErrorResponse(error.message, error.status);
       if (error instanceof z.ZodError)
@@ -89,6 +92,8 @@ async function postHandler(request: Request) {
         preset,
       );
     } catch (error) {
+    const queueError = queueKnownErrorResponse(error);
+    if (queueError) return queueError;
       if (error instanceof PromptPresetError) return buildErrorResponse(error.code, error.status);
       if (error instanceof ExternalRequestError)
         return buildErrorResponse(error.message, error.status);
@@ -171,6 +176,8 @@ async function postHandler(request: Request) {
       );
     } catch (error) {
       await finalizeSubmission(admitted.requestId, "failed");
+    const queueError = queueKnownErrorResponse(error);
+    if (queueError) return queueError;
       const code = resolveInputImageErrorCode(error);
       if (code === INPUT_IMAGE_INVALID || code === INPUT_IMAGE_STORAGE_REQUIRED)
         return buildErrorResponse(code, 400);
@@ -193,6 +200,8 @@ export async function POST(request: Request) {
   try {
     return await withHeavyBodyPermit(() => postHandler(request));
   } catch (error) {
+    const queueError = queueKnownErrorResponse(error);
+    if (queueError) return queueError;
     if (error instanceof BodyLimitError) {
       return buildErrorResponse(error.code, error.status);
     }

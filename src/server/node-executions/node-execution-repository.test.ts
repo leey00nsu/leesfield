@@ -1,6 +1,9 @@
+vi.hoisted(() => vi.resetModules());
 const mocks = vi.hoisted(() => {
   const tx = {
-    imageGeneration: { updateMany: vi.fn(), findUnique: vi.fn() },
+    $executeRaw: vi.fn(),
+    queueJob: { findFirst: vi.fn(async () => null) },
+    imageGeneration: { updateMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn() },
     videoGeneration: { updateMany: vi.fn(), findUnique: vi.fn() },
     audioGeneration: { updateMany: vi.fn(), findUnique: vi.fn() },
     imageGenerationImage: { deleteMany: vi.fn(), create: vi.fn() },
@@ -37,6 +40,7 @@ import { nodeExecutionRepository } from "./node-execution-repository";
 describe("nodeExecutionRepository", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.tx.imageGeneration.findFirst.mockImplementation(args => mocks.imageGeneration.findFirst(args));
     mocks.generationGraphNode.findFirst.mockResolvedValue({
       id: "node-1",
       kind: "generate.image",
@@ -85,6 +89,8 @@ describe("nodeExecutionRepository", () => {
   });
 
   it("cancels a pending execution with a status compare-and-swap", async () => {
+    mocks.tx.imageGeneration.findFirst.mockResolvedValueOnce({ id: "source-pending", status: "pending" });
+    mocks.tx.imageGeneration.updateMany.mockImplementation(args => mocks.imageGeneration.updateMany(args));
     mocks.imageGeneration.findFirst
       .mockResolvedValueOnce({
         requestId: "request-pending",
@@ -117,6 +123,8 @@ describe("nodeExecutionRepository", () => {
   });
 
   it("requests cancellation without overwriting a pending-to-processing race", async () => {
+    mocks.tx.imageGeneration.findFirst.mockResolvedValueOnce({ id: "source-racing", status: "pending" });
+    mocks.tx.imageGeneration.updateMany.mockImplementation(args => mocks.imageGeneration.updateMany(args));
     mocks.imageGeneration.findFirst
       .mockResolvedValueOnce({
         requestId: "request-racing",

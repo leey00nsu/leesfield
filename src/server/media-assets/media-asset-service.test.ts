@@ -602,11 +602,13 @@ describe("mediaAssetService", () => {
   });
 
   it("treats a cleanup worker winning the same deletion race as success", async () => {
-    repositoryMocks.getAssetUsage.mockResolvedValue({ graphIds: [], operationIds: [], generationRequestIds: [] });
+    repositoryMocks.getAssetUsage.mockResolvedValueOnce({ graphIds: [], operationIds: [], generationRequestIds: [] })
+      .mockRejectedValueOnce(new MediaAssetNotFoundError());
     repositoryMocks.markAssetDeleting.mockResolvedValue(asset);
     repositoryMocks.deleteAsset.mockRejectedValue(new MediaAssetNotFoundError());
 
     await expect(service.remove("owner@example.com", "asset_1")).resolves.toBeUndefined();
-    expect(storageMocks.delete).toHaveBeenCalledWith("file_1");
+    expect(repositoryMocks.markAssetDeleting).toHaveBeenCalledWith("owner@example.com", "asset_1");
+    expect(storageMocks.delete).not.toHaveBeenCalled();
   });
 });

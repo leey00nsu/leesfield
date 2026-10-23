@@ -20,9 +20,7 @@ function healthyWorkerState() {
   return {
     started: true,
     stopping: false,
-    generation: { started: true, stopping: false, running: false, inFlight: 0 },
-    mediaOperation: { started: true, stopping: false, running: false, inFlight: 0 },
-    cleanup: { started: true, stopping: false, running: false, inFlight: 0 },
+    queue: { schemaReady: true, heartbeatAgeSeconds: 0, started: true, stopping: false, running: false, inFlight: 0 },
   };
 }
 
@@ -31,7 +29,7 @@ describe("readiness", () => {
     vi.useRealTimers();
     mockQueryRaw.mockReset();
     mockWorkerState.mockReset();
-    mockQueryRaw.mockResolvedValue([{ ok: 1 }]);
+    mockQueryRaw.mockResolvedValue([{ mode: "shared", migrationVerified: true }]);
     mockWorkerState.mockReturnValue(healthyWorkerState());
   });
 
@@ -39,8 +37,14 @@ describe("readiness", () => {
     await expect(getReadinessSnapshot()).resolves.toEqual({
       ready: true,
       database: "ok",
+      queue: "shared",
       workers: "ok",
     });
+  });
+
+  it("keeps paused deployments unready even when the registry is alive", async () => {
+    mockQueryRaw.mockResolvedValue([{ mode: "paused", migrationVerified: false }]);
+    expect(await getReadinessSnapshot()).toMatchObject({ ready: false, database: "ok", workers: "ok", queue: "paused" });
   });
 
   it("reports a database failure without hiding worker state", async () => {
@@ -49,6 +53,7 @@ describe("readiness", () => {
     await expect(getReadinessSnapshot()).resolves.toEqual({
       ready: false,
       database: "failed",
+      queue: "unavailable",
       workers: "ok",
     });
   });
@@ -56,8 +61,8 @@ describe("readiness", () => {
   it("marks a started worker with a stale heartbeat as not ready", async () => {
     mockWorkerState.mockReturnValue({
       ...healthyWorkerState(),
-      generation: {
-        ...healthyWorkerState().generation,
+      queue: {
+        ...healthyWorkerState().queue,
         heartbeatAgeSeconds: 11,
       },
     });
@@ -65,6 +70,7 @@ describe("readiness", () => {
     await expect(getReadinessSnapshot()).resolves.toEqual({
       ready: false,
       database: "ok",
+      queue: "shared",
       workers: "not_ready",
     });
   });
@@ -83,6 +89,7 @@ describe("readiness", () => {
     await expect(result).resolves.toEqual({
       ready: false,
       database: "failed",
+      queue: "unavailable",
       workers: "stopping",
     });
     vi.useRealTimers();

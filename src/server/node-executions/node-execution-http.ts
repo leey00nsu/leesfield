@@ -3,6 +3,7 @@ import {
   buildInvalidRequestResponse,
   jsonWithNoStore,
 } from "@/server/http/response";
+import { queueKnownErrorResponse } from "@/server/job-queue/job-queue-http";
 
 import {
   NodeExecutionActiveError,
@@ -20,6 +21,8 @@ import {
 } from "./node-execution-errors";
 
 export function nodeExecutionErrorResponse(error: unknown) {
+  const queueError = queueKnownErrorResponse(error);
+  if (queueError) return queueError;
   if (error instanceof NodeExecutionSelectionConflictError) return buildErrorResponse(error.code, 409);
   if (error instanceof NodeExecutionInputError) {
     return buildInvalidRequestResponse(error.details);

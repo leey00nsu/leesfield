@@ -11,7 +11,10 @@ import { resolveAudioGenerationResult } from "@/server/audio-generation/audio-ge
 import { resolveVideoGenerationResult } from "@/server/video-generation/video-generation";
 import { NodeExecutionCancelledError } from "@/server/node-executions/node-execution-errors";
 import { leemageMediaStorageAdapter } from "./leemage-media-storage";
-import { processMediaOperationJobs } from "@/server/media-operations/media-operation-worker";
+import { mediaOperationQueueHandler } from "@/server/job-queue/handlers/media-operation-handler";
+import { prisma } from "@/server/db/prisma";
+import { useSharedQueueFixture, removeFixtureQueueJobs } from "@/test-utils/job-queue-postgres";
+import type { QueueJob } from "@prisma/client";
 
 const mocks = vi.hoisted(() => ({
   generate: vi.fn(),
@@ -45,19 +48,10 @@ vi.mock("@/server/audio-generation/adapters/hf-space-adapter", () => ({ hfSpaceA
 vi.mock("@/server/video-generation/adapters/hf-space-adapter", () => ({ hfSpaceVideoAdapter: { generate: mocks.generate } }));
 vi.mock("@/server/media-assets/media-asset-repository", () => ({
   mediaAssetRepository: {
-    listPendingServerOperationIds: async () => [{ id: "operation-test" }],
-    claimPendingServerOperation: async () => ({
-      operation: {
-        id: "operation-test",
-        type: "edit.image.removeBackground",
-        ownerEmail: "test@example.com",
-        inputs: [{ assetId: "input-test" }],
-        executionLeaseToken: "test-operation-lease",
-        executionLeaseVersion: 1,
-      },
-      lease: { token: "test-operation-lease", version: 1 },
+    getOperation: async (...args: unknown[]) => ({
+      graphNode: { kind: "edit.image.removeBackground", configVersion: 1 },
+      inputs: [{ assetId: "input-test" }], ...await mocks.getOperation(...args),
     }),
-    getOperation: mocks.getOperation,
     completeServerOperation: mocks.completeOperation,
     failOperation: mocks.failOperation,
   },
@@ -73,12 +67,24 @@ const cases = [
 ];
 
 describe("E2E provider fixtures retain durable generation storage", () => {
+  useSharedQueueFixture(() => ["storage:leemage", "test@example.com"]);
+  const requestIds = ["request-image", "request-audio", "request-video", "operation-test"];
+  async function processMediaOperationJobs() {
+    const job = { executionId: "operation-test" } as QueueJob;
+    const lease = { token: "test-operation-lease", version: 1 } as never;
+    const artifacts = await mediaOperationQueueHandler.execute(job, { lease, signal: new AbortController().signal,
+      assertOwned: async () => { if ((await mocks.getOperation()).status === "cancelled") throw new NodeExecutionCancelledError(); },
+      recordRemoteEvidence: async () => {},
+    });
+    await mediaOperationQueueHandler.settleTx(prisma, job, lease, artifacts);
+  }
   it("uses the exact independently playable checked-in video fixture", () => {
     const result = mockVideoGenerationResult();
     const dataUrl = mediaOutputDataUrl(result.videos[0]);
     expect(Buffer.from(dataUrl.split(",")[1], "base64")).toEqual(readFileSync("public/sample-video.mp4"));
   });
-  beforeEach(() => {
+  beforeEach(async () => {
+    await prisma.mediaOperation.create({ data: { id: "operation-test", ownerEmail: "test@example.com", type: "edit.image.removeBackground", configVersion: 1, parameters: {}, status: "processing" } });
     vi.clearAllMocks();
     vi.stubEnv("NODE_ENV", "test");
     vi.stubEnv("NODE_STUDIO_E2E_MOCK_GENERATION", "1");
@@ -104,7 +110,13 @@ describe("E2E provider fixtures retain durable generation storage", () => {
     }));
     for (const kind of ["IMAGE", "AUDIO", "VIDEO"]) vi.stubEnv(kind + "_STORAGE_PROVIDER", "leemage");
   });
-  afterEach(() => vi.unstubAllEnvs());
+  afterEach(async () => {
+    const tasks = await prisma.mediaCleanupTask.findMany({ where: { requestId: { in: requestIds } }, select: { id: true } });
+    await removeFixtureQueueJobs(tasks.map(t => t.id));
+    await prisma.mediaCleanupTask.deleteMany({ where: { id: { in: tasks.map(t => t.id) } } });
+    await prisma.mediaOperation.deleteMany({ where: { id: "operation-test" } });
+    vi.unstubAllEnvs();
+  });
 
   it.each(cases)("$kind uploads fixture bytes and returns the storage identity after lifecycle transition", async ({ kind, run }) => {
     const events: string[] = [];
@@ -153,13 +165,13 @@ describe("E2E provider fixtures retain durable generation storage", () => {
     }));
     expect(mocks.completeOperation).toHaveBeenCalledWith("test@example.com", "operation-test", [
       expect.objectContaining({ storageObjectId: "stored-background", storageUrl: "https://storage.example/background" }),
-    ], expect.any(Date), expect.objectContaining({ token: "test-operation-lease", version: 1 }));
+    ], expect.any(Date), expect.objectContaining({ token: "test-operation-lease", version: 1 }), expect.anything());
     expect(mocks.failOperation).not.toHaveBeenCalled();
   });
 
   it("background removal cancelled during generation never uploads", async () => {
     mocks.getOperation.mockResolvedValue({ status: "cancelled" });
-    await processMediaOperationJobs();
+    await expect(processMediaOperationJobs()).rejects.toBeInstanceOf(NodeExecutionCancelledError);
     expect(mocks.presign).not.toHaveBeenCalled();
     expect(mocks.confirm).not.toHaveBeenCalled();
     expect(mocks.completeOperation).not.toHaveBeenCalled();

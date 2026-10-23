@@ -12,16 +12,17 @@ export type ReadinessSnapshot = {
   ready: boolean;
   database: "ok" | "failed";
   workers: "ok" | "not_ready" | "stopping";
+  queue: "shared" | "paused" | "unavailable";
 };
 
 function workerStatus(): ReadinessSnapshot["workers"] {
   const state = getWorkerSupervisorState();
   if (state.stopping) return "stopping";
-  const workers = [state.generation, state.mediaOperation, state.cleanup];
+  const workers = [state.queue];
   if (
     !state.started ||
     workers.some((worker) => {
-      if (!worker.started || worker.stopping) return true;
+      if (!worker.started || worker.stopping || !worker.schemaReady) return true;
       const heartbeatAgeSeconds = (worker as { heartbeatAgeSeconds?: number | null })
         .heartbeatAgeSeconds;
       return heartbeatAgeSeconds !== undefined &&
@@ -35,7 +36,9 @@ function workerStatus(): ReadinessSnapshot["workers"] {
 
 async function databaseStatus() {
   const databaseCheck = measureDatabase("health.readiness", async () => {
-    await prisma.$queryRaw(Prisma.sql`SELECT 1`);
+    const [state] = await prisma.$queryRaw<Array<{ mode: string; migrationVerified: boolean }>>(Prisma.sql`SELECT "mode", "migrationVerified" FROM "QueueRuntime" WHERE "id" = 1`);
+    if (!state) throw new Error("QUEUE_RUNTIME_MISSING");
+    return state.mode === "shared" && state.migrationVerified ? "shared" as const : "paused" as const;
   });
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
@@ -47,23 +50,24 @@ async function databaseStatus() {
   });
 
   try {
-    await Promise.race([databaseCheck, timeout]);
-    return "ok" as const;
+    const queue = await Promise.race([databaseCheck, timeout]);
+    return { database: "ok" as const, queue };
   } catch {
-    return "failed" as const;
+    return { database: "failed" as const, queue: "unavailable" as const };
   } finally {
     if (timer) clearTimeout(timer);
   }
 }
 
 export async function getReadinessSnapshot(): Promise<ReadinessSnapshot> {
-  const [database, workers] = await Promise.all([
+  const [{ database, queue }, workers] = await Promise.all([
     databaseStatus(),
     Promise.resolve().then(workerStatus),
   ]);
   return {
-    ready: database === "ok" && workers === "ok",
+    ready: database === "ok" && workers === "ok" && queue === "shared",
     database,
     workers,
+    queue,
   };
 }

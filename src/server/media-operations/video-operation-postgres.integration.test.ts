@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { useSharedQueueFixture, claimFixtureQueueJob, removeFixtureQueueJobs } from "@/test-utils/job-queue-postgres";
 
 import { randomUUID } from "node:crypto";
 
@@ -10,23 +11,56 @@ import { mediaAssetIdsForPort } from "@/shared/generation-graph/media-output";
 import { MediaOperationLeaseLostError } from "./media-operation-lease";
 import { updateGenerationGraphSchema } from "@/server/generation-graph/generation-graph-contract";
 import { createStorageCleanupIntent } from "@/server/media-assets/media-cleanup-repository";
-import { processMediaOperationJobs, stopMediaOperationWorker } from "./media-operation-worker";
+import { mediaOperationQueueHandler } from "@/server/job-queue/handlers/media-operation-handler";
+import { createStorageCleanupHandler } from "@/server/job-queue/handlers/storage-cleanup-handler";
+import { createQueueRunner } from "@/server/job-queue/job-queue-runner";
+import { withQueueTransaction } from "@/server/job-queue/job-queue-transaction";
+import { enqueueQueueJobTx, queueScopeDigest } from "@/server/job-queue/job-queue-registration";
+import { settleQueueSuccess } from "@/server/job-queue/job-queue-settlement";
+import type { QueueLease } from "@/server/job-queue/contracts";
+import type { GeneratedMediaArtifact } from "@/server/media-assets/generated-media-artifact";
 
 const worker = vi.hoisted(() => ({ frames: vi.fn(), upload: vi.fn() }));
 vi.mock("./ffmpeg-frame-processor", () => ({ processVideoFrameOperation: worker.frames }));
-vi.mock("@/server/image-generation/storage/adapters/leemage-storage-adapter", () => ({ uploadMediaOperationImages: worker.upload }));
+vi.mock("@/server/image-generation/storage/adapters/leemage-storage-adapter", async original => ({
+  ...await original<typeof import("@/server/image-generation/storage/adapters/leemage-storage-adapter")>(), uploadMediaOperationImages: worker.upload,
+}));
 
 describe.skipIf(!postgresIntegrationEnabled)("server video operation persistence", () => {
   const suffix = randomUUID();
   const ownerEmail = `video-operation-${suffix}@example.com`;
+  useSharedQueueFixture(() => [ownerEmail]);
   const graphId = `video-operation-${suffix}`;
   const stitchId = `stitch-${suffix}`;
   const trimId = `trim-${suffix}`;
   const clipIds = [`clip-a-${suffix}`, `clip-b-${suffix}`];
   const copiedIds: string[] = [];
+  afterEach(async () => {
+    const jobs = await prisma.queueJob.findMany({ where: { ownerScopeDigest: queueScopeDigest(ownerEmail) }, select: { sourceId: true } });
+    await removeFixtureQueueJobs(jobs.map(j => j.sourceId));
+  });
 
+  async function claimOperation(id: string) {
+    const operation = await mediaAssetRepository.getOperation(ownerEmail, id);
+    await withQueueTransaction(tx => enqueueQueueJobTx(tx, { kind: "media_operation", source: { type: "media_operation", id },
+      ownerScopeDigest: queueScopeDigest(ownerEmail), snapshotRef: "media-operation:" + id }));
+    const claimed = await claimFixtureQueueJob(mediaOperationQueueHandler);
+    expect(claimed.job.executionId).toBe(id);
+    return { operation, lease: claimed.lease };
+  }
+  async function completeOperation(owner: string, id: string, artifacts: GeneratedMediaArtifact[], now: Date, lease: QueueLease) {
+    let ids: string[] = [];
+    await settleQueueSuccess(lease, { ...mediaOperationQueueHandler, async settleTx(tx) {
+      ids = await mediaAssetRepository.completeServerOperation(owner, id, artifacts, now, lease, tx);
+      return "succeeded";
+    } }, artifacts);
+    return ids;
+  }
+  async function processMediaOperationJobs() {
+    const runner = createQueueRunner([mediaOperationQueueHandler, createStorageCleanupHandler({ name: "leemage", delete: async () => {} } as never)]);
+    try { await runner.pump(); await runner.drain(); } finally { await runner.stop(); }
+  }
   afterAll(async () => {
-    await stopMediaOperationWorker();
     await prisma.mediaOperation.deleteMany({ where: { ownerEmail } });
     await prisma.generationGraph.deleteMany({ where: { id: { in: [graphId, ...copiedIds] } } });
     await prisma.mediaCleanupTask.deleteMany({ where: { ownerEmail } });
@@ -74,11 +108,11 @@ describe.skipIf(!postgresIntegrationEnabled)("server video operation persistence
         ownerEmail, graphId, graphNodeId: nodeId, type, configVersion: 1,
         parameters, inputs: { create: inputs }, expectedOutputCount: 1,
       } });
-      const claimed = await mediaAssetRepository.claimPendingServerOperation(operation.id);
+      const claimed = await claimOperation(operation.id);
       expect(claimed?.operation.type).toBe(type);
       if (!claimed) throw new Error("operation was not claimed");
       const artifactId = `output-${type}-${suffix}`;
-      await mediaAssetRepository.completeServerOperation(ownerEmail, operation.id, [{
+      await completeOperation(ownerEmail, operation.id, [{
         type: "video", storageProvider: "leemage", storageObjectId: artifactId,
         storageUrl: `https://storage.example/${artifactId}.mp4`, mimeType: "video/mp4",
         bytes: 2048, width: 320, height: 180, durationMs: type === "edit.video.trim" ? 500 : 1200,
@@ -111,12 +145,7 @@ describe.skipIf(!postgresIntegrationEnabled)("server video operation persistence
         graphId, graphNodeId: frameId, type: "edit.video.extractFrames", configVersion: 1,
         parameters: {}, expectedOutputCount: 2, inputs: [{ assetId: clipIds[0], portId: "video", sortOrder: 0 }],
       });
-      const lease = { token: randomUUID(), version: 1 };
-      await prisma.mediaOperation.update({ where: { id: operation.id }, data: {
-        status: "processing", executionLeaseToken: lease.token, executionLeaseVersion: 1,
-        executionLeaseUntil: new Date(Date.now() + 60000),
-      } });
-      return { operation, lease };
+      return claimOperation(operation.id);
     };
     const first = await create();
     for (const invalid of [
@@ -128,7 +157,7 @@ describe.skipIf(!postgresIntegrationEnabled)("server video operation persistence
         new Date(), first.lease)).rejects.toThrow("MEDIA_OPERATION_TARGET_INVALID");
       expect(await prisma.mediaAsset.count({ where: { sourceOperationId: first.operation.id } })).toBe(0);
     }
-    const firstIds = await mediaAssetRepository.completeServerOperation(ownerEmail, first.operation.id, artifacts,
+    const firstIds = await completeOperation(ownerEmail, first.operation.id, artifacts,
       new Date(), first.lease);
     expect(firstIds).toHaveLength(2);
     const firstBindings = (await mediaAssetRepository.getOperation(ownerEmail, first.operation.id)).outputBindings;
@@ -144,7 +173,7 @@ describe.skipIf(!postgresIntegrationEnabled)("server video operation persistence
     expect((await mediaAssetRepository.getOperation(ownerEmail, second.operation.id)).status).toBe("processing");
     expect((await generationGraphRepository.get(ownerEmail, graphId)).outputBindings!.filter(b => b.graphNodeId === frameId)
       .map(b => b.assetId).sort()).toEqual([...firstIds].sort());
-    const secondIds = await mediaAssetRepository.completeServerOperation(ownerEmail, second.operation.id,
+    const secondIds = await completeOperation(ownerEmail, second.operation.id,
       artifacts.map(a => ({ ...a, storageObjectId: randomUUID() })), new Date(), second.lease);
     const graph = await generationGraphRepository.get(ownerEmail, graphId);
     const history = await generationGraphRepository.update(ownerEmail, graphId, updateGenerationGraphSchema.parse({
@@ -210,9 +239,7 @@ describe.skipIf(!postgresIntegrationEnabled)("server video operation persistence
         if (mode === "partial") throw new Error("SECOND_UPLOAD_FAILED");
       }
       if (mode === "cancelled") await mediaAssetRepository.cancelOperation(ownerEmail, requestId);
-      if (mode === "stale") await prisma.mediaOperation.update({ where: { id: requestId }, data: {
-        executionLeaseToken: randomUUID(), executionLeaseVersion: { increment: 1 },
-      } });
+      if (mode === "stale") await prisma.queueAttempt.updateMany({ where: { executionId: requestId, finishedAt: null }, data: { leaseToken: randomUUID(), leaseVersion: { increment: 1 } } });
       return artifacts;
     });
     const initial = await create();
@@ -231,7 +258,7 @@ describe.skipIf(!postgresIntegrationEnabled)("server video operation persistence
       expect(current.status).toBe(failure === "partial" ? "failed" : failure === "cancelled" ? "cancelled" : "processing");
       expect(current.outputs).toEqual([]);
       expect(await prisma.mediaAsset.count({ where: { sourceOperationId: operation.id } })).toBe(0);
-      expect(await prisma.mediaCleanupTask.count({ where: { requestId: operation.id, status: "pending" } })).toBe(failure === "partial" ? 1 : 2);
+      expect(await prisma.mediaCleanupTask.count({ where: { requestId: operation.id, status: { in: ["pending", "uploading", "completed"] } } })).toBe(failure === "partial" ? 1 : 2);
       expect((await generationGraphRepository.get(ownerEmail, graphId)).outputBindings!.filter(binding => binding.graphNodeId === frameId)).toEqual(originalBindings);
       if (failure === "stale") await mediaAssetRepository.cancelOperation(ownerEmail, operation.id);
     }
@@ -252,9 +279,9 @@ describe.skipIf(!postgresIntegrationEnabled)("server video operation persistence
     const artifact = (outputPortId: string) => ({ outputPortId, sortOrder: 0, type: "image" as const, storageProvider: "leemage" as const,
       storageObjectId: randomUUID(), storageUrl: `https://storage.example/${randomUUID()}.png`, mimeType: "image/png", bytes: 100, width: 160, height: 90, durationMs: null });
     const legacy = await mediaAssetRepository.createOperation(ownerEmail, { ...input, parameters: {}, expectedOutputCount: 2 });
-    const legacyClaim = await mediaAssetRepository.claimPendingServerOperation(legacy.id);
+    const legacyClaim = await claimOperation(legacy.id);
     if (!legacyClaim) throw new Error("legacy operation was not claimed");
-    await mediaAssetRepository.completeServerOperation(ownerEmail, legacy.id, [artifact("startFrame"), artifact("endFrame")], new Date(), legacyClaim.lease);
+    await completeOperation(ownerEmail, legacy.id, [artifact("startFrame"), artifact("endFrame")], new Date(), legacyClaim.lease);
     const legacyBindings = (await generationGraphRepository.get(ownerEmail, graphId)).outputBindings!.filter(binding => binding.graphNodeId === frameId);
     const points: Array<{ operationId: string; assetId: string; timestampMs: number }> = [];
     for (const timestampMs of [0, 1250]) {
@@ -265,7 +292,7 @@ describe.skipIf(!postgresIntegrationEnabled)("server video operation persistence
       await expect(mediaAssetRepository.createOperation(`other-${ownerEmail}`, { ...input, parameters: { timestampMs }, expectedOutputCount: 1 }))
         .rejects.toThrow("MEDIA_OPERATION_TARGET_INVALID");
       const operation = await mediaAssetRepository.createOperation(ownerEmail, { ...input, parameters: { timestampMs }, expectedOutputCount: 1 });
-      const claimed = await mediaAssetRepository.claimPendingServerOperation(operation.id);
+      const claimed = await claimOperation(operation.id);
       if (!claimed) throw new Error("point operation was not claimed");
       // Live edits after acceptance cannot change the operation's input or extraction mode.
       await prisma.generationGraphNode.update({ where: { id: frameId }, data: { config: { parameters: {} } } });
@@ -279,7 +306,7 @@ describe.skipIf(!postgresIntegrationEnabled)("server video operation persistence
       }
       await expect(mediaAssetRepository.completeServerOperation(`other-${ownerEmail}`, operation.id, [artifact("frame")], new Date(), claimed.lease))
         .rejects.toBeInstanceOf(MediaOperationLeaseLostError);
-      const assetIds = await mediaAssetRepository.completeServerOperation(ownerEmail, operation.id, [artifact("frame")], new Date(), claimed.lease);
+      const assetIds = await completeOperation(ownerEmail, operation.id, [artifact("frame")], new Date(), claimed.lease);
       expect(assetIds).toHaveLength(1);
       points.push({ operationId: operation.id, assetId: assetIds[0], timestampMs });
       const history = await mediaAssetRepository.getOperation(ownerEmail, operation.id);

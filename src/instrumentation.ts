@@ -25,5 +25,5 @@ export async function register() {
   const { startWorkerSupervisor } = await import(
     "@/server/runtime/worker-supervisor"
   );
-  startWorkerSupervisor();
+  await startWorkerSupervisor();
 }

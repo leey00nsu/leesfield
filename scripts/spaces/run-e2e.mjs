@@ -122,6 +122,8 @@ async function seed(url) {
     finally { hook.deregister(); }
     const fixtures = items.map(item => modelCatalogInputSchema.parse(item));
     for (const item of fixtures) await prisma.modelCatalog.create({ data: item });
+    // This newly migrated, disposable DB has no legacy work to backfill.
+    await prisma.queueRuntime.update({ where: { id: 1 }, data: { mode: "shared", migrationVerified: true } });
     process.stdout.write("Seeded isolated model catalog (" + items.length + " fixtures)\n");
   } finally { await prisma.$disconnect(); await pool.end(); }
 }
