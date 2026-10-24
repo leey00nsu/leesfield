@@ -51,6 +51,19 @@ function tree(editor: SpaceEditorSession, children: ReactNode, cache?: QueryClie
 afterEach(() => { cleanup(); for (const cache of clients.splice(0)) cache.clear(); vi.restoreAllMocks(); vi.useRealTimers(); });
 
 describe("Space node execution status", () => {
+  it("reads a direct edit from the result node without borrowing another run from its immutable source", () => {
+    const node = result("cropped", "crop-run", "pending", "source");
+    node.config = { assetId: null, resultSource: { nodeId: "source", executionId: "crop-run", portId: "editedImage", index: 0, state: "pending" } };
+    const editor = session([{ ...producer("source"), kind: "input.image", config: { assetId: "original" } }, node]);
+    const crop = execution("crop-run", 3, { graphNodeId: "cropped", executionKind: "media_operation", status: "processing", finishedAt: null });
+    editor.patchRuntime("cropped", { execution: crop });
+    editor.patchRuntime("source", { execution: execution("unrelated") });
+    render(tree(editor, <Probe id="cropped" />));
+    expect(screen.getByTestId("cropped")).toHaveAttribute("data-execution-id", "crop-run");
+    expect(screen.getByTestId("cropped")).toHaveAttribute("data-active", "true");
+    act(() => editor.patchRuntime("cropped", { execution: { ...crop, status: "completed", finishedAt: "2026-10-21T00:00:03.000Z" } }));
+    expect(screen.getByTestId("cropped")).toHaveTextContent("3s total");
+  });
   it("pins the first three result durations while the producer starts a fourth run", () => {
     const cache = client(), editor = session([producer(), ...[1, 2, 3].map(index => result(`result-${index}`, `run-${index}`))]);
     const previous = [1, 2, 3].map(index => execution(`run-${index}`, index * 10));

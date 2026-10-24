@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/server/db/prisma";
+import { directEditTypes } from "@/shared/media-assets/direct-media-edit";
 
 export type MediaOperationLease = {
   token: string;
@@ -11,6 +12,7 @@ export const MEDIA_OPERATION_GLOBAL_LIMIT = 2;
 export const MEDIA_OPERATION_LEASE_MS = 60_000;
 export const MEDIA_OPERATION_HEARTBEAT_MS = 10_000;
 export const MEDIA_OPERATION_WORKER_TYPES = [
+  ...directEditTypes,
   "edit.image.removeBackground",
   "edit.video.stitch",
   "edit.video.trim",

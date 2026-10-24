@@ -10,6 +10,7 @@ import { resultGalleryItems, resultSource } from "../../model/generation-result-
 import type { NodeExecutionDto, NodeExecutionStatus } from "../../model/node-execution-types";
 import type { SpaceNodeRuntime } from "../../model/space-editor-types";
 import { useSpaceSelector } from "../space-editor-provider";
+import { isDirectEditPort } from "@/shared/media-assets/direct-media-edit";
 
 export interface SpaceNodeExecutionState {
   execution?: NodeExecutionDto;
@@ -71,14 +72,15 @@ export function useSpaceNodeExecutionState(node: CanonicalNode | undefined, runt
     : gallery.some(item => item.state === "failed") ? "failed" : "cancelled" : undefined;
   const source = node?.configVersion === 1 && ["input.image", "input.audio", "input.video"].includes(node.kind) ? resultSource(node.config)
     : pending?.[0] ?? gallery?.at(-1) ?? null;
-  const producerId = source?.nodeId || (node && (node.kind.startsWith("generate.") || node.kind.startsWith("edit.")) ? node.id : undefined);
+  const direct = Boolean(source && isDirectEditPort(source.portId));
+  const producerId = direct ? node?.id : source?.nodeId || (node && (node.kind.startsWith("generate.") || node.kind.startsWith("edit.")) ? node.id : undefined);
   const boundId = source ? typeof source.executionId === "string" && source.executionId ? source.executionId : null : undefined;
   const relatedRuntime = useSpaceSelector(state => {
     if (!source || !boundId) return undefined;
     const execution = state.runtimeByNode.get(source.nodeId)?.execution;
     return execution?.executionId === boundId && execution.graphNodeId === source.nodeId ? execution : undefined;
   });
-  const candidate = source ? relatedRuntime : runtime?.execution;
+  const candidate = direct ? runtime?.execution : source ? relatedRuntime : runtime?.execution;
   const ownExecution = candidate && candidate.graphNodeId === producerId && (!source || candidate.executionId === boundId) ? candidate : undefined;
   const cached = useCachedExecution(graphId, producerId, boundId);
   const observedExecution = resolveExecution(ownExecution, cached);

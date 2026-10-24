@@ -198,10 +198,10 @@ test.describe("Spaces maximum canonical graph", () => {
           expectBoundedBody(body);
           const response = await page.request.put(endpoint, { data: body });
           expect(response.status(), await response.text()).toBe(400);
-          // Both the update schema and its v3 refinement report this limit.
+          // Zod stops at the array limit before running the v3 refinement.
           const error = `Too big: expected array to have <=${limit} items`;
           expect(await response.json()).toEqual({
-            message: "INVALID_REQUEST", errors: { formErrors: [], fieldErrors: { [field]: [error, error] } },
+            message: "INVALID_REQUEST", errors: { formErrors: [], fieldErrors: { [field]: [error] } },
           });
           expect(await readGraph(page, endpoint)).toEqual(unchanged);
         });

@@ -2,6 +2,7 @@ import type { CanonicalEdge, CanonicalNode } from "@/shared/generation-graph/can
 import type { AssistantResults } from "@/shared/generation-graph/assistant-output";
 import { mediaAssetIdsForPort, type MediaOutputBinding } from "@/shared/generation-graph/media-output";
 import { findPortDefinition, videoCaptureOutputPortId, type GeneratedResultGalleryItem } from "@/shared/generation-graph/node-registry";
+import { isDirectEditPort } from "@/shared/media-assets/direct-media-edit";
 import { resolveGraphText } from "@/shared/generation-graph/prompt-constructor";
 import { orderedFileSources, parseFileInputPort } from "@/shared/model-catalog/file-input-ports";
 
@@ -153,7 +154,7 @@ export class SpaceInputResolver {
   }
 
   sourceAssetIds(nodeId: string, sourcePortId: string, visited = new Set<string>()): string[] {
-    if (sourcePortId === videoCaptureOutputPortId) return [];
+    if (sourcePortId === videoCaptureOutputPortId || isDirectEditPort(sourcePortId)) return [];
     const source = this.nodes.get(nodeId);
     if (!source) return [];
     const config = record(source.config);

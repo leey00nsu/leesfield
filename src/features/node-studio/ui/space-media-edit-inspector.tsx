@@ -32,9 +32,7 @@ import { validateNodeConfig } from "@/shared/generation-graph/node-registry";
 import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
 import { getMediaAssetName } from "@/shared/media-assets/media-asset-name";
 import { AppButton } from "@/shared/ui/app-button";
-import { AppChoiceSelect } from "@/shared/ui/app-choice-select";
 import { AppInput } from "@/shared/ui/app-input";
-import { AppTabs } from "@/shared/ui/app-tabs";
 import { Switch } from "@/shared/ui/brand/switch/switch";
 import { updateSpaceNodeAuthoringConfig } from "../model/space-editor-authoring";
 import { useSpaceEditor, useSpaceResolvedInput, useSpaceSelector, useSpaceViewSelector } from "./space-editor-provider";
@@ -91,44 +89,6 @@ function NumericField({ label, value, min = 1, max = 8192, step = 1, unit, disab
       {unit && <span className="shrink-0 text-xs">{unit}</span>}
     </span>
   </label>;
-}
-
-function ResizeSettings({ nodeId }: { nodeId: string }) {
-  const { parameters, disabled, update } = useMediaEditParameters(nodeId, "edit.image.resize"), tc = useCanvasTranslation();
-  const mode = typeof parameters.mode === "string" ? parameters.mode : "exact";
-  const format = typeof parameters.format === "string" ? parameters.format : "png";
-  return <div className="space-y-4" data-space-resize-settings="">
-    <AppTabs selectionOnly ariaLabel={tc("Resize mode")} value={mode}
-      listClassName="h-auto min-h-10 w-full overflow-x-auto overflow-y-hidden" triggerClassName="h-auto min-h-8 text-xs"
-      items={(["exact", "maxEdge", "scale"] as const).map(value => ({ value, disabled, label: tc(value === "exact" ? "Exact" : value === "maxEdge" ? "Max Edge" : "Scale %") }))}
-      onValueChange={next => { if (!disabled && ["exact", "maxEdge", "scale"].includes(next)) update({ mode: next }); }} />
-    <div className="grid grid-cols-2 gap-3">
-      {mode === "exact" && <>
-        <NumericField label={tc("Width")} value={number(parameters.width, 128)} disabled={disabled} unit="px" onChange={width => update({ width })} />
-        <NumericField label={tc("Height")} value={number(parameters.height, 128)} disabled={disabled} unit="px" onChange={height => update({ height })} />
-        <div className="space-y-1"><span className="block text-xs text-neutral-400">{tc("Fit")}</span>
-          <AppChoiceSelect label={tc("Fit")} value={typeof parameters.fit === "string" ? parameters.fit : "contain"} disabled={disabled}
-            options={[{ value: "contain", label: tc("Contain") }, { value: "cover", label: tc("Cover") }, { value: "stretch", label: tc("Stretch") }]}
-            onValueChange={fit => update({ fit })} />
-        </div>
-        <label className="grid gap-1 text-xs text-neutral-400"><span>{tc("Pad color")}</span>
-          <AppInput aria-label={tc("Pad color")} value={typeof parameters.padColor === "string" ? parameters.padColor : "#00000000"}
-            maxLength={64} disabled={disabled} className="h-9 text-sm text-neutral-200" onChange={event => {
-              if (event.currentTarget.value.length) update({ padColor: event.currentTarget.value });
-            }} />
-        </label>
-      </>}
-      {mode === "maxEdge" && <NumericField label={tc("Max edge")} value={number(parameters.maxEdge, 128)} disabled={disabled} unit="px" onChange={maxEdge => update({ maxEdge })} />}
-      {mode === "scale" && <NumericField label={tc("Scale %")} value={number(parameters.scalePct, 100)} max={800} step={0.01} disabled={disabled} unit="%" onChange={scalePct => update({ scalePct })} />}
-      <div className="space-y-1"><span className="block text-xs text-neutral-400">{tc("Format")}</span>
-        <AppChoiceSelect label={tc("Format")} value={format} disabled={disabled}
-          options={[{ value: "keep", label: tc("Keep") }, { value: "png", label: "PNG" }, { value: "jpeg", label: "JPEG" }, { value: "webp", label: "WebP" }]}
-          onValueChange={next => update({ format: next })} />
-      </div>
-      {(format === "jpeg" || format === "webp") && <NumericField label={tc("Quality")} value={number(parameters.quality, 0.9)} min={0} max={1} step={0.05}
-        disabled={disabled} onChange={quality => update({ quality })} />}
-    </div>
-  </div>;
 }
 
 function StitchSettings({ nodeId }: { nodeId: string }) {
@@ -194,7 +154,6 @@ function FramesSettings({ nodeId }: { nodeId: string }) {
 /** Panel contents only; SpaceNodeInspector owns selection and the common portal. */
 export function SpaceMediaEditInspector({ nodeId }: { nodeId: string }) {
   const kind = useSpaceSelector(state => state.nodeById.get(nodeId)?.kind);
-  if (kind === "edit.image.resize") return <ResizeSettings nodeId={nodeId} />;
   if (kind === "edit.video.stitch") return <StitchSettings nodeId={nodeId} />;
   if (kind === "edit.video.extractFrames") return <FramesSettings nodeId={nodeId} />;
   return null;

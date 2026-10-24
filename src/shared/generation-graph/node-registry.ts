@@ -360,6 +360,7 @@ export const canonicalNodeRegistry: Readonly<Record<CanonicalNodeKind, NodeDefin
   "input.image": definition("input.image", assetInputConfigSchema, [
     input("reference", "image", { acceptedMimeTypes: imageMime }),
     output("image", "image", { acceptedMimeTypes: imageMime }),
+    output("editedImage", "image", { acceptedMimeTypes: ["image/png"] }),
   ]),
   "input.audio": definition("input.audio", assetInputConfigSchema, [
     input("audio", "audio", { acceptedMimeTypes: audioMime }),
@@ -369,6 +370,7 @@ export const canonicalNodeRegistry: Readonly<Record<CanonicalNodeKind, NodeDefin
     input("video", "video", { acceptedMimeTypes: videoMime }),
     output("video", "video", { acceptedMimeTypes: videoMime }),
     output(videoCaptureOutputPortId, "image", { acceptedMimeTypes: ["image/png"] }),
+    output("editedVideo", "video", { acceptedMimeTypes: ["video/mp4"] }),
   ]),
   "input.prompt": definition("input.prompt", promptInputConfigSchema, [
     input("text", "text"),
@@ -568,6 +570,8 @@ export const canonicalNodeRegistry: Readonly<Record<CanonicalNodeKind, NodeDefin
     input("video", "video", { acceptedMimeTypes: videoMime }),
     input("audio", "audio", { acceptedMimeTypes: audioMime }),
     output(videoCaptureOutputPortId, "image", { acceptedMimeTypes: ["image/png"] }),
+    output("editedImage", "image", { acceptedMimeTypes: ["image/png"] }),
+    output("editedVideo", "video", { acceptedMimeTypes: ["video/mp4"] }),
   ]),
   "output.gallery": definition("output.gallery", galleryConfigSchema, [
     input("image", "image", {

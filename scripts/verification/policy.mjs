@@ -20,9 +20,9 @@ const ownedFiles = new Map([
   ["space-memo-inspector", ["canvas"]],
   ["space-video-capture-menu", ["capture"]],
   ["space-video-capture-controller", ["capture"]],
-  ["video-trim-editor", ["capture"]],
+  ["video-frame-editor", ["capture"]],
   ["space-media-edit-inspector", ["capture"]],
-  ...["space-node-media", "space-node-video", "space-node-output", "space-node-gallery", "space-node-compare", "space-node-resize", "space-media-preview", "space-media-clear-button", "space-input-media-chooser", "space-image-view-settings", "space-gallery-items", "use-space-filmstrip", "use-space-media-download"].map(name => [name, ["media"]]),
+  ...["space-node-media", "space-node-video", "space-node-output", "space-node-gallery", "space-node-compare", "space-media-preview", "space-media-clear-button", "space-input-media-chooser", "space-image-view-settings", "space-gallery-items", "use-space-filmstrip", "use-space-media-download"].map(name => [name, ["media"]]),
   ...["space-canvas", "space-edge", "space-group", "space-editor-toolbar", "space-node-menu", "space-tutorial", "space-quickstart", "space-quickstart-templates", "space-quickstart-types"].map(name => [name, ["canvas"]]),
 ]);
 

@@ -15,6 +15,8 @@ import { useSpaceEditor, useSpaceInputRevision, useSpaceResolvedInput, useSpaceS
 import { useSpaceInputMedia, type SpaceInputExpectation } from "../space-input-media-provider";
 import { useSpaceImageFit } from "../space-image-view-settings";
 import { SpaceMediaPreview, type SpaceMediaDimensions } from "./space-media-preview";
+import { useSpaceMediaEdit, useSpaceMediaEditDraft } from "../space-media-edit-provider";
+import { isDirectEditPort } from "@/shared/media-assets/direct-media-edit";
 import { SpaceNodeFrame } from "./space-node-frame";
 import styles from "./space-node-media.module.css";
 
@@ -24,6 +26,8 @@ function record(value: unknown): Record<string, unknown> {
 
 /** Canonical media input presenter. All durable writes and transfers belong to the controller. */
 export function SpaceMediaInputNode({ nodeId }: { nodeId: string }) {
+  const mediaEdit = useSpaceMediaEdit();
+  const editing = useSpaceMediaEditDraft()?.nodeId === nodeId;
   const scope = useSpaceEditor(), controller = useSpaceInputMedia(), tc = useCanvasTranslation(), t = useTranslations("nodeStudio.mediaNodes");
   const node = useSpaceSelector(state => state.nodeById.get(nodeId));
   const writable = useSpaceSelector(state => state.writable), selected = useSpaceSelector(state => state.selectedNodeIds.includes(nodeId));
@@ -124,7 +128,7 @@ export function SpaceMediaInputNode({ nodeId }: { nodeId: string }) {
           restoreFocus();
         }} />
       {asset ? <>
-        <SpaceMediaPreview asset={asset} selected={selected} hovered={hovered} zoom={zoom} imageFit={mediaType === "image" ? fit : undefined}
+        <SpaceMediaPreview asset={asset} selected={selected} hovered={hovered} active={editing ? false : undefined} zoom={zoom} imageFit={mediaType === "image" ? fit : undefined}
           onOpen={(asset, trigger, onClosed) => scope.view.getState().services.openMediaDetail?.(nodeId, asset, trigger, onClosed)}
           videoRef={video}
           videoInlineOnly={mediaType === "video"} onLoadedDimensions={onLoadedDimensions} />
@@ -142,7 +146,12 @@ export function SpaceMediaInputNode({ nodeId }: { nodeId: string }) {
         onClick={event => { event.stopPropagation(); if (controller.clear(nodeId)) body.current?.closest<HTMLElement>("[data-space-node-body]")?.focus({ preventScroll: true }); }}><X /></button>}
       {presentation.isOptional === true && asset && <span className={styles.badge}>{tc("Optional")}</span>}
       {connected && asset && mediaType === "image" && <span className={styles.badge}>{tc("Connected image")}</span>}
-      {pending && <div className={styles.pending}><GenerationPending status={sourceExecution?.executionId === resultSource.executionId ? sourceExecution?.status ?? "processing" : "processing"} /></div>}
+      {pending && <div className={styles.pending}><GenerationPending status={sourceExecution?.executionId === resultSource.executionId ? sourceExecution?.status ?? "processing" : "processing"} />
+        {mediaEdit && typeof resultSource.portId === "string" && isDirectEditPort(resultSource.portId) && <button type="button"
+          className="nodrag nopan absolute bottom-3 rounded-md bg-white/10 px-3 py-1 text-xs text-white hover:bg-white/20"
+          disabled={!writable} onPointerDown={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}
+          onClick={() => mediaEdit.cancelResult(nodeId)}>{tc("Cancel")}</button>}
+      </div>}
       {uploading && <div className={cn(styles.status, "nodrag nopan")} role="status" aria-busy="true">
         <LoaderCircle className={styles.spinner} aria-hidden="true" />{t("uploading")}
         <button type="button" onClick={() => controller.cancel(nodeId)}>{tc("Cancel")}</button>

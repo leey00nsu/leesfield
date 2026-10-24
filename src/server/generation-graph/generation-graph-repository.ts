@@ -1,6 +1,8 @@
 import { Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { copySpaceConfig } from "./copy-space-config";
+import { directEditTypes, isDirectEditPort } from "@/shared/media-assets/direct-media-edit";
+import { objectRecord } from "@/server/media-edits/direct-edit-target";
 
 import { prisma } from "@/server/db/prisma";
 import {
@@ -482,7 +484,7 @@ async function assertRuntimeTransitionIsIdle(
       where: { graphNodeId: { in: graphNodeIds }, status: { in: ["pending", "processing", "uploading"] } },
     }),
     tx.mediaOperation.count({
-      where: { graphNodeId: { in: graphNodeIds }, status: { in: ["pending", "processing", "uploading"] } },
+      where: { graphNodeId: { in: graphNodeIds }, type: { notIn: [...directEditTypes] }, status: { in: ["pending", "processing", "uploading"] } },
     }),
     tx.assistantExecution.count({
       where: { graphNodeId: { in: graphNodeIds }, status: { in: ["pending", "processing"] } },
@@ -538,6 +540,19 @@ async function update(
     if (existing.version !== input.expectedVersion) {
       throw new GenerationGraphVersionConflictError();
     }
+    // A position/settings autosave started before queue completion must not
+    // erase a frozen direct-edit result. Explicit clears remove the binding.
+    const savedNodes = new Map(existing.nodes.map(node => [node.id, node]));
+    input = { ...input, nodes: input.nodes.map(node => {
+      const saved = savedNodes.get(node.id);
+      const oldConfig = objectRecord(saved?.config), nextConfig = objectRecord(node.config);
+      const old = objectRecord(oldConfig.resultSource), next = objectRecord(nextConfig.resultSource);
+      return saved && typeof old.portId === "string" && isDirectEditPort(old.portId) && old.executionId
+        && old.executionId === next.executionId && old.state !== "pending" && next.state === "pending"
+        ? { ...node, selectedOutputAssetId: saved.selectedOutputAssetId,
+          config: { ...nextConfig, assetId: oldConfig.assetId ?? null, resultSource: oldConfig.resultSource } as typeof node.config }
+        : node;
+    }) };
     assertUnavailableNodesPreserved(existing.nodes, input.nodes);
     assertUnavailableEdgesPreserved(existing, input);
     assertActiveFrameOutputEdges(existing, input);

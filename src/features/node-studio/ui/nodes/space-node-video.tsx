@@ -15,10 +15,10 @@ import { useSpaceEditor, useSpaceResolvedInput, useSpaceSelector } from "../spac
 import { SpaceMediaPreview } from "./space-media-preview";
 import { SpaceMediaClearButton } from "./space-media-clear-button";
 import { SpaceNodeFrame } from "./space-node-frame";
-import { VideoTrimEditor, type VideoFrameCapture } from "./video-trim-editor";
+import { VideoFrameEditor, type VideoFrameCapture } from "./video-frame-editor";
 import styles from "./space-node-video.module.css";
 
-const videoKinds = new Set(["edit.video.stitch", "edit.video.trim", "edit.video.extractFrames"]);
+const videoKinds = new Set(["edit.video.stitch", "edit.video.extractFrames"]);
 const activeStatuses = new Set(["pending", "processing", "uploading"]);
 function record(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
@@ -101,10 +101,6 @@ export function SpaceVideoNode({ nodeId }: { nodeId: string }) {
   }, [scope, nodeId, kind]);
   // Stable during parameter edits, selection, movement and unrelated query updates.
   // A callback from a previous source/Space lifetime cannot apply an old timeline range.
-  const changeTrim = useCallback((patch: Record<string, unknown>) => {
-    if (mountedSource.current !== sourceToken || sourceLifetime.getSnapshot() !== bindingSnapshot) return;
-    updateParameters(patch);
-  }, [bindingSnapshot, sourceLifetime, sourceToken, updateParameters]);
   const changeFrame = useCallback((timestampMs: number) => {
     if (mountedSource.current !== sourceToken || sourceLifetime.getSnapshot() !== bindingSnapshot) return false;
     return updateParameters({ timestampMs });
@@ -118,16 +114,13 @@ export function SpaceVideoNode({ nodeId }: { nodeId: string }) {
   }, [scope, nodeId, kind, sourceId, source?.type, changeFrame]);
 
   if (!node || !validKind) return null;
-  return <SpaceNodeFrame nodeId={nodeId} fullBleed={kind !== "edit.video.trim"} contentClassName={styles.content}>
+  return <SpaceNodeFrame nodeId={nodeId} fullBleed contentClassName={styles.content}>
     <div className={`${styles.body} nodrag nopan nowheel`} data-space-video={kind}
       onPointerDown={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
       <SpaceMediaClearButton nodeId={nodeId} portIds={kind === "edit.video.stitch" ? stitchResultSelected ? [] : ["clips", "soundtrack"] : ["video"]}
         clearOutput={stitchResultSelected} label={stitchResultSelected ? tc("Clear result") : undefined} />
-      {kind === "edit.video.trim" ? <VideoTrimEditor key={sourceKey} source={source} output={undefined} externalResults active={selected}
-        startMs={number(parameters.startMs, 0)} endMs={number(parameters.endMs, 5_000)} stripAudio={parameters.stripAudio === true}
-        writable={canEdit} onChange={changeTrim} /> : kind === "edit.video.extractFrames" && source?.type === "video" ?
-        <VideoTrimEditor key={sourceKey} source={source} output={undefined} externalResults active={selected}
-          startMs={0} endMs={source.durationMs ?? 600_000} stripAudio={false} writable={canEdit} onChange={() => {}}
+      {kind === "edit.video.extractFrames" && source?.type === "video" ?
+        <VideoFrameEditor key={sourceKey} source={source} active={selected} writable={canEdit}
           frame={{ timestampMs: number(parameters.timestampMs, 0), onChange: changeFrame }} frameCaptureRef={frameCapture} />
         : <div className={styles.media} role="region" aria-label={tc(kind === "edit.video.stitch" ? "Operation result" : "Operation source")}>
         {media?.type === "video"

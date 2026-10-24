@@ -12,6 +12,7 @@ import { SpaceNode } from "./nodes/space-node";
 import { useSpaceModelServices } from "./space-model-tools";
 import { SpaceNodeInspector } from "./space-node-inspector";
 import { useSpaceMediaDownload } from "../hook/use-space-media-download";
+import { SpaceMediaEditProvider } from "./space-media-edit-provider";
 import { useSpaceOperationError } from "../hook/use-space-operation-error";
 
 const noServices: SpaceEditorServices = {};
@@ -34,10 +35,12 @@ export function SpaceEditor({ session, catalog, services = noServices, inputRunt
     downloadSelected: services.downloadSelected ?? downloads.downloadSelected, downloadingSelected: downloads.downloadingSelected }), [scope, services, reportError, media.filesDrop, media.captureVideoFrame, media.openMediaDetail, media.portMediaRequest, models.createNode, models.createConnectedNode, models.browseModel, downloads.downloadSelected, downloads.downloadingSelected]);
   return <SpaceEditorProvider session={session} scope={scope} catalog={catalog} services={combined} inputRuntime={inputRuntime}>
     <SpaceInputMediaProvider controller={media.controller}>
+      <SpaceMediaEditProvider>
       <SpaceCanvas settings={settings} className={className}>{children}</SpaceCanvas>
       {media.tools}
       {models.tools}
       <SpaceNodeInspector />
+      </SpaceMediaEditProvider>
     </SpaceInputMediaProvider>
   </SpaceEditorProvider>;
 }

@@ -15,16 +15,16 @@ import { createSpaceEditorScope, SpaceEditorProvider, useSpaceEditor, useSpaceIn
 import { SpaceMediaEditInspector } from "../space-media-edit-inspector";
 import { SpaceNodeAuthoringProvider } from "./space-node-authoring-provider";
 import { SpaceVideoNode } from "./space-node-video";
-import type { VideoTrimEditor } from "./video-trim-editor";
+import type { VideoFrameEditor } from "./video-frame-editor";
 
-type TrimProps = ComponentProps<typeof VideoTrimEditor>;
+type TrimProps = ComponentProps<typeof VideoFrameEditor>;
 const mocks = vi.hoisted(() => ({
   assets: new Map<string, MediaAssetDto>(), assetErrors: new Set<string>(), executions: [] as NodeExecutionDto[], historyError: false,
   assetQuery: vi.fn(), assetList: vi.fn(), historyQuery: vi.fn(), retry: vi.fn(), trimMount: vi.fn(), trimUnmount: vi.fn(),
   trim: null as TrimProps | null,
   playheadMs: 0,
 }));
-// Exercise the retained Trim/Stitch implementations independently of their product availability.
+// Exercise the retained Stitch implementation independently of their product availability.
 // Real availability, projection and server guards are covered without this override in their own suites.
 vi.mock("@/shared/generation-graph/node-availability", async importOriginal => {
   const actual = await importOriginal<typeof import("@/shared/generation-graph/node-availability")>();
@@ -54,7 +54,7 @@ vi.mock("./space-media-preview", () => ({ SpaceMediaPreview: (props: {
   asset: MediaAssetDto; selected?: boolean; hovered?: boolean;
 }) => <div data-testid="preview" data-asset={props.asset.id} data-selected={props.selected} data-hovered={props.hovered} /> }));
 // Filmstrip/decoder lifetime belongs to the shared widget tests. Inspect its authoring contract here.
-vi.mock("./video-trim-editor", () => ({ VideoTrimEditor: (props: TrimProps) => {
+vi.mock("./video-frame-editor", () => ({ VideoFrameEditor: (props: TrimProps) => {
   mocks.trim = props;
   useImperativeHandle(props.frameCaptureRef, () => ({ timestampMs: () => mocks.playheadMs }));
   useEffect(() => { mocks.trimMount(); return () => { mocks.trimUnmount(); }; }, []);
@@ -151,7 +151,7 @@ describe("SpaceVideoNode", () => {
     expect(view.session.getDocument()).toBe(afterSwitch);
   });
 
-  it.each(["edit.video.stitch", "edit.video.trim", "edit.video.extractFrames"])("routes %s Run/Cancel only through the Frame", kind => {
+  it.each(["edit.video.stitch", "edit.video.extractFrames"])("routes %s Run/Cancel only through the Frame", kind => {
     const view = mount(operation(kind));
     expect(view.runNode).not.toHaveBeenCalled();
     expect(view.cancelNode).not.toHaveBeenCalled();
@@ -226,19 +226,18 @@ describe("SpaceVideoNode", () => {
     expect(view.runNode).not.toHaveBeenCalled();
   });
 
-  it.each(["edit.video.trim", "edit.video.extractFrames"])("clears %s's video source while preserving the producer and selected result", kind => {
+  it.each(["edit.video.extractFrames"])("clears %s's video source while preserving the producer and selected result", kind => {
     const view = mount(operation(kind)), original = view.session.getDocument();
-    const oldTimelineChange = mocks.trim?.onChange;
+    const oldTimelineChange = mocks.trim?.frame.onChange;
     fireEvent.click(view.container.querySelector("[data-space-node-body]")!);
     act(() => {
       fireEvent.click(screen.getByRole("button", { name: "Remove" }));
-      oldTimelineChange?.({ startMs: 2_000, endMs: 7_000 });
+      oldTimelineChange?.(2000);
     });
     expect(view.session.getDocument().edges).toEqual([]);
     expect(view.session.getDocument().nodes).toBe(original.nodes);
     expect(view.session.getDocument().nodes[0].selectedOutputAssetId).toBe("selected-output");
-    if (kind === "edit.video.trim") expect(mocks.trim?.source).toBeUndefined();
-    else expect(screen.queryByTestId("preview")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("preview")).not.toBeInTheDocument();
     act(() => view.session.undo());
     expect(view.session.getDocument()).toEqual(original);
     expect(view.runNode).not.toHaveBeenCalled();
@@ -332,7 +331,7 @@ describe("SpaceVideoNode", () => {
     expect(view.session.getDocument().nodes[0].config).toMatchObject({ parameters: { repeat: 3 } });
   });
 
-  it.each(["edit.video.stitch", "edit.video.trim", "edit.video.extractFrames"])("keeps %s read-only", kind => {
+  it.each(["edit.video.stitch", "edit.video.extractFrames"])("keeps %s read-only", kind => {
     const view = mount(operation(kind), { writable: false });
     fireEvent.click(view.container.querySelector("[data-space-node-body]")!);
     const before = view.session.getDocument();
@@ -342,109 +341,9 @@ describe("SpaceVideoNode", () => {
       expect(screen.getByRole("spinbutton", { name: "Sequence repeat" })).toBeDisabled();
       expect(screen.getByRole("switch")).toHaveAttribute("aria-disabled", "true");
       expect(screen.getByRole("button", { name: "Move video 2 earlier" })).toBeDisabled();
-    } else if (kind === "edit.video.trim") {
-      expect(mocks.trim?.writable).toBe(false);
-      act(() => mocks.trim?.onChange({ startMs: 1_000, endMs: 6_000 }));
     }
     expect(view.session.getDocument()).toBe(before);
     expect(view.runNode).not.toHaveBeenCalled();
-  });
-
-  it("passes canonical millisecond trim values and keeps its callback stable through edits, selection and movement", () => {
-    const view = mount(operation("edit.video.trim"));
-    const onChange = mocks.trim!.onChange;
-    expect(mocks.trim).toMatchObject({ source: { id: "a" }, startMs: 500, endMs: 5_000, stripAudio: false, externalResults: true, active: false });
-    expect(mocks.trim!.output).toBeUndefined();
-    act(() => {
-      view.session.select(["operation"]);
-      view.session.dispatch({ type: "nodes.move", positions: { operation: { x: 300, y: 400 } } });
-      view.session.dispatch({ type: "node.config.fields", nodeId: "operation", changes: [{ path: ["presentation", "comment"], value: "Keep" }] });
-    });
-    expect(mocks.trim?.active).toBe(true);
-    expect(mocks.trim?.onChange).toBe(onChange);
-    fireEvent.click(view.container.querySelector("[data-space-node-body]")!);
-    act(() => onChange({ startMs: 1_250, endMs: 6_750, stripAudio: true }));
-    expect(view.session.getDocument().nodes[0]).toMatchObject({ position: { x: 300, y: 400 }, selectedOutputAssetId: "selected-output",
-      config: { presentation: { comment: "Keep" }, parameters: { startMs: 1_250, endMs: 6_750, stripAudio: true } } });
-    expect(mocks.trim?.onChange).toBe(onChange);
-    act(() => view.session.select([]));
-    expect(mocks.trim?.active).toBe(false);
-    expect(mocks.trimMount).toHaveBeenCalledTimes(1);
-    expect(mocks.trimUnmount).not.toHaveBeenCalled();
-    expect(view.runNode).not.toHaveBeenCalled();
-  });
-
-  it("preserves the 600-second canonical trim boundary and rejects an out-of-range form patch", () => {
-    mocks.assets.set("a", { ...asset("a"), durationMs: 600_000 });
-    const view = mount(operation("edit.video.trim", { parameters: { startMs: 0, endMs: 600_000, stripAudio: true } }));
-    fireEvent.click(view.container.querySelector("[data-space-node-body]")!);
-    expect(mocks.trim).toMatchObject({ startMs: 0, endMs: 600_000, stripAudio: true });
-    const before = view.session.getDocument();
-    act(() => mocks.trim!.onChange({ endMs: 600_001 }));
-    expect(view.session.getDocument()).toBe(before);
-    expect(view.onError).toHaveBeenCalledTimes(1);
-  });
-
-  it("ignores a previously writable timeline callback after permission revocation and after unmount", () => {
-    const view = mount(operation("edit.video.trim"));
-    fireEvent.click(view.container.querySelector("[data-space-node-body]")!);
-    const change = mocks.trim!.onChange;
-    const before = view.session.getDocument();
-    act(() => view.session.reset({ id: "space", version: 2, document: before, writable: false }));
-    expect(mocks.trim?.writable).toBe(false);
-    act(() => change({ startMs: 900, endMs: 4_000 }));
-    expect(view.session.getDocument()).toBe(before);
-    view.unmount();
-    act(() => change({ stripAudio: true }));
-    expect(view.session.getDocument()).toBe(before);
-  });
-
-  it("rejects a prior source's range callback including an A→B→A switch and Space reset", () => {
-    const view = mount(operation("edit.video.trim"));
-    fireEvent.click(view.container.querySelector("[data-space-node-body]")!);
-    const original = mocks.trim!.onChange;
-    act(() => { view.session.dispatch({ type: "output.select", nodeId: "a", assetId: "b" }); });
-    expect(mocks.trim?.source?.id).toBe("b");
-    act(() => original({ startMs: 2_000, endMs: 7_000 }));
-    expect(view.session.getDocument().nodes[0].config).toMatchObject({ parameters: { startMs: 500, endMs: 5_000 } });
-    act(() => { view.session.dispatch({ type: "output.select", nodeId: "a", assetId: "a" }); });
-    expect(mocks.trim?.source?.id).toBe("a");
-    act(() => original({ startMs: 2_000, endMs: 7_000 }));
-    expect(view.session.getDocument().nodes[0].config).toMatchObject({ parameters: { startMs: 500, endMs: 5_000 } });
-    const beforeReset = mocks.trim!.onChange;
-    act(() => view.session.reset({ id: "space", version: 2, document: view.session.getDocument() }));
-    act(() => beforeReset({ stripAudio: true }));
-    expect(view.session.getDocument().nodes[0].config).toMatchObject({ parameters: { stripAudio: false } });
-    fireEvent.click(view.container.querySelector("[data-space-node-body]")!);
-    act(() => mocks.trim!.onChange({ startMs: 700, endMs: 4_000 }));
-    expect(view.session.getDocument().nodes[0].config).toMatchObject({ parameters: { startMs: 700, endMs: 4_000 } });
-  });
-
-  it("reacts to upstream output binding changes without changing saved trim parameters or representative results", () => {
-    const producer: CanonicalNode = { ...input("producer"), kind: "generate.video", config: { prompt: "", modelKey: "video-model", parameters: {} }, selectedOutputAssetId: "a" };
-    const view = mount(operation("edit.video.trim"), { nodes: [producer], edges: [edge("edge-source", "producer", 0, "video")] });
-    fireEvent.click(view.container.querySelector("[data-space-node-body]")!);
-    const oldCallback = mocks.trim!.onChange;
-    act(() => { view.session.dispatch({ type: "output.select", nodeId: "producer", assetId: "b" }); });
-    expect(mocks.trim?.source?.id).toBe("b");
-    act(() => oldCallback({ startMs: 3_000, endMs: 7_500 }));
-    expect(view.session.getDocument().nodes[0]).toMatchObject({ selectedOutputAssetId: "selected-output", config: { parameters: { startMs: 500, endMs: 5_000 } } });
-    expect(view.runNode).not.toHaveBeenCalled();
-  });
-
-  it("invalidates the previous range callback even when A→B→A source changes are batched before a render", () => {
-    const view = mount(operation("edit.video.trim"));
-    fireEvent.click(view.container.querySelector("[data-space-node-body]")!);
-    const change = mocks.trim!.onChange;
-    act(() => {
-      view.session.dispatch({ type: "output.select", nodeId: "a", assetId: "b" });
-      view.session.dispatch({ type: "output.select", nodeId: "a", assetId: "a" });
-      change({ startMs: 2_000, endMs: 7_000 });
-    });
-    expect(view.session.getDocument().nodes[0].config).toMatchObject({ parameters: { startMs: 500, endMs: 5_000 } });
-    expect(mocks.trim!.onChange).not.toBe(change);
-    act(() => mocks.trim!.onChange({ startMs: 750, endMs: 4_750 }));
-    expect(view.session.getDocument().nodes[0].config).toMatchObject({ parameters: { startMs: 750, endMs: 4_750 } });
   });
 
   it("preserves separate start/end frame output bindings and keeps a missing end frame empty", () => {
@@ -472,7 +371,7 @@ describe("SpaceVideoNode", () => {
 
   it("keeps persisted history errors and retry inline while leaving completion status outside the source body", () => {
     mocks.executions = [execution()];
-    const view = mount(operation("edit.video.trim"), { persisted: false });
+    const view = mount(operation("edit.video.extractFrames"), { persisted: false });
     expect(mocks.historyQuery).toHaveBeenLastCalledWith("space", "operation", false);
     act(() => view.session.ack({ version: 2, persistedNodeIds: ["operation", "a"], persistedEdgeIds: ["edge-a"] }));
     expect(mocks.historyQuery).toHaveBeenLastCalledWith("space", "operation", true);

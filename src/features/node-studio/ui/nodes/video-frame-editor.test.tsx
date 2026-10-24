@@ -4,7 +4,7 @@ import { createRef } from "react";
 import messages from "@/shared/i18n/messages/en.json";
 import type { MediaAssetDto } from "@/shared/media-assets/media-asset-contract";
 import { spaceFilmstripScheduler } from "../../lib/space-filmstrip";
-import { VideoTrimEditor, type VideoFrameCapture } from "./video-trim-editor";
+import { VideoFrameEditor, type VideoFrameCapture } from "./video-frame-editor";
 
 const source: MediaAssetDto = { id: "lazy-trim", version: 1, type: "video", status: "completed", origin: "upload", mimeType: "video/mp4", bytes: "2000", width: 320, height: 180, durationMs: 4000, sourceOperationId: null, url: "https://example.com/lazy.mp4", createdAt: "today", updatedAt: "today" };
 let observers: Array<{ callback: IntersectionObserverCallback; target?: Element; disconnected: boolean }>;
@@ -12,7 +12,7 @@ const visibility = (visible: boolean) => act(() => {
   for (const observer of observers) if (!observer.disconnected && observer.target) observer.callback([{ isIntersecting: visible, target: observer.target } as IntersectionObserverEntry], {} as IntersectionObserver);
 });
 const ui = (active: boolean, asset = source) => <NextIntlClientProvider locale="en" messages={messages}>
-  <VideoTrimEditor source={asset} output={undefined} active={active} startMs={1000} endMs={3000} stripAudio={false} writable onChange={vi.fn()} externalResults />
+  <VideoFrameEditor source={asset} active={active} writable frame={{ timestampMs: 0, onChange: vi.fn() }} />
 </NextIntlClientProvider>;
 
 beforeEach(() => {
@@ -31,8 +31,8 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 it("uses one frame playhead, commits explicit seeks and captures live playback without saving playback ticks", () => {
   const change = vi.fn(), capture = createRef<VideoFrameCapture>();
   const { container } = render(<NextIntlClientProvider locale="en" messages={messages}>
-    <VideoTrimEditor source={source} output={undefined} active startMs={0} endMs={4000} stripAudio={false} writable
-      onChange={vi.fn()} frame={{ timestampMs: 1250, onChange: change }} frameCaptureRef={capture} externalResults />
+    <VideoFrameEditor source={source} active writable
+      frame={{ timestampMs: 1250, onChange: change }} frameCaptureRef={capture} />
   </NextIntlClientProvider>);
   visibility(true);
   const media = container.querySelector("video")!;
@@ -56,8 +56,8 @@ it("uses one frame playhead, commits explicit seeks and captures live playback w
 it("restores an externally edited frame time and captures it before metadata without requesting offscreen media", () => {
   const capture = createRef<VideoFrameCapture>(), change = vi.fn();
   const tree = (timestampMs: number) => <NextIntlClientProvider locale="en" messages={messages}>
-    <VideoTrimEditor source={source} output={undefined} startMs={0} endMs={4000} stripAudio={false} writable
-      onChange={vi.fn()} frame={{ timestampMs, onChange: change }} frameCaptureRef={capture} externalResults />
+    <VideoFrameEditor source={source} writable
+      frame={{ timestampMs, onChange: change }} frameCaptureRef={capture} />
   </NextIntlClientProvider>;
   const { container, rerender } = render(tree(1000));
   expect(container.querySelector("video")).not.toHaveAttribute("src");
@@ -70,8 +70,8 @@ it("restores an externally edited frame time and captures it before metadata wit
 it("keeps a restored frame time when visible metadata loads before the node is selected", () => {
   const capture = createRef<VideoFrameCapture>(), change = vi.fn();
   const tree = (active: boolean) => <NextIntlClientProvider locale="en" messages={messages}>
-    <VideoTrimEditor source={source} output={undefined} active={active} startMs={0} endMs={4000} stripAudio={false} writable
-      onChange={vi.fn()} frame={{ timestampMs: 1250, onChange: change }} frameCaptureRef={capture} externalResults />
+    <VideoFrameEditor source={source} active={active} writable
+      frame={{ timestampMs: 1250, onChange: change }} frameCaptureRef={capture} />
   </NextIntlClientProvider>;
   const { container, rerender } = render(tree(false));
   visibility(true);
@@ -85,7 +85,7 @@ it("keeps a restored frame time when visible metadata loads before the node is s
   expect(change).not.toHaveBeenCalled();
 });
 
-it("does not download, decode, seek or pin filmstrips for an offscreen inactive Trim", () => {
+it("does not download, decode, seek or pin filmstrips for an offscreen inactive Frames", () => {
   const subscribe = vi.spyOn(spaceFilmstripScheduler, "subscribe"), network = vi.fn(); vi.stubGlobal("fetch", network);
   const { container } = render(ui(false));
   const media = container.querySelector("video")!;
@@ -123,48 +123,3 @@ it("a new source offscreen stays unloaded and old observers/subscriptions are di
   expect(release).toHaveBeenCalledOnce(); unmount(); expect(observers.every(observer => observer.disconnected)).toBe(true);
 });
 
-it("uses the shared decoder ref for millisecond range edits and stops source playback at the selected end", () => {
-  const change = vi.fn();
-  const { container } = render(<NextIntlClientProvider locale="en" messages={messages}>
-    <VideoTrimEditor source={source} output={undefined} startMs={1000} endMs={3000} stripAudio={false} writable onChange={change} externalResults />
-  </NextIntlClientProvider>);
-  visibility(true);
-  const media = container.querySelector("video")!;
-  Object.defineProperty(media, "duration", { value: 4, configurable: true });
-  fireEvent.loadedMetadata(media);
-  fireEvent.change(screen.getByLabelText("Trim start time"), { target: { value: "1.25" } });
-  expect(change).toHaveBeenLastCalledWith({ startMs: 1250, endMs: 3000 });
-  expect(media.currentTime).toBe(1.25);
-  fireEvent.change(screen.getByLabelText("Trim end time"), { target: { value: "2.875" } });
-  expect(change).toHaveBeenLastCalledWith({ startMs: 1000, endMs: 2875 });
-  Object.defineProperty(media, "paused", { value: false, configurable: true });
-  media.currentTime = 3.5;
-  fireEvent.timeUpdate(media);
-  expect(media.pause).toHaveBeenCalled();
-  expect(media.currentTime).toBe(3);
-  expect(media).not.toHaveAttribute("controls");
-});
-
-it("keeps stripAudio changes across shared metadata events and releases the source on unmount", () => {
-  const tree = (stripAudio: boolean) => <NextIntlClientProvider locale="en" messages={messages}>
-    <VideoTrimEditor source={source} output={undefined} startMs={1000} endMs={3000} stripAudio={stripAudio} writable onChange={vi.fn()} externalResults />
-  </NextIntlClientProvider>;
-  const { container, rerender, unmount } = render(tree(false));
-  visibility(true);
-  const media = container.querySelector("video")!;
-  rerender(tree(true));
-  expect(media.muted).toBe(true);
-  fireEvent.loadedMetadata(media);
-  expect(media.muted).toBe(true);
-  fireEvent.canPlay(media);
-  expect(media.muted).toBe(true);
-  rerender(tree(false));
-  fireEvent.loadedMetadata(media);
-  expect(media.muted).toBe(false);
-  fireEvent.canPlay(media);
-  expect(media.muted).toBe(false);
-  unmount();
-  expect(media).not.toHaveAttribute("src");
-  expect(media.pause).toHaveBeenCalled();
-  expect(media.load).toHaveBeenCalled();
-});

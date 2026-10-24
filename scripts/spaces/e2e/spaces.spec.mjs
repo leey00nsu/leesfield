@@ -3706,6 +3706,82 @@ test.describe("Spaces native editor Chromium regression", () => {
     } finally { await deleteWorkflowViaApi(page,graph.id); }
   });
 
+  test("Direct crop and trim create independent durable outputs with original sources and Edited history", { tag: ["@spaces-media", "@spaces-canvas", "@spaces-capture"] }, async ({ page }, testInfo) => {
+    test.setTimeout(180_000);
+    const graph = await createWorkflowViaApi(page), errors = attachErrorCapture(page);
+    try {
+      await waitForFreshWorkflow(page, graph);
+      await addNodeFromAllNodes(page, "Image Input");
+      const image = nodeBody(page, "Image Input");
+      await uploadInputMedia(image, { name: "direct-crop-source.png", mimeType: "image/png", buffer: deterministicPng(200, 100) });
+      const imageGraph = await waitForWorkflowState(page, graph.id, g => g.nodes.some(n => n.kind === "input.image" && n.config.assetId), "Image source not saved");
+      const imageSource = imageGraph.nodes.find(n => n.kind === "input.image");
+      await selectNodeFromHeader(image);
+      await page.locator("[data-space-selection-toolbar]").getByRole("button", { name: "More", exact: true }).click();
+      await page.getByRole("menuitem", { name: "Crop image", exact: true }).click();
+      await page.getByRole("button", { name: "Aspect ratio", exact: true }).click();
+      await page.getByRole("menuitem", { name: "1:1", exact: true }).click();
+      await expect(page.getByRole("menu")).toBeHidden();
+      await page.keyboard.press("Escape");
+      await expect(page.locator("[data-space-media-edit]")).toHaveCount(0);
+      expect((await readWorkflowViaApi(page, graph.id)).nodes).toEqual(imageGraph.nodes);
+
+      await addNodeFromAllNodes(page, "Video Input");
+      await uploadInputMedia(nodeBody(page, "Video Input"), path.resolve("public/sample-video.mp4"));
+      const uploaded = await waitForWorkflowState(page, graph.id, g => g.nodes.some(n => n.kind === "input.video" && n.config.assetId), "Video source not saved");
+      const videoSource = uploaded.nodes.find(n => n.kind === "input.video");
+      const originalDigests = new Map(await Promise.all([imageSource, videoSource].map(async source => [source.config.assetId, await mediaAssetDigest(page, source.config.assetId)])));
+      for (const [kind, source, menu, confirm] of [
+        ["image.crop", imageSource, "Crop image", "Confirm crop"],
+        ["video.trim", videoSource, "Trim video", "Confirm trim"],
+        ["video.crop", videoSource, "Crop video", "Create cropped video"],
+      ]) {
+        await fitCanvas(page);
+        await selectNodeFromHeader(nodeById(page, source.id));
+        await page.locator("[data-space-selection-toolbar]").getByRole("button", { name: "More", exact: true }).click();
+        await page.getByRole("menuitem", { name: menu, exact: true }).click();
+        const editor = page.locator("[data-space-media-edit]");
+        await expect(editor).toHaveAttribute("data-space-media-edit", kind);
+        if (kind === "image.crop") {
+          await page.getByRole("button", { name: "Aspect ratio", exact: true }).click();
+          await page.getByRole("menuitem", { name: "1:1", exact: true }).click();
+        } else if (kind === "video.trim") {
+          await editor.getByRole("toolbar").focus(); await page.keyboard.press("ArrowUp");
+        }
+        const acceptedResponse = page.waitForResponse(r => r.request().method() === "POST" && r.url().endsWith("/media-edits"));
+        await page.getByRole("button", { name: confirm, exact: true }).click();
+        const response = await acceptedResponse;
+        expect(response.ok(), await response.text()).toBe(true);
+        const payload = await response.json(), operation = payload.operation;
+        const request = response.request().postDataJSON();
+        const saved = await waitForWorkflowState(page, graph.id, g => g.nodes.some(n =>
+          n.id === operation.resultNodeId && n.config.resultSource?.state === "completed" && n.config.assetId), kind + " result not saved", 60_000);
+        const result = saved.nodes.find(n => n.id === operation.resultNodeId), assetResponse = await page.request.get("/api/media-assets/" + result.config.assetId);
+        const asset = (await assetResponse.json()).asset;
+        expect(result.config.resultSource).toMatchObject({ nodeId: source.id, executionId: operation.id, state: "completed" });
+        expect(saved.edges).toContainEqual(expect.objectContaining({ sourceNodeId: source.id, targetNodeId: result.id,
+          sourcePortId: kind === "image.crop" ? "editedImage" : "editedVideo" }));
+        expect(saved.nodes.find(n => n.id === source.id)).toEqual(source);
+        expect(await mediaAssetDigest(page, source.config.assetId)).toBe(originalDigests.get(source.config.assetId));
+        expect(asset).toMatchObject({ origin: "media_operation", sourceOperationId: operation.id, mimeType: kind === "image.crop" ? "image/png" : "video/mp4" });
+        if (kind === "video.trim") expect(Math.abs(asset.durationMs - (request.edit.endMs - request.edit.startMs))).toBeLessThanOrEqual(150);
+        else expect(asset).toMatchObject({ width: request.edit.rect.width, height: request.edit.rect.height });
+        const history = await page.request.get("/api/history/" + operation.id + "?type=" + asset.type + "&origin=edit&view=detail");
+        expect(history.ok()).toBe(true);
+        expect(await history.json()).toMatchObject({ origin: "edit", operation: { type: "direct." + kind },
+          inputMedia: [expect.objectContaining({ assetId: source.config.assetId })] });
+        await page.locator("[data-space-canvas]").focus(); await page.keyboard.press("Control+z");
+        await waitForWorkflowState(page, graph.id, g => !g.nodes.some(n => n.id === result.id), "Undo result not saved");
+        await page.keyboard.press("Control+Shift+z");
+        await waitForWorkflowState(page, graph.id, g => g.nodes.some(n => n.id === result.id && n.config.assetId === asset.id), "Redo frozen result not saved");
+        await page.reload(); await waitForFreshWorkflow(page, graph, false);
+        await expectMedia(page, result, asset.id, asset.type);
+      }
+      await fitCanvas(page); await captureEvidenceScreenshot(page, testInfo, "direct-crop-trim-results");
+      expect(errors, errors.join("\n")).toEqual([]);
+    } finally { await page.goto("about:blank"); await deleteWorkflowViaApi(page, graph.id); }
+  });
+
   test("Video Frames extracts the selected playback position into one durable image", { tag: ["@desktop", "@spaces-capture", "@spaces-media"] }, async ({ page }, testInfo) => {
     const graph = await createWorkflowViaApi(page), errors = attachErrorCapture(page);
     try {

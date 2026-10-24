@@ -33,6 +33,9 @@ import { SpaceNodeMenu } from "./space-node-menu";
 import { SpaceEdgeToolbar, SpaceFloatingActionBar, SpaceSelectionToolbar } from "./space-editor-toolbar";
 import { SpacePortMenuContext, useSpaceEditor, useSpaceResolvedInput, useSpaceSelector, useSpaceViewSelector } from "./space-editor-provider";
 import styles from "./space-canvas.module.css";
+import { useSpaceMediaEditDraft } from "./space-media-edit-provider";
+import { SpaceMediaEditMenu } from "./media-edit/space-media-edit-menu";
+import { SpaceMediaEditOverlay } from "./media-edit/space-media-edit-overlay";
 
 
 class NodeRenderBoundary extends Component<{ children: ReactNode; label: string; onError?: (error: Error) => void }, { failed: boolean }> {
@@ -73,6 +76,7 @@ function SpaceGroups() {
 }
 
 function SpaceSelectionOverlay() {
+  const editing = useSpaceMediaEditDraft();
   const { session } = useSpaceEditor(), flow = useReactFlow();
   useViewport();
   const ids = useSpaceSelector(state => state.selectedNodeIds);
@@ -83,7 +87,7 @@ function SpaceSelectionOverlay() {
   const downloading = useSpaceViewSelector(state => state.services.downloadingSelected);
   const video = useSpaceViewSelector(state => state.videoPreviewByNode.get(ids.length === 1 ? ids[0] : ""));
   const epoch = useSpaceViewSelector(state => state.epoch);
-  if (ids.length === 0) return null;
+  if (ids.length === 0 || editing) return null;
   const selected = nodes.filter(node => ids.includes(node.id));
   if (selected.length === 0) return null;
   const points = selected.map(node => ({ node, position: session.getNodePosition(node.id) ?? node.position }));
@@ -94,8 +98,8 @@ function SpaceSelectionOverlay() {
   const bottom = flow.flowToScreenPosition({ x: center, y: Math.max(...points.map(item => item.position.y + spaceNodeSize(item.node, { geometryByNode: geometry }).height)) });
   const single = selected.length === 1 ? selected[0] : undefined;
   const capture = single && (single.kind === "input.video" || (single.kind === "output.single" && video));
-  const mediaActions = capture ? <SpaceVideoCaptureMenu key={JSON.stringify([single.id, epoch, video?.asset?.id, video?.asset?.version, video?.asset?.updatedAt, video?.asset?.url])}
-    nodeId={single.id} asset={video?.asset} getVideo={video?.getVideo ?? (() => null)} /> : undefined;
+  const mediaActions = single ? <>{capture && <SpaceVideoCaptureMenu key={JSON.stringify([single.id, epoch, video?.asset?.id, video?.asset?.version, video?.asset?.updatedAt, video?.asset?.url])}
+    nodeId={single.id} asset={video?.asset} getVideo={video?.getVideo ?? (() => null)} />}<SpaceMediaEditMenu nodeId={single.id} /></> : undefined;
   return <SpaceSelectionToolbar session={session} nodeIds={ids} position={{ x: top.x, y: top.y - 34 }} below={{ x: bottom.x, y: bottom.y + 12 }} onDownload={download ? () => { void download(); } : undefined} downloading={downloading} mediaActions={mediaActions} />;
 }
 
@@ -126,6 +130,7 @@ export function SpaceCanvas({ settings = defaultSpaceCanvasSettings, children, c
 }
 
 function SpaceCanvasContent({ settings, children, className }: { settings: SpaceCanvasSettings; children?: ReactNode; className?: string }) {
+  const editing = useSpaceMediaEditDraft();
   const scope = useSpaceEditor(), { session } = scope, tc = useCanvasTranslation(), flow = useReactFlow<SpaceFlowNode, SpaceFlowEdge>();
   const target = useSpaceComments()?.navigationTarget;
   const targetId = target?.nodeId, targetSequence = target?.sequence;
@@ -235,6 +240,7 @@ function SpaceCanvasContent({ settings, children, className }: { settings: Space
     } catch (error) { scope.view.getState().services.onError?.(error instanceof Error ? error : new Error("CLIPBOARD_READ_FAILED")); }
   }, [session, scope, report, pasteContent]);
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (editing) return;
     // Geometry buttons share canvas clipboard/history; editable ancestors still guard them.
     const target = groupShortcutTarget(event)?.parentElement ?? event.target;
     if (event.defaultPrevented || event.nativeEvent.isComposing || event.keyCode === 229 || event.altKey || spaceEditorFormTarget(target)
@@ -309,6 +315,7 @@ function SpaceCanvasContent({ settings, children, className }: { settings: Space
   const isMac = typeof navigator !== "undefined" && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
   return <SpacePortMenuContext.Provider value={onPortActivate}><div ref={root} className={[styles.canvas, className].filter(Boolean).join(" ")} data-space-canvas="" role="application" aria-label={tc("Workflow editor")} tabIndex={0}
     onKeyDownCapture={event => {
+      if (editing) return;
       if (groupShortcutTarget(event)) {
         onKeyDown(event);
         if (event.defaultPrevented) event.stopPropagation();
@@ -357,16 +364,16 @@ function SpaceCanvasContent({ settings, children, className }: { settings: Space
       onMoveEnd={(_event, viewport) => session.setViewport(viewport)}
       onDoubleClick={event => { if (event.target instanceof Element && event.target.classList.contains("react-flow__pane")) openMenu({ x: event.clientX, y: event.clientY }); }}
       onPaneContextMenu={event => { event.preventDefault(); openMenu({ x: event.clientX, y: event.clientY }); }}
-      nodesDraggable={writable} nodesConnectable={writable} elementsSelectable
+      nodesDraggable={writable && !editing} nodesConnectable={writable && !editing} elementsSelectable
       selectionMode={SelectionMode.Partial} selectionOnDrag={settings.selectionMode === "click" && settings.panMode !== "always" && isMac} selectionKeyCode={settings.selectionMode === "altDrag" ? "Alt" : "Shift"}
-      panOnDrag={settings.panMode === "always" ? true : settings.panMode === "middleMouse" ? [1] : !isMac} panActivationKeyCode={settings.panMode === "space" ? "Space" : null}
+      panOnDrag={settings.panMode === "always" ? true : settings.panMode === "middleMouse" ? [1] : !isMac} panActivationKeyCode={!editing && settings.panMode === "space" ? "Space" : null}
       zoomOnScroll zoomActivationKeyCode={settings.zoomMode === "altScroll" ? "Alt" : settings.zoomMode === "ctrlScroll" ? ["Control", "Meta"] : null}
       zoomOnDoubleClick={false} deleteKeyCode={null} minZoom={nodes.length <= 1 ? 0.65 : 0.1} maxZoom={4} proOptions={{ hideAttribution: true }}
       ariaLabelConfig={{ "controls.zoomIn.ariaLabel": tc("Zoom In"), "controls.zoomOut.ariaLabel": tc("Zoom Out"), "controls.fitView.ariaLabel": tc("Fit View") }}>
       <SpaceEdgeGradients /><SpaceGroups /><Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#404040" />
       <MiniMap pannable zoomable nodeStrokeWidth={2} maskColor="rgba(0,0,0,0.6)" style={{ width: 200, height: 150, margin: 15 }} /><Controls showInteractive={false} fitViewOptions={{ padding: 0.2, maxZoom: 1 }} />
       <Panel position="bottom-center"><SpaceCanvasActionBar onAdd={kind => createNode(kind, center())} onOpenNodes={openMenu} /></Panel>
-      <SpaceSelectionOverlay />
+      <SpaceSelectionOverlay /><SpaceMediaEditOverlay />
       {children}
     </ReactFlow>
     {selection.edgeIds.length === 1 && edgePosition && <SpaceEdgeToolbar session={session} edgeId={selection.edgeIds[0]} position={edgePosition} />}

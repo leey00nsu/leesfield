@@ -1,5 +1,6 @@
 import { mediaAssetService } from "@/server/media-assets/media-asset-service";
 import { mediaAssetIdsForPort, mediaOutputPorts } from "@/shared/generation-graph/media-output";
+import { isDirectEditPort } from "@/shared/media-assets/direct-media-edit";
 import {
   NodeExecutionConfigError,
   NodeExecutionInputResolutionError,
@@ -65,7 +66,7 @@ async function resolveSourceAssetIds(
   targetValueShape: "single" | "ordered-list",
   visited: Set<string> = new Set(),
 ): Promise<string[]> {
-  if (sourcePortId === videoCaptureOutputPortId) return [];
+  if (sourcePortId === videoCaptureOutputPortId || isDirectEditPort(sourcePortId)) return [];
   const passThroughPort = inputPassThroughPort(sourceKind);
   if (passThroughPort && (edge.sourceNode.config as { resultSource?: unknown } | null)?.resultSource) {
     const assetId = configuredInputAssetId(edge.sourceNode);

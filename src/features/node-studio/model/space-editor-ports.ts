@@ -2,6 +2,7 @@ import { analyzeCanonicalGraphSupport, graphDocumentV3Schema, type CanonicalEdge
 import { isTemporarilyHiddenEditNodeKind, isUnavailableEditNodeKind } from "@/shared/generation-graph/node-availability";
 import { canonicalNodeKinds, findNodeDefinition, findPortDefinition, videoCaptureOutputPortId, type PortDefinition } from "@/shared/generation-graph/node-registry";
 import { videoFrameOutputPortIds } from "@/shared/generation-graph/video-frame-extraction";
+import { isDirectEditPort } from "@/shared/media-assets/direct-media-edit";
 import { cinemaPromptField } from "@/shared/cinema/cinema-model-support";
 import { getGradioContract } from "@/shared/model-catalog/gradio-contract";
 import { fileInputLabel } from "@/shared/model-catalog/file-input-presentation";
@@ -87,7 +88,7 @@ export function spaceNodePorts(document: SpaceEditorDocument, nodeId: string, ca
     let connectable = !retired;
     let visible = true;
     let anchorPortId = port.id;
-    if (port.direction === "output" && port.id === videoCaptureOutputPortId) {
+    if (port.direction === "output" && (port.id === videoCaptureOutputPortId || isDirectEditPort(port.id))) {
       connectable = false;
       visible = document.edges.some(edge => edge.sourceNodeId === nodeId && edge.sourcePortId === port.id);
     } else if (node.kind === "edit.video.extractFrames" && port.direction === "output") {
@@ -118,7 +119,7 @@ export function spaceNodePorts(document: SpaceEditorDocument, nodeId: string, ca
 
 export function compatibleSpaceNodeKinds(port: PortDefinition) {
   return canonicalNodeKinds.filter(kind => !isUnavailableEditNodeKind(kind) && findNodeDefinition(kind)?.ports.some(candidate =>
-    candidate.id !== videoCaptureOutputPortId && candidate.direction !== port.direction && (candidate.valueType === port.valueType || candidate.valueType === "media" || port.valueType === "media")));
+    candidate.id !== videoCaptureOutputPortId && !isDirectEditPort(candidate.id) && candidate.direction !== port.direction && (candidate.valueType === port.valueType || candidate.valueType === "media" || port.valueType === "media")));
 }
 
 export type SpaceConnectionResult = { valid: true; edge: CanonicalEdge } | { valid: false; reason: string };

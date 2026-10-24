@@ -1,0 +1,75 @@
+.cropStage { position: relative; width: 100%; height: 100%; overflow: hidden; background: #111; outline: none; touch-action: none; user-select: none; pointer-events: auto; }
+.original { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+.cropRect { position: absolute; border: 1px solid white; box-shadow: 0 0 0 10000px rgb(0 0 0 / 45%); cursor: move; outline: none; }
+.grid { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to right, transparent calc(33.333% - .5px), #ffffff65 33.333%, transparent calc(33.333% + .5px), transparent calc(66.666% - .5px), #ffffff65 66.666%, transparent calc(66.666% + .5px)), linear-gradient(to bottom, transparent calc(33.333% - .5px), #ffffff65 33.333%, transparent calc(33.333% + .5px), transparent calc(66.666% - .5px), #ffffff65 66.666%, transparent calc(66.666% + .5px)); }
+.handle { position: absolute; width: 20px; height: 20px; transform: translate(-50%, -50%); outline: none; touch-action: none; }
+.handle::after { content: ""; position: absolute; inset: 4px; border: 3px solid white; filter: drop-shadow(0 1px 2px #0008); }
+.handle:focus-visible::before, .cropRect:focus-visible::before { content: ""; position: absolute; inset: -3px; border: 2px solid #58b8ff; border-radius: 3px; pointer-events: none; }
+.cropStage [data-crop-handle="nw"] { left: 0; top: 0; cursor: nwse-resize; }
+.cropStage [data-crop-handle="n"] { left: 50%; top: 0; cursor: ns-resize; }
+.cropStage [data-crop-handle="ne"] { left: 100%; top: 0; cursor: nesw-resize; }
+.cropStage [data-crop-handle="e"] { left: 100%; top: 50%; cursor: ew-resize; }
+.cropStage [data-crop-handle="se"] { left: 100%; top: 100%; cursor: nwse-resize; }
+.cropStage [data-crop-handle="s"] { left: 50%; top: 100%; cursor: ns-resize; }
+.cropStage [data-crop-handle="sw"] { left: 0; top: 100%; cursor: nesw-resize; }
+.cropStage [data-crop-handle="w"] { left: 0; top: 50%; cursor: ew-resize; }
+.cropStage[data-media-crop="image"] [data-crop-handle="nw"]::after { border-right: 0; border-bottom: 0; }
+.cropStage[data-media-crop="image"] [data-crop-handle="ne"]::after { border-left: 0; border-bottom: 0; }
+.cropStage[data-media-crop="image"] [data-crop-handle="se"]::after { border-left: 0; border-top: 0; }
+.cropStage[data-media-crop="image"] [data-crop-handle="sw"]::after { border-right: 0; border-top: 0; }
+.cropStage[data-media-crop="image"] [data-crop-handle="n"]::after, .cropStage[data-media-crop="image"] [data-crop-handle="s"]::after { height: 3px; top: 8px; border: 0; background: white; }
+.cropStage[data-media-crop="image"] [data-crop-handle="e"]::after, .cropStage[data-media-crop="image"] [data-crop-handle="w"]::after { width: 3px; left: 8px; border: 0; background: white; }
+.cropStage[data-media-crop="video"] .handle::after { border-radius: 50%; background: white; }
+.cropBar { position: absolute; display: flex; align-items: center; gap: 4px; padding: 6px; min-height: 49px; border-radius: 12px; border: 1px solid #ffffff12; background: #242424; color: #fff; box-shadow: 0 8px 28px #0005; pointer-events: auto; font: 13px/1.4 var(--font-sans, sans-serif); }
+.cropBar button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 36px; height: 36px; border: 0; border-radius: 8px; background: transparent; color: #ddd; cursor: pointer; flex-shrink: 0; }
+.cropBar button:hover { background: #ffffff12; color: white; }
+.cropBar button:focus-visible { outline: 2px solid #58b8ff; outline-offset: 2px; }
+.divider { width: 1px; height: 22px; background: #ffffff14; flex-shrink: 0; }
+.cropBar .ratio { flex: 1; padding: 0 12px; justify-content: space-between; }
+.cropBar .confirm { background: #f5f5f5; color: #111; }
+.cropBar .confirm:hover { background: #ddd; color: #111; }
+.cropBar .create { background: #ddd; color: #111; padding: 0 12px; }
+.cropBar .create:hover { background: white; color: #111; }
+.dimensions { flex: 1; text-align: center; min-width: 90px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.presetShape { display: block; width: 16px; max-height: 20px; border: 1px solid currentColor; margin-right: 8px; }
+.presetCheck { margin-left: auto; }
+.overlay { position: fixed; inset: 0; pointer-events: none; z-index: 1500; }
+.trimStage { position: relative; background: #111; pointer-events: auto; }
+.trimBar { position: absolute; display: flex; align-items: center; gap: 16px; height: 73px; padding: 8px; border-radius: 24px; background: #242424; color: #eee; box-shadow: 0 8px 28px #0005; pointer-events: auto; outline: none; user-select: none; font: 12px/1.4 var(--font-sans, sans-serif); }
+.trimDivider { width: 1px; height: 28px; background: #ffffff14; margin-inline: 8px; flex-shrink: 0; }
+.trimBar button { display: grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0; border-radius: 12px; color: #aaa; cursor: pointer; background: transparent; border: 0; }
+.trimBar button:hover { background: #ffffff12; color: white; }
+.trimBar button[aria-pressed="true"] { color: #fff; }
+.trimBar button:focus-visible, .trimTrack:focus-visible, .trimHandle:focus-visible, .trimHead:focus-visible { outline: 2px solid #9dd9ff; outline-offset: 3px; }
+.trimBar .trimConfirm { width: auto; min-width: 64px; height: 48px; padding: 0 12px; color: white; background: var(--data-accent, #ff6b35); border-radius: 16px; font-weight: 600; white-space: nowrap; }
+.trimBar .trimConfirm:hover { background: color-mix(in srgb, var(--data-accent, #ff6b35) 90%, black); color: white; }
+.trimTrack { position: relative; height: 56px; min-width: 80px; flex: 1; touch-action: none; outline: none; }
+.filmstrip { position: absolute; inset: 0; display: flex; overflow: hidden; border-radius: 8px; background: #3b3b3b; pointer-events: none; }
+.filmstrip img { height: 100%; flex: 1; min-width: 0; object-fit: cover; }
+.filmstrip span { margin: auto; color: #aaa; }
+.trimShade { position: absolute; top: 0; bottom: 0; background: #0009; pointer-events: none; border-radius: 4px; }
+.trimSelection { position: absolute; inset-block: 0; border-block: 3px solid #4097ff; cursor: grab; touch-action: none; }
+.trimSelection:active { cursor: grabbing; }
+.trimHandle { position: absolute; top: 0; bottom: 0; width: 16px; transform: translateX(-50%); background: #4097ff; border-radius: 5px; display: grid; place-items: center; cursor: ew-resize; outline: none; touch-action: none; z-index: 2; }
+.trimHandle span { width: 2px; height: 20px; border-radius: 2px; background: #11355e; pointer-events: none; }
+.trimHead { position: absolute; top: -4px; bottom: -4px; width: 12px; transform: translateX(-50%); cursor: ew-resize; z-index: 3; touch-action: none; outline: none; }
+.trimHead::after { content: ""; position: absolute; left: 5px; width: 2px; inset-block: 4px; background: #fff; box-shadow: 0 0 2px #000; }
+.trimHead::before { content: ""; position: absolute; top: 0; left: 2px; width: 8px; height: 6px; border-radius: 2px; background: #fff; }
+.durationBadge { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 7px 14px; border-radius: 999px; background: #04170ed9; color: #fff; font-size: 14px; font-variant-numeric: tabular-nums; pointer-events: none; white-space: nowrap; }
+.previewPlay { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: grid; place-items: center; width: 42px; height: 42px; border: 0; border-radius: 50%; background: #0009; color: white; cursor: pointer; opacity: 0; }
+.trimStage:hover .previewPlay, .previewPlay:focus-visible { opacity: 1; }
+.help { max-width: min(340px, calc(100vw - 24px)); color: #ddd; }
+.help dl { display: grid; gap: 10px; font-size: 12px; }
+.help dl > div { display: flex; justify-content: space-between; gap: 16px; }
+.help dt { color: white; white-space: nowrap; }
+.help dd { color: #aaa; }
+.trimError { position: absolute; top: calc(100% + 4px); left: 12px; right: 12px; font-size: 11px; color: #fbb; }
+@media (max-width: 600px) {
+  .trimBar { gap: 4px; padding: 8px; }
+  .trimBar button { width: 30px; }
+  .trimBar .trimConfirm { min-width: 60px; }
+  .trimDivider { margin-inline: 0; }
+  .durationBadge { font-size: 11px; padding: 4px 6px; }
+  .trimHandle { width: 16px; }
+}
+.loadError { position: absolute; inset: 0; display: grid; place-items: center; background: #171717; color: #eee; pointer-events: auto; }

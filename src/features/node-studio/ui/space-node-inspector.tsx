@@ -18,11 +18,13 @@ import { GenerationNodeParameterControls } from "./nodes/generation-node-paramet
 import { useSpaceImageFit } from "./space-image-view-settings";
 import { SpaceMemoInspector } from "./space-memo-inspector";
 import { SpaceMediaEditInspector } from "./space-media-edit-inspector";
+import { useSpaceMediaEditDraft } from "./space-media-edit-provider";
 
 function record(value: unknown): Record<string, unknown> { return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
 export function SpaceNodeInspector() {
+  const editing = useSpaceMediaEditDraft();
   const id = useSpaceSelector(state => state.selectedNodeIds.length === 1 ? state.selectedNodeIds[0] : null);
-  return id ? <SpaceNodeInspectorContent key={id} nodeId={id} /> : null;
+  return id && !editing ? <SpaceNodeInspectorContent key={id} nodeId={id} /> : null;
 }
 function SpaceNodeInspectorContent({ nodeId }: { nodeId: string }) {
   const scope = useSpaceEditor(), ko = useLocale() === "ko", t = useTranslations("assistantList"), preferences = useSpacePreferences();
@@ -34,9 +36,8 @@ function SpaceNodeInspectorContent({ nodeId }: { nodeId: string }) {
   const model = selected?.type !== "llm" ? selected : undefined;
   if (node && isTemporarilyHiddenEditNodeKind(node.kind)) return null;
   if (node?.kind === "note.memo") return <SpaceInspectorPanel title={ko ? "메모 설정" : "Memo settings"}><SpaceMemoInspector nodeId={nodeId} /></SpaceInspectorPanel>;
-  if (node && ["edit.image.resize", "edit.video.stitch", "edit.video.extractFrames"].includes(node.kind)) {
-    const title = node.kind === "edit.image.resize" ? ko ? "크기 조절 설정" : "Resize settings"
-      : node.kind === "edit.video.stitch" ? ko ? "비디오 이어 붙이기 설정" : "Video Stitch settings"
+  if (node && ["edit.video.stitch", "edit.video.extractFrames"].includes(node.kind)) {
+    const title = node.kind === "edit.video.stitch" ? ko ? "비디오 이어 붙이기 설정" : "Video Stitch settings"
         : ko ? "비디오 프레임 설정" : "Video Frames settings";
     return <SpaceInspectorPanel title={title}><SpaceMediaEditInspector nodeId={nodeId} /></SpaceInspectorPanel>;
   }

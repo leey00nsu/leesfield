@@ -8,11 +8,13 @@ import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
 import { spaceOutputConnection } from "../../model/space-editor-output";
 import { useSpaceEditor, useSpaceInputRevision, useSpaceResolvedInput, useSpaceSelector, useSpaceViewSelector, useSpaceVideoPreview } from "../space-editor-provider";
 import { SpaceMediaPreview } from "./space-media-preview";
+import { useSpaceMediaEditDraft } from "../space-media-edit-provider";
 import { SpaceNodeFrame } from "./space-node-frame";
 import styles from "./space-node-output.module.css";
 
 /** Current Output priority is explicit mediaType, otherwise audio → video → image. */
 export function SpaceOutputNode({ nodeId }: { nodeId: string }) {
+  const editing = useSpaceMediaEditDraft()?.nodeId === nodeId;
   const scope = useSpaceEditor(), tc = useCanvasTranslation(), t = useTranslations("nodeStudio.mediaNodes");
   const node = useSpaceSelector(state => state.nodeById.get(nodeId));
   const selected = useSpaceSelector(state => state.selectedNodeIds.includes(nodeId)), hovered = useSpaceSelector(state => state.hoveredNodeId === nodeId);
@@ -43,7 +45,7 @@ export function SpaceOutputNode({ nodeId }: { nodeId: string }) {
   const clearLabel = tc(source?.type === "audio" ? "Remove audio" : source?.type === "video" ? "Remove video" : "Remove image");
   return <SpaceNodeFrame nodeId={nodeId} fullBleed contentClassName={styles.content}>
     <div ref={body} tabIndex={-1} className={styles.body} data-space-output="" data-output-type={source?.type} data-output-asset={assetId ?? undefined}>
-      {asset ? <SpaceMediaPreview key={sourceKey} asset={asset} selected={selected} hovered={hovered} zoom={zoom}
+      {asset ? <SpaceMediaPreview key={sourceKey} asset={asset} selected={selected} hovered={hovered} active={editing ? false : undefined} zoom={zoom}
         onOpen={(asset, trigger, onClosed) => scope.view.getState().services.openMediaDetail?.(nodeId, asset, trigger, onClosed)}
         videoRef={video} />
         : <div className={styles.empty} role="status">{assetId ? t("loading") : tc("Connect input")}</div>}

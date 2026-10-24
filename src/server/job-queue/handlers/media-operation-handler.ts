@@ -10,6 +10,9 @@ import { processVideoOperation, VideoOperationError } from "@/server/media-opera
 import { processVideoFrameOperation } from "@/server/media-operations/ffmpeg-frame-processor";
 import { videoFrameOutputPortIds } from "@/shared/generation-graph/video-frame-extraction";
 import { validateNodeConfig } from "@/shared/generation-graph/node-registry";
+import { directEditSnapshotSchema, isDirectEditType } from "@/shared/media-assets/direct-media-edit";
+import { processDirectMediaEdit } from "@/server/media-operations/direct-media-edit-processor";
+import { completeDirectEdit, settleDirectEditFailure } from "@/server/media-edits/direct-edit-service";
 import { QueueContractError, type QueueFailure } from "../contracts";
 import type { QueueHandler } from "../job-queue-handler";
 
@@ -29,7 +32,9 @@ export const mediaOperationQueueHandler: QueueHandler = {
   async execute(job, context) {
     const source = await prisma.mediaOperation.findUniqueOrThrow({ where: { id: job.executionId } });
     const operation = { ...source, ...await mediaAssetRepository.getOperation(source.ownerEmail, source.id) };
-    if (!operation.graphNode || operation.graphNode.kind !== operation.type ||
+    const direct = isDirectEditType(operation.type);
+    if (direct ? !directEditSnapshotSchema.safeParse(operation.parameters).success || operation.configVersion !== 1 :
+      !operation.graphNode || operation.graphNode.kind !== operation.type ||
       operation.graphNode.configVersion !== operation.configVersion ||
       !validateNodeConfig(operation.type, operation.configVersion, { parameters: operation.parameters }).supported) {
       throw new MediaQueueFailure({ code: "MEDIA_OPERATION_TARGET_INVALID", phase: "input.validate", disposition: "terminal", executionStopped: true });
@@ -38,7 +43,15 @@ export const mediaOperationQueueHandler: QueueHandler = {
     let artifacts: GeneratedMediaArtifact[];
     let processorStopped = false;
     try {
-      if (operation.type === "edit.image.removeBackground") {
+      if (direct) {
+        const result = await processDirectMediaEdit(operation, context.signal);
+        processorStopped = true;
+        await context.assertOwned();
+        const s = directEditSnapshotSchema.parse(operation.parameters);
+        artifacts = s.edit.kind === "image.crop"
+          ? await uploadMediaOperationImages(operation.id, [{ dataUrl: "data:image/png;base64," + result.buffer.toString("base64"), width: result.width, height: result.height }])
+          : await uploadMediaOperationVideo(operation.id, { ...result, durationMs: result.durationMs! });
+      } else if (operation.type === "edit.image.removeBackground") {
         const input = operation.inputs[0];
         if (!input) throw new Error("NODE_INPUT_INVALID");
         const asset = await mediaAssetService.get(operation.ownerEmail, input.assetId);
@@ -76,6 +89,7 @@ export const mediaOperationQueueHandler: QueueHandler = {
   },
   async settleTx(tx, job, lease, value) {
     const row = await tx.mediaOperation.findUniqueOrThrow({ where: { id: job.executionId } });
+    if (isDirectEditType(row.type)) return completeDirectEdit(tx, row.id, value as GeneratedMediaArtifact[], lease);
     await mediaAssetRepository.completeServerOperation(row.ownerEmail, row.id, value as GeneratedMediaArtifact[], new Date(), lease, tx);
     return "succeeded";
   },
@@ -86,6 +100,7 @@ export const mediaOperationQueueHandler: QueueHandler = {
         finishedAt: new Date(), executionLeaseToken: null, executionLeaseUntil: null },
     });
     await releaseStorageCleanupsForRequest(tx, job.executionId);
+    await settleDirectEditFailure(tx, job.executionId, job.cancelRequestedAt ? "cancelled" : "failed");
   },
   classifyFailure(error) {
     return error instanceof MediaQueueFailure ? error.failure :

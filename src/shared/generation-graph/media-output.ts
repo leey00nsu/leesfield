@@ -1,11 +1,12 @@
 import { findNodeDefinition, videoCaptureOutputPortId } from "./node-registry";
 import { videoFrameOutputPortIds } from "./video-frame-extraction";
+import { isDirectEditPort } from "@/shared/media-assets/direct-media-edit";
 
 export type MediaOutputBinding = { portId: string; sortOrder: number; assetId: string | null };
 
 export function mediaOutputPorts(kind: string) {
   return findNodeDefinition(kind)?.ports.filter(port =>
-    port.direction === "output" && port.id !== videoCaptureOutputPortId && ["image", "video", "audio"].includes(port.valueType),
+    port.direction === "output" && port.id !== videoCaptureOutputPortId && !isDirectEditPort(port.id) && ["image", "video", "audio"].includes(port.valueType),
   ) ?? [];
 }
 

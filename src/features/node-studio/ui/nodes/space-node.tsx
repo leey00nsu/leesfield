@@ -10,7 +10,6 @@ import { SpaceNodeAuthoringProvider } from "./space-node-authoring-provider";
 import { SpaceGenerationNode } from "./space-node-generation";
 import { SpaceAssistantNode } from "./space-node-assistant";
 import { SpaceVideoNode } from "./space-node-video";
-import { SpaceResizeNode } from "./space-node-resize";
 import { SpaceOutputNode } from "./space-node-output";
 import { SpaceGalleryNode } from "./space-node-gallery";
 import { SpaceCompareNode } from "./space-node-compare";
@@ -27,10 +26,9 @@ export function SpaceNode({ nodeId }: { nodeId: string }) {
   if (["input.image", "input.audio", "input.video"].includes(kind)) return <SpaceMediaInputNode nodeId={nodeId} />;
   if (["generate.image", "generate.audio", "generate.video"].includes(kind)) return <SpaceNodeAuthoringProvider nodeId={nodeId}><SpaceGenerationNode nodeId={nodeId} /></SpaceNodeAuthoringProvider>;
   if (kind === "generate.assistant") return <SpaceAssistantNode nodeId={nodeId} />;
-  if (kind === "edit.image.resize") return <SpaceNodeAuthoringProvider nodeId={nodeId}><SpaceResizeNode nodeId={nodeId} /></SpaceNodeAuthoringProvider>;
   if (kind === "output.single") return <SpaceOutputNode nodeId={nodeId} />;
   if (kind === "output.gallery") return <SpaceGalleryNode nodeId={nodeId} />;
   if (kind === "inspect.imageCompare") return <SpaceCompareNode nodeId={nodeId} />;
-  if (["edit.video.stitch", "edit.video.trim", "edit.video.extractFrames"].includes(kind)) return <SpaceNodeAuthoringProvider nodeId={nodeId}><SpaceVideoNode nodeId={nodeId} /></SpaceNodeAuthoringProvider>;
+  if (["edit.video.stitch", "edit.video.extractFrames"].includes(kind)) return <SpaceNodeAuthoringProvider nodeId={nodeId}><SpaceVideoNode nodeId={nodeId} /></SpaceNodeAuthoringProvider>;
   return <SpaceRetiredNode nodeId={nodeId} />;
 }
