@@ -17,7 +17,7 @@ export function withExternalMonitoringRoute(request: Request,
     if (scope === "all" && !hasPlatformPermission(auth.permissions, "monitoring:read-all")) return buildErrorResponse("PLATFORM_ADMIN_REQUIRED", 403);
     const limited = await enforceRateLimit(options.read ? RATE_LIMITS.readOwner : RATE_LIMITS.statsOwner, auth.ownerEmail);
     if (limited) return limited;
-    const query = { ...parseMonitoringQuery(search, { defaultDays: options.defaultDays ?? 7 }),
+    const query = { ...parseMonitoringQuery(search, { includeAssistant: true, defaultDays: options.defaultDays ?? 7 }),
       ...(scope === "owner" ? { ownerEmail: auth.ownerEmail } : {}) };
     if (query.apiKey.mode === "id") {
       const key = await prisma.apiKey.findFirst({

@@ -195,7 +195,7 @@ function subscribeContentThumbnail(key: string, assetId: string, bytes: string |
 
 function AdaptiveVariantImage({ asset, active, zoom = 1, imageFit = "cover", onLoadedDimensions }: Pick<SpaceMediaPreviewProps, "asset" | "zoom" | "imageFit" | "onLoadedDimensions"> & { active: boolean }) {
   const tc = useCanvasTranslation(), t = useTranslations("nodeStudio.mediaNodes");
-  const [element, setElement] = useState<HTMLDivElement | null>(null), [width, setWidth] = useState(350), [failed, setFailed] = useState(false);
+  const [element, setElement] = useState<HTMLDivElement | null>(null), [width, setWidth] = useState(350), [failed, setFailed] = useState(false), [attempt, setAttempt] = useState(0);
   const key = sourceRevision(asset), storedThumbnail = parseImageVariants(asset.imageVariants)?.thumbnail?.url;
   const [thumbnail, setThumbnail] = useState(() => imageThumbnails.get(key) ?? null);
   const [decoded, setDecoded] = useState<HTMLImageElement | null>(null);
@@ -232,7 +232,7 @@ function AdaptiveVariantImage({ asset, active, zoom = 1, imageFit = "cover", onL
   }, [active, small, storedThumbnail, thumbnail, decoded, key, failed, asset.id, asset.bytes, asset.width, asset.height]);
   const previewAsset = small && storedThumbnail ? asset : { url: small && thumbnail ? thumbnail.url : asset.url };
   return <div ref={setElement} className={styles.image}>
-    <VariantImage asset={previewAsset} purpose="list" className={styles.visual} style={{ objectFit: imageFit }} alt={getMediaAssetName(asset)}
+    <VariantImage showError={false} key={attempt} asset={previewAsset} purpose="list" className={styles.visual} style={{ objectFit: imageFit }} alt={getMediaAssetName(asset)}
       draggable={false} loading="lazy" decoding="async" onError={() => setFailed(true)} onLoad={event => {
         setFailed(false);
         if (event.currentTarget.getAttribute("src") === asset.url) {
@@ -244,8 +244,7 @@ function AdaptiveVariantImage({ asset, active, zoom = 1, imageFit = "cover", onL
         if (width > 0 && height > 0) onLoadedDimensions?.({ width, height });
       }} />
     {failed && <p className={styles.error} role="alert">{t("loadError")} <button type="button" onClick={() => {
-      const image = element?.querySelector("img");
-      if (image) { const src = image.src; image.removeAttribute("src"); image.src = src; }
+      setFailed(false); setAttempt(value => value + 1);
     }}>{tc("Retry")}</button></p>}
   </div>;
 }

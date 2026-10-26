@@ -1,4 +1,5 @@
 "use client";
+import { AssistantHistoryDetail } from "./assistant-history-detail";
 import { AppVideoPlayer } from "@/shared/ui/app-video-player";
 import { useRuntimeModelCatalog } from "@/shared/lib/hooks/use-runtime-model-catalog";
 import { AppSelectRoot, AppSelectTrigger, AppSelectValue, AppSelectContent, AppSelectItem } from "@/shared/ui/app-select";
@@ -7,19 +8,16 @@ import { VariantImage } from "@/shared/media-assets/variant-image";
 import { AppPageShell } from "@/shared/ui/app-page-shell";
 
 import { useCallback, useRef, useState } from "react";
-import { useUnsavedAssetClose } from "@/features/media-assets/hook/use-unsaved-asset-close";
+import { AppMediaDetailDialog, AppMediaDetailBackdrop, useMediaDetailDialog } from "@/shared/ui/app-media-detail-dialog";
 import { MediaAssetDetailPanel } from "@/features/media-assets/ui/media-asset-detail-panel";
 import { GenerationAudioPreview, useGenerationDetailTabs } from "@/features/generation-history/lib/use-generation-detail-tabs";
 import {
-  AudioLines,
   Download,
   Trash2,
   Loader2,
-  Grid2X2,
   Image as ImageIcon,
   Square,
   SquareCheck,
-  Video,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
@@ -31,7 +29,7 @@ import type {
 } from "@/entities/generation/model/types";
 import { HistoryList } from "@/features/generation-history/ui/history-list";
 import { useGenerationHistoryList } from "@/features/generation-history/hook/use-generation-history-list";
-import { AppDialog, AppDialogContent, AppDialogTitle } from "@/shared/ui/app-dialog";
+import { AppDialogTitle } from "@/shared/ui/app-dialog";
 import { AppButton } from "@/shared/ui/app-button";
 import {
   AppFilterGroup,
@@ -101,42 +99,7 @@ export function GenerationHistoryScreen({ historyLink }: { historyLink?: { id: s
           filters={
             <>
               <AppFilterSection label={tListControls("type")}>
-                <AppFilterGroup>
-                  <AppFilterToggle
-                    onClick={() => {
-                      setType("all");
-                    }}
-                    aria-pressed={type === "all"}
-                    active={type === "all"}
-                    icon={<Grid2X2 className="h-4 w-4" />}
-                  >
-                    {tCommonLabels("all")}
-                  </AppFilterToggle>
-                  <AppFilterToggle
-                    onClick={() => setType("image")}
-                    aria-pressed={type === "image"}
-                    active={type === "image"}
-                    icon={<ImageIcon className="h-4 w-4" />}
-                  >
-                    {tCommonLabels("images")}
-                  </AppFilterToggle>
-                  <AppFilterToggle
-                    onClick={() => setType("video")}
-                    aria-pressed={type === "video"}
-                    active={type === "video"}
-                    icon={<Video className="h-4 w-4" />}
-                  >
-                    {tCommonLabels("videos")}
-                  </AppFilterToggle>
-                  <AppFilterToggle
-                    onClick={() => setType("audio")}
-                    aria-pressed={type === "audio"}
-                    active={type === "audio"}
-                    icon={<AudioLines className="h-4 w-4" />}
-                  >
-                    {tCommonLabels("audios")}
-                  </AppFilterToggle>
-</AppFilterGroup>
+                <AppSortSelect value={type} onValueChange={value=>{setType(value as GenerationHistoryType);setModel("all");}} ariaLabel={tListControls("type")} className="w-full" options={["all","image","video","audio","assistant"].map(value=>({value,label:value==="all"?tCommonLabels("all"):tHistory("types."+value)}))}/>
               </AppFilterSection>
               <AppFilterSection label={tListControls("status")}><AppFilterGroup>
                 <AppFilterToggle active={statusFilter === "all"} aria-pressed={statusFilter === "all"} onClick={() => setStatusFilter("all")}>{tCommonLabels("all")}</AppFilterToggle>
@@ -168,7 +131,7 @@ export function GenerationHistoryScreen({ historyLink }: { historyLink?: { id: s
                     {tHistory("visibility.hidden")}
                   </AppFilterToggle>
 </AppFilterGroup></AppFilterSection>
-              <AppFilterSection label={tListControls("view")}><AppFilterGroup>
+              {(type === "all" || type === "video") && <AppFilterSection label={tListControls("view")}><AppFilterGroup>
                   {(type === "all" || type === "video") && (
                     <AppFilterToggle
                       role="checkbox"
@@ -187,7 +150,7 @@ export function GenerationHistoryScreen({ historyLink }: { historyLink?: { id: s
                     </AppFilterToggle>
                   )}
                 </AppFilterGroup>
-              </AppFilterSection>
+              </AppFilterSection>}
               <div
                 data-testid="history-filter-trailing-controls"
                 className="grid min-w-0 gap-3"
@@ -207,7 +170,7 @@ export function GenerationHistoryScreen({ historyLink }: { historyLink?: { id: s
                       <AppSelectItem value="all">
                         {tHistory("filters.allModels")}
                       </AppSelectItem>
-                      {catalog.items.map((item) => (
+                      {catalog.items.filter(item=>type==="all"||item.type===(type==="assistant"?"llm":type)).map((item) => (
                         <AppSelectItem key={item.key} value={item.key}>
                           {item.label}
                         </AppSelectItem>
@@ -308,7 +271,9 @@ export function GenerationHistoryScreen({ historyLink }: { historyLink?: { id: s
   );
 }
 
-function HistoryDetailOverlay({
+function HistoryDetailOverlay(props:{item:GenerationHistoryItem;onClose:()=>void;onDeleted:(item:GenerationHistoryItem)=>void|Promise<void>}) {return props.item.type==="assistant"?<AssistantHistoryDetail item={props.item} onClose={props.onClose}/>:<MediaHistoryDetailOverlay {...props}/>;}
+
+function MediaHistoryDetailOverlay({
   item,
   onClose,
   onDeleted,
@@ -329,7 +294,7 @@ function HistoryDetailOverlay({
   const historyEndpoint = "/api/history/" + encodeURIComponent(item.id) + "?" + new URLSearchParams({type: item.type, origin: item.origin ?? "generation"});
   const [assetSaving, setAssetSaving] = useState(false);
   modalBusyRef.current = confirmDelete || deleting || assetSaving;
-  const guard = useUnsavedAssetClose(onClose, confirmDelete || deleting || assetSaving);
+  const guard = useMediaDetailDialog(onClose, confirmDelete || deleting || assetSaving);
   const onAssetBusy = useCallback((busy: boolean) => {setAssetSaving(busy); modalBusyRef.current = busy || confirmDelete || deleting;}, [confirmDelete, deleting]);
   const handleDelete = async () => {
     if (deleteRef.current) return;
@@ -346,33 +311,27 @@ function HistoryDetailOverlay({
   };
 
   return (
-    <AppDialog open onOpenChange={(open, details) => {
-      if (!open) { if (modalBusyRef.current) details.cancel(); else guard.requestClose(); }
-    }}>
-    <AppDialogContent size="full" surface="media" padding="none" showCloseButton={false}
-      aria-describedby={undefined}
+    <AppMediaDetailDialog controller={guard}
       className="grid h-dvh grid-rows-[minmax(100px,22dvh)_minmax(0,1fr)] gap-0 overflow-hidden lg:grid-cols-[1fr_25rem] lg:grid-rows-[minmax(0,1fr)]">
       <AppDialogTitle className="sr-only">{tHistory("detail.title")}</AppDialogTitle>
-      <div
+      <AppMediaDetailBackdrop
         data-testid="history-detail-preview-backdrop"
         role="presentation"
-        onClick={() => { if (!modalBusyRef.current) guard.requestClose(); }}
         className="relative flex min-h-0 items-center justify-center overflow-hidden bg-[#050606] p-6"
       >
         {previewUrl ? (
           hydratedItem.type === "video" ? (
-            <AppVideoPlayer
+            <div data-app-media-detail-content="" className="contents"><AppVideoPlayer
               data-testid="history-detail-preview-media"
               src={previewUrl}
               controls
-              onClick={(event) => event.stopPropagation()}
               className="max-h-[18dvh] lg:max-h-[86vh] max-w-full rounded-2xl object-contain"
-            />
+            /></div>
           ) : hydratedItem.type === "audio" ? (
             <div
               data-testid="history-detail-preview-media"
+              data-app-media-detail-content=""
               role="presentation"
-              onClick={(event) => event.stopPropagation()}
               className="w-full max-w-2xl rounded-2xl border border-white/10 bg-white/[0.04] p-8"
             >
               <GenerationAudioPreview src={previewUrl} assetId={hydratedItem.assetId} controls className="w-full" />
@@ -380,23 +339,23 @@ function HistoryDetailOverlay({
           ) : (
             <VariantImage
               data-testid="history-detail-preview-media"
+              data-app-media-detail-content=""
               asset={{url: previewUrl, imageVariants: hydratedItem.imageVariants}}
               alt={tHistory("previewAlt")}
-              onClick={(event) => event.stopPropagation()}
               className="max-h-[18dvh] lg:max-h-[86vh] max-w-full rounded-2xl object-contain shadow-[0_24px_120px_rgba(0,0,0,0.55)]"
             />
           )
         ) : (
           <div
             data-testid="history-detail-preview-media"
+            data-app-media-detail-content=""
             role="presentation"
-            onClick={(event) => event.stopPropagation()}
             className="flex h-80 w-full max-w-xl items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04]"
           >
             <ImageIcon className="h-12 w-12 text-gray-500" />
           </div>
         )}
-      </div>
+      </AppMediaDetailBackdrop>
 
       <MediaAssetDetailPanel assetId={hydratedItem.assetId ?? null} onClose={() => { if (!modalBusyRef.current) guard.requestClose(); }}
         busy={deleting} onBusyChange={onAssetBusy} onDirtyChange={guard.setDirty}
@@ -406,7 +365,6 @@ function HistoryDetailOverlay({
           {hydratedItem.status === "completed" && hydratedItem.resultUrl ? <AppButton asChild variant="surface" className="col-span-2 h-11 rounded-xl"><a href={historyEndpoint} download aria-label={tActions("download")}><Download className="size-4" />{tActions("download")}</a></AppButton> : <AppButton disabled variant="surface" className="col-span-2 h-11 rounded-xl" aria-label={tActions("download")}><Download className="size-4" />{tActions("download")}</AppButton>}
           <AppButton type="button" variant="surface" disabled={deleting || assetSaving || ["pending", "processing", "uploading"].includes(hydratedItem.status)} onClick={() => setConfirmDelete(true)} className="col-span-2 h-11 rounded-xl text-destructive hover:bg-destructive/10 hover:text-destructive"><Trash2 className="size-4" />{tHistory(item.hidden ? "visibility.restore" : "visibility.hide")}</AppButton>
         </>} />
-      {guard.confirmation}
       <AppConfirmDialog open={confirmDelete} onOpenChange={(open) => {if (!deleting) setConfirmDelete(open);}}>
         <AppConfirmDialogContent>
           <AppConfirmDialogHeader><AppConfirmDialogTitle>{tHistory(item.hidden ? "visibility.restore" : "visibility.hide")}</AppConfirmDialogTitle><AppConfirmDialogDescription>{tHistory("visibility.description")}</AppConfirmDialogDescription></AppConfirmDialogHeader>
@@ -416,7 +374,6 @@ function HistoryDetailOverlay({
           </AppConfirmDialogFooter>
         </AppConfirmDialogContent>
       </AppConfirmDialog>
-    </AppDialogContent>
-    </AppDialog>
+    </AppMediaDetailDialog>
   );
 }

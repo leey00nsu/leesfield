@@ -6,7 +6,7 @@ import { hashSubmissionPayload } from "@/server/generation-admission/submission-
 import { logSafeError } from "@/server/observability/request-observability";
 import { QueueContractError } from "./contracts";
 import { queueScopeDigest } from "./job-queue-registration";
-import { withQueueTransaction } from "./job-queue-transaction";
+import { queueDatabaseNow, withQueueTransaction } from "./job-queue-transaction";
 import { cloneQueueSourceTx, prepareQueueRedrive } from "./job-queue-redrive-source";
 import { releaseQueueReservationsTx } from "./job-queue-settlement";
 import { requestQueueCancellationTx } from "./job-queue-recovery";
@@ -165,7 +165,8 @@ export async function operateQueue(actor: string, action: QueueOperation, target
         status: entry.job.status === "abandoned" ? "abandoned" : "dead_letter", version: { increment: 1 },
       } });
       const attempts = await tx.queueAttempt.findMany({ where: { jobId: entry.jobId, reservations: { some: { releasedAt: null } } }, select: { id: true } });
-      for (const attempt of attempts) await releaseQueueReservationsTx(tx, attempt.id, new Date());
+      const releasedAt = await queueDatabaseNow(tx);
+      for (const attempt of attempts) await releaseQueueReservationsTx(tx, attempt.id, releasedAt);
       return tx.queueAdminAction.update({ where: { id: current.id }, data: { outcome: "succeeded", after: evidence } });
     });
   } catch (error) {

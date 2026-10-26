@@ -103,7 +103,9 @@ export async function claimQueueJob(
           heartbeatAt: now, startedAt: now,
         } });
         const resources = await tx.queueJobResource.findMany({ where: { jobId: id } });
-        await tx.queueReservation.createMany({ data: resources.map(r => ({ attemptId, resourceKey: r.resourceKey })) });
+        // Prisma materializes @default(now()) on the worker clock. Reservations
+        // and their later release must instead share the lease's database clock.
+        await tx.queueReservation.createMany({ data: resources.map(r => ({ attemptId, resourceKey: r.resourceKey, createdAt: now })) });
         const claimed = await tx.queueJob.update({ where: { id }, data: { status: "active", currentAttemptId: attemptId, version: lease.version } });
         if (prepareTx) await prepareTx(tx, claimed, lease);
         await tx.queueRuntime.update({ where: { id: 1 }, data: { nextKindCursor: (index + 1) % queueJobKinds.length } });

@@ -1,8 +1,10 @@
 import type { ComponentProps } from "react";
 import { AppSkeleton } from "./app-skeleton";
 import { cn } from "@/shared/lib/utils";
+import styles from "./app-media-gallery.module.css";
 
 export const appMediaGalleryTileClassName = "aspect-square min-h-0 min-w-0";
+export const appMediaPreviewCardClassName = styles.previewCard;
 
 export function AppMediaGallery({ className, ...props }: ComponentProps<"div">) {
   return <div data-app-media-gallery="" className={cn("grid grid-cols-2 items-start gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5", className)} {...props} />;

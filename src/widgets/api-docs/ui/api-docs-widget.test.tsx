@@ -164,7 +164,7 @@ describe("ApiDocsWidget", () => {
       expect(limitRow.textContent).toContain("24");
       expect(limitRow.textContent).toContain("1–100");
       expect(history.querySelector("p")!.textContent).not.toContain("1000");
-      expect(document.getElementById("introduction")!.textContent).toContain("2.2.0");
+      expect(document.getElementById("introduction")!.textContent).toContain("3.0.0");
       const errors = document.getElementById("errors")!;
       for (const status of ["404", "408", "409", "413", "415", "429", "499", "500", "503"])
         expect(within(errors).getByText(status)).toBeInTheDocument();

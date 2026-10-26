@@ -1,5 +1,6 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useRef, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useUnsavedAssetClose } from "../hook/use-unsaved-asset-close";
 import { renderWithIntl } from "@/test-utils/intl";
@@ -7,6 +8,7 @@ import type { MediaAssetDto } from "@/shared/media-assets/media-asset-contract";
 import { MediaAssetApiError } from "../api/media-asset-api";
 import { MediaAssetDetailPanel } from "./media-asset-detail-panel";
 import { AppDialog, AppDialogContent, AppDialogTitle } from "@/shared/ui/app-dialog";
+import { AppMediaDetailDialog, AppMediaDetailBackdrop, useMediaDetailDialog } from "@/shared/ui/app-media-detail-dialog";
 const copyFeedback = vi.hoisted(() => ({copy: vi.fn(), copied: vi.fn(), error: vi.fn()}));
 vi.mock("@/shared/lib/clipboard", () => ({copyTextToClipboard: copyFeedback.copy}));
 vi.mock("@/shared/ui/app-toast", () => ({appToast: {copied: copyFeedback.copied, error: copyFeedback.error}}));
@@ -25,6 +27,38 @@ beforeEach(() => {
 });
 
 describe("shared asset detail editor", () => {
+  it.each(["background", "close", "escape"])("uses the same unsaved confirmation for %s and preserves drafts on cancellation", async method => {
+    const user=userEvent.setup(),close=vi.fn();
+    function Harness(){
+      const [open,setOpen]=useState(false),focus=useRef<HTMLButtonElement|null>(null);
+      const dialog=useMediaDetailDialog(()=>{close();setOpen(false);});
+      return <><button ref={focus} onClick={()=>setOpen(true)}>Open detail</button><AppMediaDetailDialog controller={dialog} open={open} finalFocus={focus}>
+        <AppDialogTitle>Shared detail</AppDialogTitle><AppMediaDetailBackdrop data-testid="shared-backdrop"><div data-testid="layout-blank"><div data-app-media-detail-content="" data-testid="protected-preview">Preview</div></div></AppMediaDetailBackdrop>
+        <MediaAssetDetailPanel assetId={asset.id} onClose={dialog.requestClose} onDirtyChange={dialog.setDirty}/>
+      </AppMediaDetailDialog></>;
+    }
+    renderWithIntl(<Harness/>);const trigger=screen.getByRole("button",{name:"Open detail"});await user.click(trigger);
+    fireEvent.click(screen.getByTestId("protected-preview"));expect(close).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByRole("textbox",{name:"이름"}),{target:{value:"A local draft"}});
+    const request=async()=>{if(method==="escape")await user.keyboard("{Escape}");else if(method==="close")await user.click(screen.getByRole("button",{name:"닫기"}));else fireEvent.click(screen.getByTestId("layout-blank"));};
+    await request();expect(close).not.toHaveBeenCalled();await screen.findByRole("alertdialog");await user.keyboard("{Escape}");await waitFor(()=>expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());expect(close).not.toHaveBeenCalled();
+    await request();await user.click(within(await screen.findByRole("alertdialog")).getByRole("button",{name:"계속 편집"}));
+    expect(screen.getByRole("textbox",{name:"이름"})).toHaveValue("A local draft");
+    await request();await user.click(within(await screen.findByRole("alertdialog")).getByRole("button",{name:"변경 버리기"}));
+    await waitFor(()=>expect(screen.queryByRole("dialog",{name:"Shared detail"})).not.toBeInTheDocument());expect(close).toHaveBeenCalledOnce();expect(mocks.patch).not.toHaveBeenCalled();expect(trigger).toHaveFocus();
+  });
+
+  it("blocks busy and composition dismissal and defers navigation until a draft is discarded", async()=>{
+    const user=userEvent.setup(),close=vi.fn(),navigate=vi.fn();
+    function Harness({busy=false}:{busy?:boolean}){const dialog=useMediaDetailDialog(close,busy);return <AppMediaDetailDialog controller={dialog}>
+      <AppDialogTitle>Guarded detail</AppDialogTitle><AppMediaDetailBackdrop data-testid="guarded-backdrop">Blank</AppMediaDetailBackdrop>
+      <button onClick={()=>dialog.setDirty(true)}>Edit draft</button><button onClick={()=>dialog.requestAction(navigate)}>Next asset</button>
+    </AppMediaDetailDialog>;}
+    const view=renderWithIntl(<Harness busy/>);fireEvent.click(screen.getByTestId("guarded-backdrop"));await user.keyboard("{Escape}");expect(close).not.toHaveBeenCalled();expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    view.rerender(<Harness/>);const pane=screen.getByRole("dialog");fireEvent.compositionStart(pane);fireEvent.keyDown(pane,{key:"Escape",isComposing:true});expect(close).not.toHaveBeenCalled();fireEvent.compositionEnd(pane);
+    await user.click(screen.getByRole("button",{name:"Edit draft"}));await user.click(screen.getByRole("button",{name:"Next asset"}));expect(navigate).not.toHaveBeenCalled();await user.click(screen.getByRole("button",{name:"계속 편집"}));expect(navigate).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button",{name:"Next asset"}));await user.click(screen.getByRole("button",{name:"변경 버리기"}));expect(navigate).toHaveBeenCalledOnce();expect(close).not.toHaveBeenCalled();
+  });
   it("copies draft IDs with only toast feedback and keeps existing form errors and unsaved values", async () => {
     const user = userEvent.setup();
     copyFeedback.copy.mockResolvedValueOnce(true).mockResolvedValueOnce(false);

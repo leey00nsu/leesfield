@@ -30,6 +30,7 @@ import { cn } from "@/shared/lib/utils";
 import type { MediaAssetDto } from "@/shared/media-assets/media-asset-contract";
 import { getMediaAssetName } from "@/shared/media-assets/media-asset-name";
 import { VariantImage } from "@/shared/media-assets/variant-image";
+import { AppMediaPreviewLoading } from "@/shared/ui/app-media-preview-loading";
 import { AppVideoPlayer } from "@/shared/ui/app-video-player";
 import { AppAudioWaveform } from "@/shared/ui/app-audio-waveform";
 import { GenerationPending } from "@/shared/ui/generation-canvas";
@@ -92,17 +93,18 @@ function GalleryTile({ item, index, query, active, onHover, onOpen }: {
   return <div ref={setElement} className={styles.tile} data-gallery-key={item.key} data-gallery-asset={item.assetId} data-gallery-type={item.type} data-gallery-result={item.resultId}
     onPointerEnter={() => onHover(true)} onPointerLeave={() => onHover(false)}>
     <button type="button" className={styles.open} aria-label={openLabel} onClick={event => onOpen(event.currentTarget)}>
-      {available && item.type === "image" ? <VariantImage key={`${source}:${image.attempt}`} asset={asset} purpose="list" className={styles.thumbnail}
+      {available && item.type === "image" ? <VariantImage showError={false} key={`${source}:${image.attempt}`} asset={asset} purpose="list" className={styles.thumbnail}
         alt={getMediaAssetName(asset)} loading="lazy" decoding="async" draggable={false} onError={() => setImage(value => value.source === source ? { ...value, failed: true } : value)} />
         : item.type === "video" ? <>
-          {poster.snapshot.images[0] && <VariantImage key={image.attempt} asset={{ url: poster.snapshot.images[0] }} className={styles.thumbnail}
+          {available && poster.visible && !poster.snapshot.images.length && !posterFailed && !previewing && <AppMediaPreviewLoading />}
+          {poster.snapshot.images[0] && <VariantImage showError={false} key={image.attempt} asset={{ url: poster.snapshot.images[0] }} className={styles.thumbnail}
             alt={`${tc("Video")} ${index + 1}`} draggable={false} onError={() => setImage(value => value.source === source ? { ...value, failed: true } : value)} />}
           {previewing ? <AppVideoPlayer key={`${source}:${image.attempt}`} src={asset.url} controls={false} active inlineOnly muted loop autoPlay playsInline preload="none"
             autoPreview={{ hovered: true }} className={cn(styles.thumbnail, styles.preview)} aria-label={`${tc("Video")} ${index + 1}`}
             onError={() => setImage(value => value.source === source ? { ...value, failed: true } : value)} />
             : <span className={styles.videoIcon}><Play aria-hidden="true" fill="currentColor" /></span>}
         </> : item.type === "audio" && available ? <AppAudioWaveform src={asset.url} asset={asset} active={poster.visible} className={styles.audioWaveform} />
-          : <span className={styles.placeholder}>{!error && t("loading")}</span>}
+          : <span className={styles.placeholder}>{!error && <AppMediaPreviewLoading />}</span>}
     </button>
     {error && <div className={styles.tileError} role="alert"><span>{t("loadError")}</span>
       <button type="button" onClick={() => {

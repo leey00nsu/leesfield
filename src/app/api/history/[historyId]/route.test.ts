@@ -4,7 +4,7 @@ const mocks = vi.hoisted(()=>({session:vi.fn(), find:vi.fn(), remove:vi.fn(),fil
 vi.mock("@/server/media-assets/media-asset-service",()=>({mediaAssetService:{get:mocks.asset}}));
 vi.mock("@/server/model-catalog/catalog-service",()=>({getModelCatalog:mocks.catalog}));
 vi.mock("@/server/auth/session",()=>({getSession:mocks.session}));
-vi.mock("@/server/db/prisma",()=>({prisma:{imageGeneration:{findFirst:mocks.find,deleteMany:mocks.remove},mediaOperation:{findFirst:mocks.find,deleteMany:mocks.remove},videoGeneration:{findFirst:mocks.find,deleteMany:mocks.remove},audioGeneration:{findFirst:mocks.find,deleteMany:mocks.remove}}}));
+vi.mock("@/server/db/prisma",()=>({prisma:{assistantExecution:{findFirst:mocks.find},imageGeneration:{findFirst:mocks.find,deleteMany:mocks.remove},mediaOperation:{findFirst:mocks.find,deleteMany:mocks.remove},videoGeneration:{findFirst:mocks.find,deleteMany:mocks.remove},audioGeneration:{findFirst:mocks.find,deleteMany:mocks.remove}}}));
 vi.mock("@/server/history/delete-history-files",()=>({deleteHistoryFiles:mocks.files}));
 vi.mock("@/server/http/safe-remote",()=>({requestRemoteStream:mocks.remote}));
 import {GET, DELETE} from "./route";
@@ -56,6 +56,12 @@ it("returns only the owned authoring projection without downloading media or exp
 });
 beforeEach(()=>{vi.clearAllMocks();mocks.session.mockResolvedValue({isLoggedIn:true,adminEmail:"owner@example.com"});mocks.catalog.mockResolvedValue([]);});
 afterEach(()=>vi.unstubAllGlobals());
+it("projects only saved assistant output mode and owned input IDs for the shared history tabs",async()=>{
+  mocks.find.mockResolvedValue({id:"assistant",graphId:"space",graphNodeId:"node",modelKey:"llm",status:"completed",inputSnapshot:{instruction:"Summarize",text:"Source",outputMode:"list",credentials:{token:"PRIVATE"}},inputAssets:[{assetId:"owned-input"}],outputText:"Result",errorCode:null,createdAt:new Date(0),updatedAt:new Date(1000),finishedAt:new Date(1000)});
+  const response=await GET(new Request("http://localhost/api/history/assistant?type=assistant&view=detail"),context);
+  expect(response.status).toBe(200);const body=await response.json();expect(body.item).toMatchObject({type:"assistant",assistantSettings:{outputMode:"list"},sourceAssetIds:["owned-input"],inputText:"Source",outputText:"Result"});
+  expect(JSON.stringify(body)).not.toContain("PRIVATE");expect(body.item).not.toHaveProperty("inputSnapshot");expect(mocks.find).toHaveBeenCalledWith(expect.objectContaining({where:{id:"request-1",ownerEmail:"owner@example.com"},select:expect.objectContaining({inputAssets:expect.objectContaining({where:{ownerEmail:"owner@example.com"},take:256})})}));expect(mocks.remote).not.toHaveBeenCalled();
+});
 it("restores saved mapped options including zero/false/advanced inputs without exposing secrets or file values",async()=>{
  const fields=[{name:"prompt",label:"Prompt",kind:"string",canonical:"prompt",schema:{type:"string"},required:true,nullable:false},{name:"width",label:"Width",kind:"number",schema:{type:"integer"},required:false,nullable:false},{name:"seed",label:"Seed",kind:"number",schema:{type:"integer"},required:false,nullable:false},{name:"advanced__enabled",label:"Enabled",kind:"boolean",schema:{type:"boolean"},required:false,nullable:false},{name:"image",label:"Image",kind:"file",media:"image",schema:{},required:false,nullable:true},{name:"api_key",label:"Key",kind:"string",schema:{type:"string"},required:false,nullable:false},{name:"notes",label:"Notes",kind:"json",schema:{type:"object"},required:false,nullable:false}];
  const providerConfig={token:"PRIVATE",gradio_contract:{version:1,apiName:"/generate",inputs:fields,output:{media:"image",path:[0],multiple:false},diagnostics:[],reviewed:true}};

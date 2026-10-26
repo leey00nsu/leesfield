@@ -49,7 +49,11 @@ describe("asset library project actions", () => {
   it("filters the shared library by project without offering tags or page selection mode", async () => {
     setup(); await screen.findByRole("button", { name: "Name one" });
     const nav = screen.getByRole("navigation", { name: "에셋 탐색", hidden: true });
+    const menu=screen.getByRole("button",{name:"프로젝트 탐색 열기/닫기"});
+    expect(menu).toHaveAttribute("aria-expanded","false");fireEvent.click(menu);expect(menu).toHaveAttribute("aria-expanded","true");
     fireEvent.click(await within(nav).findByRole("button", { name: "Cafe", hidden: true }));
+    expect(menu).toHaveAttribute("aria-expanded","false");expect(menu).toHaveFocus();
+    fireEvent.click(menu);fireEvent.keyDown(nav,{key:"Escape"});expect(menu).toHaveAttribute("aria-expanded","false");expect(menu).toHaveFocus();
     await waitFor(() => expect(listMediaAssets).toHaveBeenLastCalledWith(undefined, null, expect.any(AbortSignal), undefined, { query: "", sort: "latest", projectId: "project", starred: undefined }));
     expect(screen.queryByRole("button", { name: "파일 선택" })).not.toBeInTheDocument();
     expect(screen.queryByText("태그")).not.toBeInTheDocument();

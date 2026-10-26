@@ -1,9 +1,7 @@
 import { z } from "zod";
 
-export const queueJobKinds = [
-  "generate_image", "generate_video", "generate_audio",
-  "media_operation", "assistant", "storage_cleanup",
-] as const;
+import { queueJobKinds } from "@/shared/api/job-queue-console-contract";
+export { queueJobKinds };
 export type QueueJobKind = (typeof queueJobKinds)[number];
 
 export const queueSourceTypes = [

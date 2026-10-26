@@ -1,6 +1,6 @@
 import { expireStaleSubmissions } from "@/server/generation-admission/submission-ledger";
 import { mediaAssetRepository } from "@/server/media-assets/media-asset-repository";
-import { activateExpiredCleanupIntents } from "@/server/media-assets/media-cleanup-repository";
+import { activateExpiredCleanupIntents, retireLinkedStorageCleanupJobs } from "@/server/media-assets/media-cleanup-repository";
 import { prisma } from "@/server/db/prisma";
 import { cancelClosedQueueGroups } from "./job-queue-operations";
 import { purgeResolvedQueueDetails } from "./job-queue-retention";
@@ -14,6 +14,7 @@ export async function sweepQueueMaintenance() {
   await expireStaleSubmissions(now, 100);
   await mediaAssetRepository.expireUploads(now, 100);
   await activateExpiredCleanupIntents(now, 100);
+  await retireLinkedStorageCleanupJobs(100);
   await cancelClosedQueueGroups();
   if (Date.now() >= nextRetentionAt) {
     await purgeResolvedQueueDetails(now);

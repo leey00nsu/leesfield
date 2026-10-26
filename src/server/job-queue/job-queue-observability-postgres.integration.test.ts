@@ -1,11 +1,11 @@
 // @vitest-environment node
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/server/db/prisma";
 import { postgresIntegrationEnabled } from "@/test-utils/postgres-integration";
 import { removeFixtureQueueJobs } from "@/test-utils/job-queue-postgres";
 import { enqueueQueueJobTx } from "./job-queue-registration";
-import { withQueueTransaction } from "./job-queue-transaction";
+import { queueDatabaseNow, withQueueTransaction } from "./job-queue-transaction";
 import { claimQueueJob } from "./job-queue-scheduler";
 import { settleQueueFailure } from "./job-queue-settlement";
 import { getSharedQueueSnapshot } from "./job-queue-snapshot";
@@ -28,6 +28,22 @@ describe.skipIf(!postgresIntegrationEnabled)("common queue observability", () =>
     const id = randomUUID(); ids.push(id);
     return withQueueTransaction(tx => enqueueQueueJobTx(tx, { kind, source: { type, id }, ownerScopeDigest: digest, snapshotRef: "metric-fixture", orderKey: key, suspended }));
   }
+  it.each([-60_000, 60_000])("keeps reservation creation and release on the database clock with worker offset %i", async offset => {
+    const job = await register("generate_image", "image_generation");
+    try {
+      vi.setSystemTime(new Date(Date.now() + offset));
+      const claim = (await claimQueueJob(randomUUID()))!;
+      const now = await withQueueTransaction(queueDatabaseNow);
+      const reservations = await prisma.queueReservation.findMany({ where: { attemptId: claim.attemptId } });
+      const attempt = await prisma.queueAttempt.findUniqueOrThrow({ where: { id: claim.attemptId } });
+      expect(reservations.length).toBeGreaterThan(0);
+      expect(reservations.every(r => r.createdAt <= now)).toBe(true);
+      expect(reservations.every(r => r.createdAt.getTime() === attempt.startedAt.getTime())).toBe(true);
+      await settleQueueFailure(claim.lease, handler, { code: "TEST_FAILED", phase: "execute", disposition: "terminal", executionStopped: true });
+      const released = await prisma.queueReservation.findMany({ where: { attemptId: claim.attemptId } });
+      expect(released.every(r => r.releasedAt && r.releasedAt >= r.createdAt)).toBe(true);
+    } finally { vi.useRealTimers(); await removeFixtureQueueJobs([job.sourceId]); }
+  });
   it("counts all six kinds, retry/block/uncertain resources and DLQ history once", async () => {
     const key = randomUUID();
     await register("generate_image", "image_generation", key);

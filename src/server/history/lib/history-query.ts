@@ -27,7 +27,7 @@ const MAX_LIMIT = 100;
 export const MAX_HISTORY_OFFSET = 1_000;
 export const MAX_HISTORY_SEARCH_LENGTH = 200;
 
-const HISTORY_TYPES = new Set<HistoryType>(["image", "video", "audio", "all"]);
+const HISTORY_TYPES = new Set<HistoryType>(["image", "video", "audio", "assistant", "all"]);
 const HISTORY_SORTS = new Set<HistorySort>(["date_desc", "date_asc"]);
 
 function toNumber(value: string | null) {

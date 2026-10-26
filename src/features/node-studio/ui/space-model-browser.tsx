@@ -1,5 +1,7 @@
 "use client";
 
+import { AppPreviewImage } from "@/shared/ui/app-preview-image";
+
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AudioLines, Check, ExternalLink, Image as ImageIcon, LoaderCircle, Plus, RefreshCw, Sparkles, Video } from "lucide-react";
@@ -179,8 +181,7 @@ function ModelBrowserSession({
         disabled={disabled} onClick={() => choose(entry)} />
       <div className={styles.cover} aria-hidden="true">
         {entry.cover
-          // eslint-disable-next-line @next/next/no-img-element -- Public catalog artwork can come from any provider origin.
-          ? <img src={entry.cover} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+          ? <AppPreviewImage src={entry.cover} alt="" className="size-full object-cover" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
           : <Icon />}
       </div>
       <div className={styles.info}>

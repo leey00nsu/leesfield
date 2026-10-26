@@ -76,3 +76,10 @@ export function buildBaseSelect(
     ${where}
   `;
 }
+
+export function buildAssistantBaseSelect(where:Prisma.Sql) {return Prisma.sql`SELECT "createdAt","finishedAt","status","modelKey","apiKeyId" FROM (SELECT a."createdAt",a."finishedAt",a.status::text AS status,a."modelKey",a."ownerEmail",n."apiKeyId" FROM "AssistantExecution" a LEFT JOIN "NodeExecutionSubmission" n ON n."executionId"=a.id AND n."ownerEmail"=a."ownerEmail") s ${where}`;}
+export function buildMonitoringBaseSelect(query:Pick<import("./monitoring-query").MonitoringQuery,"type"|"includeAssistant">,where:Prisma.Sql) {
+  if(query.type==="assistant")return buildAssistantBaseSelect(where);
+  const image=buildBaseSelect("ImageGeneration",where),video=buildBaseSelect("VideoGeneration",where),audio=buildBaseSelect("AudioGeneration",where);
+  return query.type==="image"?image:query.type==="video"?video:query.type==="audio"?audio:Prisma.sql`${image} UNION ALL ${video} UNION ALL ${audio}${query.includeAssistant?Prisma.sql` UNION ALL ${buildAssistantBaseSelect(where)}`:Prisma.empty}`;
+}

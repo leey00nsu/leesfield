@@ -8,6 +8,7 @@ vi.mock("@/server/db/prisma", () => ({ prisma: {
   imageGeneration: { findUnique: mocks.unique, findFirst: mocks.find, deleteMany: mocks.remove },
   audioGeneration: { findUnique: mocks.unique, findFirst: mocks.find, deleteMany: mocks.remove },
   videoGeneration: { findUnique: mocks.unique, findFirst: mocks.find, deleteMany: mocks.remove },
+  assistantExecution: { findFirst: mocks.find },
   generationInputAsset: { findMany: mocks.inputs },
   mediaOperation: { findFirst: mocks.find, deleteMany: mocks.remove },
 } }));
@@ -34,9 +35,9 @@ it("passes the authenticated owner to list and status and rejects invalid cursor
   mocks.list.mockResolvedValue({ items: [], nextCursor: null, total: 0, limit: 24, offset: 0 });
   mocks.status.mockResolvedValue({ hasActive: false, activeCount: 0, latestUpdatedAt: null });
   expect((await list(request())).status).toBe(200);
-  expect(mocks.list).toHaveBeenCalledWith(expect.any(URLSearchParams), "owner");
+  expect(mocks.list).toHaveBeenCalledWith(expect.any(URLSearchParams), "owner", { includeAssistant: true });
   expect((await status(request())).status).toBe(200);
-  expect(mocks.status).toHaveBeenCalledWith(expect.any(URLSearchParams), "owner");
+  expect(mocks.status).toHaveBeenCalledWith(expect.any(URLSearchParams), "owner", { includeAssistant: true });
   mocks.list.mockRejectedValueOnce(new InvalidHistoryCursor("INVALID_HISTORY_CURSOR"));
   expect((await list(request())).status).toBe(400);
 });
@@ -92,4 +93,22 @@ it("rejects invalid type or origin before history lookup", async () => {
   expect((await DELETE(request("DELETE", "type=image&origin=unknown"), context)).status).toBe(400);
   expect(mocks.unique).not.toHaveBeenCalled();
   expect(mocks.find).not.toHaveBeenCalled();
+});
+
+it("returns bounded assistant text without snapshots and keeps assistant mutations unavailable", async () => {
+  mocks.find.mockResolvedValue({ id: "request", graphId: "graph", graphNodeId: "node", modelKey: "llm", status: "completed",
+    inputSnapshot: { instruction: "a".repeat(21_000), text: "input", credentials: { token: "never-expose" } },
+    outputText: "b".repeat(21_000), errorCode: null, createdAt: new Date(), updatedAt: new Date(), finishedAt: new Date() });
+  const response = await GET(request("GET", "type=assistant"), context);
+  expect(response.status).toBe(200);
+  const body = await response.json();
+  expect(body).toMatchObject({ type: "assistant", origin: "generation", inputText: "input", assets: [] });
+  expect(body.prompt).toHaveLength(20_000);
+  expect(body.outputText).toHaveLength(20_000);
+  expect(JSON.stringify(body)).not.toContain("never-expose");
+  expect(mocks.find).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "request", ownerEmail: "owner" } }));
+  expect((await GET(request("GET", "type=assistant&origin=edit"), context)).status).toBe(400);
+  expect((await DELETE(request("DELETE", "type=assistant"), context)).status).toBe(400);
+  mocks.find.mockResolvedValue(null);
+  expect((await GET(request("GET", "type=assistant"), context)).status).toBe(404);
 });

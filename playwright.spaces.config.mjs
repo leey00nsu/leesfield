@@ -1,7 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
+import { join } from "node:path";
 
 const startServer = process.env.E2E_START_SERVER === "1";
 const baseURL = process.env.SPACES_BASE_URL ?? "http://127.0.0.1:3100";
+const output = process.env.SPACES_E2E_OUTPUT_DIR ?? "./artifacts/spaces-e2e";
 if (new URL(baseURL).port === "3000") {
   throw new Error("Spaces E2E requires an isolated server; port 3000 belongs to the user's development session.");
 }
@@ -13,7 +15,7 @@ export default defineConfig({
   testDir: "./scripts/spaces/e2e",
   testMatch: ["spaces.spec.mjs", "large-graph.spec.mjs"],
   globalSetup: "./scripts/spaces/e2e/spaces-global-setup.mjs",
-  outputDir: "./artifacts/spaces-e2e/test-results",
+  outputDir: join(output, "test-results"),
   snapshotDir: "./artifacts/spaces-e2e/snapshots",
   fullyParallel: true,
   workers,
@@ -23,7 +25,7 @@ export default defineConfig({
   expect: { timeout: 8_000 },
   reporter: [
     ["list"],
-    ["json", { outputFile: "./artifacts/spaces-e2e/results.json" }],
+    ["json", { outputFile: join(output, "results.json") }],
   ],
   use: {
     baseURL,

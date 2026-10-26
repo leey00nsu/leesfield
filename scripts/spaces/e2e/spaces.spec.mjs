@@ -209,7 +209,8 @@ async function waitForFreshWorkflow(page, graph, navigate = true) {
 }
 
 async function readWorkflowViaApi(page, graphId) {
-  const response = await page.request.get(`/api/generation-graphs/${encodeURIComponent(graphId)}`);
+  // Retry only connection resets on this idempotent read; HTTP errors still fail below.
+  const response = await page.request.get(`/api/generation-graphs/${encodeURIComponent(graphId)}`, { maxRetries: 2 });
   if (!response.ok()) throw new Error(`read graph failed: ${response.status()} ${await response.text()}`);
   return (await response.json()).graph;
 }
@@ -3770,6 +3771,9 @@ test.describe("Spaces native editor Chromium regression", () => {
         expect(history.ok()).toBe(true);
         expect(await history.json()).toMatchObject({ origin: "edit", operation: { type: "direct." + kind },
           inputMedia: [expect.objectContaining({ assetId: source.config.assetId })] });
+        // The server may finish before the editor's observation GET returns.
+        // Freeze a completed client result, rather than undoing a pending edit.
+        await expectMedia(page, result, asset.id, asset.type);
         await page.locator("[data-space-canvas]").focus(); await page.keyboard.press("Control+z");
         await waitForWorkflowState(page, graph.id, g => !g.nodes.some(n => n.id === result.id), "Undo result not saved");
         await page.keyboard.press("Control+Shift+z");

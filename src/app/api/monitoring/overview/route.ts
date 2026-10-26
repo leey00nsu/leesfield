@@ -18,7 +18,7 @@ async function getHandler(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const query = parseMonitoringQuery(searchParams, { defaultDays: 7 });
+  const query = parseMonitoringQuery(searchParams, { includeAssistant:true, defaultDays: 7 });
 
   try {
     const payload = await getMonitoringOverview(query);

@@ -29,7 +29,7 @@ const transitionTypes = {
   },
 };
 const eligible = d => d.kind === "storage_cleanup"
-  ? `s.status IN ('pending','uploading','linked','failed')`
+  ? `s.status IN ('pending','failed')`
   : `s.status = 'pending'`;
 const scopeFilter = d => d.kind === "media_operation"
   ? " AND s.type IN (" + serverMediaTypes.map(t => "'" + t + "'").join(",") + ")" : "";
@@ -93,7 +93,6 @@ async function importSource(db, d, source, runtime, cursor, password) {
   if (existing) return false;
   const cleanup = d.kind === "storage_cleanup";
   const exhausted = cleanup && (source.status === "failed" || source.status === "pending" && source.attempts >= 5);
-  const protectedIntent = cleanup && (source.status === "linked" || source.status === "uploading" && source.retryAt > now);
   const cancelled = Boolean(source.cancelRequestedAt);
   const resources = [d.pool];
   await resource(db, d.pool, { staticCapacity: d.capacity });
@@ -116,7 +115,7 @@ async function importSource(db, d, source, runtime, cursor, password) {
     ? d.media + ":" + source.id + (source.graphNodeId ? ":node:" + source.graphNodeId : ":classic")
     : (d.kind === "assistant" ? "assistant:" : "media-operation:") + source.id;
   const jobId = randomUUID();
-  const status = exhausted ? "dead_letter" : cancelled ? "cancelled" : protectedIntent ? "suspended" : "ready";
+  const status = exhausted ? "dead_letter" : cancelled ? "cancelled" : "ready";
   await insert(db, "QueueJob", { id: jobId, kind: d.kind, sourceType: d.type, sourceId: source.id,
     sourceRevision: revision, snapshotRef, ownerScopeDigest: digest, executionType: d.type, executionId: source.id,
     status, availableAt: cleanup ? source.retryAt : source.createdAt, maxAttempts: cleanup ? 5 : 1, retryDelayMs: cleanup ? 60_000 : 0,
@@ -144,7 +143,7 @@ async function importSource(db, d, source, runtime, cursor, password) {
       safeErrorCode: /^[A-Z][A-Z0-9_]{0,119}$/.test(source.lastError ?? "") ? source.lastError : "QUEUE_LEGACY_FAILURE",
       phase: "migration", detail: { imported: true, legacyStatus: source.status, priorAttempts: source.attempts ?? null } });
   }
-  const nextStatus = exhausted ? "failed" : cancelled ? "cancelled" : cleanup && !protectedIntent ? "pending" : source.status;
+  const nextStatus = exhausted ? "failed" : cancelled ? "cancelled" : cleanup ? "pending" : source.status;
   if (nextStatus !== source.status) {
     const leaseColumns = cleanup ? '"leaseToken" = NULL, "leaseUntil" = NULL' : '"executionLeaseToken" = NULL, "executionLeaseUntil" = NULL';
     const terminal = !cleanup ? ', "finishedAt" = COALESCE("finishedAt", clock_timestamp())' : "";

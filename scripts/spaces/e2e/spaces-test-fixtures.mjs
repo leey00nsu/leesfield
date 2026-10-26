@@ -3,6 +3,7 @@ import { mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { test as base, expect } from "@playwright/test";
 import { sealData } from "iron-session";
+import { createHmrDiagnostics } from "../hmr-diagnostics.mjs";
 
 const nativeClipboard = /canvas clipboard,|Assistant shows references,/;
 // Three cases share the native clipboard. Allow two earlier cases to use their
@@ -11,6 +12,17 @@ const clipboardWaitTimeout = 600_000;
 const clipboardCleanupTimeout = 10_000;
 
 export const test = base.extend({
+  page: async ({ page }, run, testInfo) => {
+    const diagnostics = createHmrDiagnostics();
+    page.on("framenavigated", frame => { if (frame === page.mainFrame()) diagnostics.navigation(); });
+    page.on("websocket", socket => socket.on("framereceived", ({ payload }) => diagnostics.message(payload)));
+    await run(page);
+    const { connections, navigations, reloads, restarts } = diagnostics.snapshot();
+    testInfo.annotations.push({ type: "hmr-counters", description: JSON.stringify({ connections, navigations, reloads, restarts }) });
+    if (testInfo.status !== testInfo.expectedStatus) await testInfo.attach("hmr-diagnostics", {
+      body: JSON.stringify(diagnostics.snapshot(), null, 2), contentType: "application/json",
+    });
+  },
   // Every test gets a normal signed session, so settings, list results and
   // owner-wide admission limits cannot leak between parallel browser contexts.
   context: async ({ context }, run, testInfo) => {

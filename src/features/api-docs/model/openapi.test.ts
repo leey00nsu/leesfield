@@ -145,11 +145,20 @@ describe("public API protocol", () => {
     expect(names("top")).not.toContain("offset");
     expect(names("requests")).toEqual(expect.arrayContaining(["query", "limit", "offset", "includeTotal"]));
     expect(paths["/api/external/monitoring/requests/detail"]!.get!).not.toHaveProperty("x-query-limits");
+    const typeValues = (path: string, method: "get" | "delete" = "get") => {
+      const parameter = paths[path]![method]!.parameters!.find(p => !("$ref" in p) && p.name === "type")!;
+      return "$ref" in parameter ? [] : (parameter.schema as SchemaObject).enum;
+    };
+    for (const path of ["/api/external/history", "/api/external/history/status", "/api/external/history/{historyId}",
+      "/api/external/monitoring/overview", "/api/external/monitoring/stats", "/api/external/monitoring/requests",
+      "/api/external/monitoring/requests/detail", "/api/external/monitoring/top"])
+      expect(typeValues(path)).toContain("assistant");
+    expect(typeValues("/api/external/history/{historyId}", "delete")).not.toContain("assistant");
   });
   it("contains generic authenticated operations without instance catalog data", () => {
     const document = getOpenApiDocument();
     expect(document.info.version).toBe(externalApiVersion);
-    expect(document.info.version).toBe("2.2.0");
+    expect(document.info.version).toBe("3.0.0");
     expect(document.openapi).toBe("3.1.0");
     // The same document crosses the React server/client boundary in the docs UI.
     const assertPlainJson = (value: unknown, path = "$doc") => {

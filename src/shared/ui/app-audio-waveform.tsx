@@ -4,6 +4,7 @@ import { useId } from "react";
 import type { MediaAssetDto } from "@/shared/media-assets/media-asset-contract";
 import { cn } from "@/shared/lib/utils";
 import { useAudioWaveform } from "./use-audio-waveform";
+import { AppMediaPreviewLoading } from "./app-media-preview-loading";
 import styles from "./app-audio-waveform.module.css";
 
 export type AppAudioWaveformProps = {
@@ -17,8 +18,9 @@ export type AppAudioWaveformProps = {
 /** Silent visual preview. No media element, controls, or audio output is created. */
 export function AppAudioWaveform({ src, asset, active = true, className }: AppAudioWaveformProps) {
   const waveform = useAudioWaveform(src, asset, active);
-  return <span className={cn(styles.preview, className)} data-app-audio-waveform={waveform.state} aria-hidden="true">
+  return <span className={cn("relative", styles.preview, className)} data-app-audio-waveform={waveform.state} aria-hidden="true">
     <AudioWaveformGraphic peaks={waveform.peaks} />
+    {waveform.state === "loading" && <AppMediaPreviewLoading />}
   </span>;
 }
 

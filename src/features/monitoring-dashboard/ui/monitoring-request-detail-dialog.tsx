@@ -37,11 +37,11 @@ const FINISHED_STATUSES = new Set(["completed", "failed", "cancelled"]);
 
 function DetailRow({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-white/5 bg-background-dark/40 px-3 py-2">
+    <div className="flex flex-col gap-1 rounded-lg border border-white/5 bg-background-dark/40 p-4">
       <span className="text-[10px] font-sans uppercase tracking-widest text-gray-500">
         {label}
       </span>
-      <span className="text-sm text-white">{value ?? "-"}</span>
+      <span className="min-w-0 break-all text-sm text-white">{value ?? "-"}</span>
     </div>
   );
 }
@@ -87,6 +87,8 @@ function mergeAssets(
     if (!url) return null;
 
     return {
+      ...seedAsset,
+      ...fetchedAsset,
       url,
       width: fetchedAsset?.width ?? seedAsset?.width ?? null,
       height: fetchedAsset?.height ?? seedAsset?.height ?? null,
@@ -141,6 +143,7 @@ function mergeMonitoringDetail({
       fetchedInputImages.length > 0 ? fetchedInputImages : seedInputImages,
     inputAudios:
       fetchedInputAudios.length > 0 ? fetchedInputAudios : seedInputAudios,
+    inputVideos: fetched?.inputVideos ?? seed?.inputVideos ?? [],
     referenceText: fetched?.referenceText ?? seed?.referenceText ?? null,
     assets: mergeAssets(fetched?.assets, seed?.assets),
   };
@@ -154,15 +157,6 @@ export function MonitoringRequestDetailDialog({
   detailOverride = null,
 }: MonitoringRequestDetailDialogProps) {
   const t = useTranslations("monitoringDashboard");
-  const locale = useLocale();
-  const statusLabels: Record<string, string> = {
-    pending: t("statuses.pending"),
-    processing: t("statuses.processing"),
-    uploading: t("statuses.uploading"),
-    completed: t("statuses.completed"),
-    failed: t("statuses.failed"),
-    cancelled: t("statuses.cancelled"),
-  };
 
   const shouldFetchDetail = Boolean(request);
   const detailQuery = useMonitoringRequestDetail(
@@ -170,20 +164,6 @@ export function MonitoringRequestDetailDialog({
     request?.id ?? null,
     open && Boolean(request) && shouldFetchDetail,
   );
-
-  const formatter = useMemo(() => {
-    return new Intl.DateTimeFormat(locale, {
-      dateStyle: "medium",
-      timeStyle: "short",
-      timeZone,
-    });
-  }, [locale, timeZone]);
-
-  const formatDateTime = (value: string) => {
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return "-";
-    return formatter.format(parsed);
-  };
 
   const detail = useMemo(
     () =>
@@ -194,12 +174,6 @@ export function MonitoringRequestDetailDialog({
       }),
     [detailOverride, detailQuery.data, request],
   );
-  const isFinished = detail ? FINISHED_STATUSES.has(detail.status) : false;
-  const status = detail
-    ? resolveMonitoringStatus(detail.status, statusLabels)
-    : null;
-  const StatusIcon = status?.icon ?? null;
-  const inputLabels = detail ? resolveInputLabels(detail, t) : null;
 
   return (
     <AppDialog open={open} onOpenChange={onOpenChange}>
@@ -221,8 +195,58 @@ export function MonitoringRequestDetailDialog({
             {t("requests.detailFetchError")}
           </div>
         ) : detail ? (
-          <div className="mt-6 flex flex-col gap-6">
-            <div className="grid gap-3 md:grid-cols-3">
+          <MonitoringRequestDetailContent detail={detail} timeZone={timeZone} />
+        ) : null}
+
+        </AppDialogBody>
+        <div className="flex justify-end">
+          <AppDialogClose asChild>
+            <AppButton type="button" variant="surface">
+              {t("requests.detailClose")}
+            </AppButton>
+          </AppDialogClose>
+        </div>
+      </AppDialogContent>
+    </AppDialog>
+  );
+}
+
+/** Shared by the legacy request dialog and the queue job’s General detail. */
+export function MonitoringRequestDetailContent({detail,timeZone,compact=false}:{detail:MonitoringRequestDetail;timeZone:string;compact?:boolean}) {
+  const t=useTranslations("monitoringDashboard"),locale=useLocale();
+  const statusLabels: Record<string, string> = {
+    pending: t("statuses.pending"),
+    processing: t("statuses.processing"),
+    uploading: t("statuses.uploading"),
+    completed: t("statuses.completed"),
+    failed: t("statuses.failed"),
+    cancelled: t("statuses.cancelled"),
+  };
+
+  const formatter = useMemo(() => {
+    return new Intl.DateTimeFormat(locale, {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone,
+    });
+  }, [locale, timeZone]);
+
+  const formatDateTime = (value: string) => {
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return "-";
+    return formatter.format(parsed);
+  };
+
+  const isFinished = detail ? FINISHED_STATUSES.has(detail.status) : false;
+  const status = detail
+    ? resolveMonitoringStatus(detail.status, statusLabels)
+    : null;
+  const StatusIcon = status?.icon ?? null;
+  const inputLabels = detail ? resolveInputLabels(detail, t) : null;
+
+  return (
+          <div className="flex min-w-0 flex-col gap-6 break-words">
+            <div className={compact ? "grid grid-cols-1 gap-3" : "grid gap-3 md:grid-cols-3"}>
               <DetailRow
                 label={t("requests.detailRequestId")}
                 value={detail.id}
@@ -282,19 +306,20 @@ export function MonitoringRequestDetailDialog({
               </div>
               {detail.inputImages.length === 0 &&
               detail.inputAudios.length === 0 &&
+              !detail.inputVideos?.length &&
               !detail.referenceText ? (
                 <div className="mt-3 rounded-xl border border-white/10 bg-background-dark/40 p-4 text-sm text-gray-400">
                   {inputLabels?.empty ?? t("requests.detailInputsEmpty")}
                 </div>
               ) : (
-                <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                <div className={compact ? "mt-3 grid gap-4" : "mt-3 grid gap-4 sm:grid-cols-2"}>
                   {detail.inputImages.map((url, index) => (
                     <div
                       key={`${url}-${index}`}
                       className="overflow-hidden rounded-xl border border-white/10 bg-black/30"
                     >
-                      <img
-                        src={url}
+                      <VariantImage
+                        asset={{url}}
                         alt={`input-${index + 1}`}
                         className="h-48 w-full object-contain bg-black/70"
                         loading="lazy"
@@ -317,8 +342,9 @@ export function MonitoringRequestDetailDialog({
                       </div>
                     </div>
                   ))}
+                  {detail.inputVideos?.map((url,index)=><div key={`${url}-video-${index}`} className="overflow-hidden rounded-xl border border-white/10 bg-black/30"><AppVideoPlayer controls src={url} className="h-48 w-full object-contain bg-black/70"/><div className="px-3 py-2 text-xs text-gray-400">#{index+1}</div></div>)}
                   {detail.referenceText ? (
-                    <div className="rounded-xl border border-white/10 bg-background-dark/40 p-4 text-sm text-white sm:col-span-2">
+                    <div className={cn("rounded-xl border border-white/10 bg-background-dark/40 p-4 text-sm text-white",!compact&&"sm:col-span-2")}>
                       {detail.referenceText}
                     </div>
                   ) : null}
@@ -335,7 +361,7 @@ export function MonitoringRequestDetailDialog({
                   {t("requests.detailEmpty")}
                 </div>
               ) : (
-                <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                <div className={compact ? "mt-3 grid gap-4" : "mt-3 grid gap-4 sm:grid-cols-2"}>
                   {detail.assets.map((asset, index) => {
                     const resolution = formatResolution(asset);
                     return (
@@ -401,17 +427,5 @@ export function MonitoringRequestDetailDialog({
               </div>
             ) : null}
           </div>
-        ) : null}
-
-        </AppDialogBody>
-        <div className="flex justify-end">
-          <AppDialogClose asChild>
-            <AppButton type="button" variant="surface">
-              {t("requests.detailClose")}
-            </AppButton>
-          </AppDialogClose>
-        </div>
-      </AppDialogContent>
-    </AppDialog>
   );
 }

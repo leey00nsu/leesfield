@@ -13,7 +13,7 @@ import { buildImagePayload, buildVideoPayload, buildAudioPayload, getImageRuntim
 import { validateImageGenerationPayload, validateVideoGenerationPayload, validateAudioGenerationPayload } from "@/server/model-catalog/generation-validation";
 
 function fail(code: string): never { throw new QueueContractError(code); }
-function versionedSnapshot(snapshot: unknown) {
+export function versionedSnapshot(snapshot: unknown) {
   return Boolean(snapshot && typeof snapshot === "object" && !Array.isArray(snapshot) &&
     (snapshot as { requestVersion?: unknown }).requestVersion === 3);
 }
@@ -21,16 +21,16 @@ export function queueGenerationModel(tx: Prisma.TransactionClient | typeof prism
   return (kind === "generate_image" ? tx.imageGeneration : kind === "generate_video" ? tx.videoGeneration : tx.audioGeneration) as Prisma.TransactionClient["imageGeneration"];
 }
 
-async function checkAssets(tx: Prisma.TransactionClient, ownerEmail: string, refs: Array<{ assetId: string }>) {
+export async function checkAssets(tx: Prisma.TransactionClient, ownerEmail: string, refs: Array<{ assetId: string }>, lock = true) {
   const ids = [...new Set(refs.map(r => r.assetId))].sort();
   if (!ids.length) return;
-  await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "MediaAsset" WHERE "id" IN (${Prisma.join(ids)}) ORDER BY "id" FOR SHARE`);
+  if (lock) await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "MediaAsset" WHERE "id" IN (${Prisma.join(ids)}) ORDER BY "id" FOR SHARE`);
   const count = await tx.mediaAsset.count({ where: { id: { in: ids }, ownerEmail, status: "completed" } });
   if (count !== ids.length) fail("QUEUE_REDRIVE_INPUT_MISSING");
 }
-async function checkNode(tx: Prisma.TransactionClient, ownerEmail: string, nodeId: string | null, kind: string, configVersion?: number) {
+export async function checkNode(tx: Prisma.TransactionClient, ownerEmail: string, nodeId: string | null, kind: string, configVersion?: number) {
   if (!nodeId) return;
-  const node = await tx.generationGraphNode.findFirst({ where: { id: nodeId, kind, graph: { ownerEmail }, ...(configVersion === undefined ? {} : { configVersion }) } });
+  const node = await tx.generationGraphNode.findFirst({ where: { id: nodeId, kind, graph: { ownerEmail }, ...(configVersion === undefined ? {} : { configVersion }) }, select: { id: true } });
   if (!node) fail("QUEUE_REDRIVE_TARGET_CHANGED");
   const active = await Promise.all([
     tx.imageGeneration.count({ where: { graphNodeId: nodeId, status: { in: ["pending", "processing", "uploading"] } } }),
@@ -41,7 +41,7 @@ async function checkNode(tx: Prisma.TransactionClient, ownerEmail: string, nodeI
   ]);
   if (active.some(Boolean)) fail("QUEUE_REDRIVE_NODE_ACTIVE");
 }
-function assertOwner(job: QueueJob, ownerEmail: string | null): asserts ownerEmail is string {
+export function assertOwner(job: QueueJob, ownerEmail: string | null): asserts ownerEmail is string {
   if (!ownerEmail || queueScopeDigest(ownerEmail) !== job.ownerScopeDigest) fail("QUEUE_REDRIVE_OWNER_CHANGED");
 }
 

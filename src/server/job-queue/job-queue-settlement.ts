@@ -25,9 +25,10 @@ export function settleQueueSuccess(lease: QueueLease, handler: QueueHandler, res
       phase: "ended", outcome: outcome === "protected" ? "protected" : "succeeded", finishedAt: now,
     } });
     await tx.queueJob.update({ where: { id: job.id }, data: {
-      status: outcome === "protected" ? "suspended" : "succeeded", version: { increment: 1 },
+      status: outcome === "protected" ? "cancelled" : "succeeded", version: { increment: 1 },
     } });
     await releaseQueueReservationsTx(tx, lease.attemptId, now);
+    if (outcome === "protected") await blockQueueGroupTx(tx, job);
     if (outcome === "succeeded" && job.orderGroupId) {
       await tx.queueOrderGroup.update({ where: { id: job.orderGroupId }, data: {
         headSequence: { increment: 1 }, blockedByJobId: null, version: { increment: 1 },
@@ -42,6 +43,7 @@ export function settleQueueSuccess(lease: QueueLease, handler: QueueHandler, res
       where: { jobId: job.id, state: "redriven" },
       data: { state: "resolved", resolvedAt: now },
     });
+    return outcome;
   });
 }
 

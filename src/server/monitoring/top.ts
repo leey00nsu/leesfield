@@ -3,7 +3,7 @@ import { prisma } from "@/server/db/prisma";
 import type { MonitoringMetric, MonitoringQuery } from "@/server/monitoring/monitoring-query";
 import {
   FINISHED_STATUSES,
-  buildBaseSelect,
+  buildMonitoringBaseSelect,
   buildRawWhere,
 } from "@/server/monitoring/monitoring-sql";
 import { measureDatabase } from "@/server/observability/request-observability";
@@ -65,18 +65,7 @@ async function queryTopByModel(query: MonitoringQuery, limit: number) {
   };
 
   const where = buildRawWhere(filters, { includeDate: true, includeStatus: true });
-  const imageSelect = buildBaseSelect("ImageGeneration", where);
-  const videoSelect = buildBaseSelect("VideoGeneration", where);
-  const audioSelect = buildBaseSelect("AudioGeneration", where);
-
-  const baseQuery =
-    query.type === "image"
-      ? imageSelect
-      : query.type === "video"
-        ? videoSelect
-        : query.type === "audio"
-          ? audioSelect
-          : Prisma.sql`${imageSelect} UNION ALL ${videoSelect} UNION ALL ${audioSelect}`;
+  const baseQuery = buildMonitoringBaseSelect(query, where);
 
   const orderBy = resolveOrder(query.metric);
 
@@ -117,18 +106,7 @@ async function queryTopByApiKey(query: MonitoringQuery, limit: number) {
   };
 
   const where = buildRawWhere(filters, { includeDate: true, includeStatus: true });
-  const imageSelect = buildBaseSelect("ImageGeneration", where);
-  const videoSelect = buildBaseSelect("VideoGeneration", where);
-  const audioSelect = buildBaseSelect("AudioGeneration", where);
-
-  const baseQuery =
-    query.type === "image"
-      ? imageSelect
-      : query.type === "video"
-        ? videoSelect
-        : query.type === "audio"
-          ? audioSelect
-          : Prisma.sql`${imageSelect} UNION ALL ${videoSelect} UNION ALL ${audioSelect}`;
+  const baseQuery = buildMonitoringBaseSelect(query, where);
 
   const orderBy = resolveOrder(query.metric);
 

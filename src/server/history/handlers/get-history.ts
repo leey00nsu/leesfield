@@ -1,3 +1,4 @@
+import { assistantHistorySelect, assistantHistoryWhere, projectAssistantHistory } from "../assistant-history";
 import { getOwnedHistoryRecord } from "../history-record";
 import type { ExternalHistorySelector } from "@/shared/api/platform-contract";
 import { generationOutputUrl, generationOutputAssetSelect } from "../generation-output-availability";
@@ -271,7 +272,7 @@ function operationWhere(query: HistoryQuery, ownerEmail: string): Prisma.MediaOp
     status: "completed",
     outputs: {
       some: {
-        ...(query.type === "all" ? {} : { type: query.type }),
+        ...(query.type === "all" ? {} : { type: query.type as "image"|"video"|"audio" }),
       },
     },
     ...(query.query ? { type: { contains: query.query, mode: "insensitive" } } : {}),
@@ -281,11 +282,14 @@ function operationWhere(query: HistoryQuery, ownerEmail: string): Prisma.MediaOp
 export async function getHistory(
   searchParams: URLSearchParams,
   ownerEmail: string,
+  options: {includeAssistant?:boolean} = {},
 ): Promise<HistoryResponse> {
   const query = parseHistoryQuery(searchParams);
+  const includeAssistant=options.includeAssistant===true;
+  const mediaType=query.type==="assistant"?null:query.type;
   const status = searchParams.get("status") ?? "all";
   const validStatus = ["pending", "processing", "uploading", "completed", "failed", "cancelled"].includes(status) ? status : "all";
-  const scope = JSON.stringify([query.type, query.query, query.sort, validStatus, query.hidden ?? false, ...(query.model || query.prompt ? [query.model ?? "", query.prompt ?? ""] : [])]);
+  const scope = JSON.stringify([query.type, query.query, query.sort, validStatus, query.hidden ?? false, ...(includeAssistant?["assistant-enabled"]:[]), ...(query.model || query.prompt ? [query.model ?? "", query.prompt ?? ""] : [])]);
   const cursor = decodeHistoryCursor(searchParams.get("cursor"), scope);
   const pageOffset = cursor ? 0 : query.offset;
   const take = query.limit + pageOffset + 1;
@@ -343,7 +347,7 @@ export async function getHistory(
       ])
     : emptyPage;
   const editWhere = { ...operationWhere(query, ownerEmail), ...(validStatus !== "all" && validStatus !== "completed" ? { id: { in: [] as string[] } } : {}) };
-  const operationPromise = Promise.all([
+  const operationPromise = mediaType===null?emptyPage:Promise.all([
     prisma.mediaOperation.findMany({
       where: { ...editWhere, AND: [cursorWhere(cursor, 3, "id", asc)] }, orderBy: [orderBy, { id: asc ? "asc" : "desc" }], take,
       select: {
@@ -351,7 +355,7 @@ export async function getHistory(
         parameters: true, progress: true, createdAt: true, updatedAt: true, finishedAt: true,
         inputs: { orderBy: [{ portId: "asc" }, { sortOrder: "asc" }], select: { assetId: true } },
         outputs: {
-          where: { ...(query.type === "all" ? {} : { type: query.type }) },
+          where: { ...(query.type === "all" ? {} : { type: query.type as "image"|"video"|"audio" }) },
           orderBy: { createdAt: "asc" }, take: 1,
           select: { id: true, status: true, type: true, storageUrl: true, legacyUrl: true, imageVariants: true },
         },
@@ -362,8 +366,13 @@ export async function getHistory(
       : Promise.resolve(0),
   ]);
 
-  const [[images, imageTotal], [videos, videoTotal], [audios, audioTotal], [operations, operationTotal]] =
-    await Promise.all([imagePromise, videoPromise, audioPromise, operationPromise]);
+  const assistantWhere={...assistantHistoryWhere(query,ownerEmail),...(validStatus==="all"?{}:{status:validStatus as Prisma.AssistantExecutionWhereInput["status"]})};
+  const assistantPromise=includeAssistant&&(query.type==="all"||query.type==="assistant")&&!query.hidden&&validStatus!=="uploading"?Promise.all([
+    prisma.assistantExecution.findMany({where:{...assistantWhere,AND:[cursorWhere(cursor,4,"id",asc)]},orderBy:[orderBy,{id:asc?"asc":"desc"}],take,select:assistantHistorySelect}),
+    query.includeTotal?prisma.assistantExecution.count({where:assistantWhere}):Promise.resolve(0),
+  ]):emptyPage;
+  const [[images, imageTotal], [videos, videoTotal], [audios, audioTotal], [operations, operationTotal], [assistants,assistantTotal]] =
+    await Promise.all([imagePromise, videoPromise, audioPromise, operationPromise,assistantPromise]);
   const inputAssets = await listGenerationInputAssets(ownerEmail, [
     ...images.map((record) => ({ requestId: record.requestId, generationType: "image" as const })),
     ...videos.map((record) => ({ requestId: record.requestId, generationType: "video" as const })),
@@ -423,6 +432,7 @@ export async function getHistory(
       generationInputAssets: inputAssetsByRequest.get(`audio:${record.requestId}`),
     })))),
     ...operationItems,
+    ...assistants.map(row=>projectAssistantHistory(row)),
   ].sort((a, b) => compareHistory(a, b, asc));
   const page = items.slice(pageOffset, pageOffset + query.limit);
 
@@ -430,7 +440,7 @@ export async function getHistory(
     items: page,
     nextCursor: items.length > pageOffset + query.limit && page.length ? encodeHistoryCursor(page[page.length - 1], scope) : null,
     total: query.includeTotal
-      ? imageTotal + videoTotal + audioTotal + operationTotal
+      ? imageTotal + videoTotal + audioTotal + operationTotal + assistantTotal
       : null,
     limit: query.limit,
     offset: pageOffset,

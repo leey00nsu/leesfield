@@ -128,7 +128,7 @@ describe("HistoryItem", () => {
     const previewImg = screen.getByRole("img", { name: "생성 결과 미리보기" });
     fireEvent.load(previewImg);
 
-    expect(previewImg).toHaveClass("object-cover");
+    expect(previewImg.parentElement).toHaveClass("object-cover");
     expect(screen.queryByText("프롬프트 재사용")).not.toBeInTheDocument();
   });
 

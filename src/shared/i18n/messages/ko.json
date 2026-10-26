@@ -1,4 +1,5 @@
 {
+  "mediaPreview": {"loading":"미디어를 불러오는 중","error":"미디어를 불러오지 못했습니다.","retry":"다시 시도"},
   "cinema": {
     "shooting": "카메라",
     "visual": "비주얼 스타일",
@@ -192,7 +193,9 @@
       "clear": "비우기",
       "reset": "초기화",
       "comingSoon": "준비 중",
-      "retry": "다시 시도"
+      "retry": "다시 시도",
+      "apply": "적용",
+      "refresh": "새로고침"
     },
     "labels": {
       "filterOptions": "필터 옵션",
@@ -263,7 +266,8 @@
       "activeConditions": "적용 중인 조건",
       "removeCondition": "조건 해제: {label}",
       "clearInput": "입력 지우기",
-      "noResults": "검색 결과가 없습니다"
+      "noResults": "검색 결과가 없습니다",
+      "time": "시간"
     }
   },
   "landing": {
@@ -695,7 +699,8 @@
     "types": {
       "image": "이미지",
       "video": "비디오",
-      "audio": "오디오"
+      "audio": "오디오",
+      "assistant": "AI 어시스턴트"
     },
     "origins": {
       "generation": "생성",
@@ -810,6 +815,13 @@
       "restoreSuccess": "기록을 복원했습니다.",
       "error": "기록 상태 변경에 실패했습니다.",
       "description": "기록의 표시 상태만 변경합니다. 원본 파일과 스페이스 연결은 유지됩니다."
+    },
+    "assistant": {
+      "outputMode": "출력 형식",
+      "outputModes": { "text": "텍스트", "list": "목록" },
+      "general": "일반",
+      "inputText": "입력 텍스트",
+      "result": "결과"
     }
   },
   "monitoringDashboard": {
@@ -852,7 +864,8 @@
       "type": {
         "image": "이미지",
         "video": "비디오",
-        "audio": "오디오"
+        "audio": "오디오",
+        "assistant": "AI 어시스턴트"
       },
       "statuses": {
         "all": "전체 상태",
@@ -871,7 +884,9 @@
       "empty": "선택한 기간의 데이터가 없습니다.",
       "aria": "요청 추이 차트",
       "totalLabel": "요청 수",
-      "errorLabel": "오류율"
+      "errorLabel": "오류율",
+      "fetchError": "통계를 불러오지 못했습니다. 표시 중인 값은 이전 조회 결과일 수 있습니다.",
+      "retry": "다시 시도"
     },
     "requests": {
       "title": "최근 작업",
@@ -1356,9 +1371,9 @@
       "tags": {
         "generations": "AI 생성",
         "models": "모델 조회",
-        "history": "생성 기록",
+        "history": "이미지·영상·오디오·AI 어시스턴트 이력과 완료된 미디어 편집 기록.",
         "promptPresets": "프롬프트 프리셋",
-        "monitoring": "요청 통계",
+        "monitoring": "이미지·영상·오디오·AI 어시스턴트 요청 통계. 서비스·재처리 대기열은 포함하지 않습니다.",
         "modelAdministration": "모델 관리"
       },
       "paths": {
@@ -1400,7 +1415,7 @@
         "POST /api/external/prompt-presets/{key}/restore": "기본 제공 프리셋의 이름과 프롬프트를 원래 값으로 되돌립니다.",
         "GET /api/external/monitoring/overview": "요청 수, 성공률, 처리 시간을 조회합니다.",
         "GET /api/external/monitoring/stats": "기간별 요청 수와 오류 통계를 조회합니다.",
-        "GET /api/external/monitoring/requests": "API 요청 목록을 조회합니다.",
+        "GET /api/external/monitoring/requests": "생성 요청 목록을 조회합니다.",
         "GET /api/external/monitoring/requests/detail": "요청에 사용한 입력값과 결과를 조회합니다.",
         "GET /api/external/monitoring/top": "모델과 API 키별 사용량, 오류, 처리 시간을 비교합니다.",
         "GET /api/external/monitoring/api-keys": "모니터링 필터에 사용할 API 키 목록을 조회합니다.",
@@ -1413,6 +1428,7 @@
         "POST /api/external/admin/models/modal-comfyui": "Modal 워크플로를 모델 설정 초안으로 가져옵니다."
       },
       "parameters": {
+        "jobType": "작업 종류: image·video·audio·assistant",
         "Idempotency-Key": "동일 API 키에서 사용하는 재시도 식별자. 공백 제거 후 ASCII 표시 문자를 사용하며, 잘못된 값은 무시",
         "X-Idempotency-Key": "Idempotency-Key를 생략했을 때 사용하는 대체 헤더",
         "type": "미디어 종류",
@@ -1480,8 +1496,11 @@
         "uploadId": "업로드 ID"
       },
       "notes": {
+        "GET /api/external/monitoring/requests/detail": "type=assistant이면 requestId에 실행 ID를 사용합니다. prompt·inputText·완료된 outputText는 각각 최대 20,000자이며 미디어 배열은 비어 있습니다.",
+        "GET /api/external/monitoring/overview": "이미지·영상·오디오·AI 어시스턴트 요청을 집계합니다. 서비스·재처리 대기열은 포함하지 않습니다.",
+        "GET /api/external/monitoring/requests": "같은 계정의 웹·API 생성 요청을 포함합니다.",
         "GET /api/external/generations/{requestId}": "생성 요청에 사용한 계정과 API 키로 조회하세요.",
-        "GET /api/external/history": "같은 계정의 웹 작업·다른 API 키의 작업·완료된 편집 기록을 포함합니다.",
+        "GET /api/external/history": "같은 계정의 웹·API 생성·어시스턴트와 완료된 미디어 편집 기록을 포함합니다. 어시스턴트의 prompt·inputText·outputText는 각각 최대 4,000자이며 숨긴 기록에는 포함하지 않습니다.",
         "DELETE /api/external/history/{historyId}": "진행 중인 기록은 삭제할 수 없습니다. 파일 정리에 실패하면 기록을 유지합니다.",
         "GET /api/external/models/{modelId}/schema": "파일은 URL·data URL 또는 multipart의 file:입력명으로 보냅니다.",
         "GET /api/external/admin/models": "비활성 모델과 LLM도 포함합니다.",
@@ -1498,9 +1517,12 @@
         "POST /api/external/assets/uploads": "1. 이 API로 업로드 URL을 발급합니다.\n\n2. 응답의 upload.upload.url로 파일 원본을 PUT합니다. Content-Type은 upload.upload.headers의 값을 사용하세요.\n\n3. 확인 API에 빈 객체 {}를 POST하고, 반환된 asset.id를 스페이스 입력에 사용합니다.",
         "PUT /api/external/assets/uploads/{uploadId}/content": "발급된 URL의 target을 유지하고 X-API-Key를 함께 보내세요. Content-Type은 발급 응답과 같아야 하며 본문은 JSON 대신 파일 원본입니다.",
         "POST /api/external/assets/uploads/{uploadId}/confirm": "요청 본문은 빈 객체 {}입니다. 반환된 asset.id를 스페이스의 파일 입력에 사용하세요.",
-        "GET /api/external/history/{historyId}": "프롬프트와 입력 파일, 편집 종류·설정을 함께 반환합니다. 편집에는 생성 프롬프트가 없으며, 과거 기록에 저장되지 않은 출처는 미상입니다. 재생 길이는 자산의 정밀 길이를 사용합니다."
+        "GET /api/external/history/{historyId}": "프롬프트와 입력 파일, 편집 종류·설정을 반환합니다. 편집에는 생성 프롬프트가 없으며 과거 기록에 없는 출처는 미상입니다. 재생 길이는 자산 메타데이터를 사용합니다.\n\ntype=assistant는 origin=generation으로 조회합니다. prompt·inputText·완료된 outputText는 각각 최대 20,000자이며 미디어 배열은 비어 있습니다."
       },
       "noteTitles": {
+        "GET /api/external/monitoring/requests/detail": "어시스턴트 결과",
+        "GET /api/external/monitoring/overview": "집계 범위",
+        "GET /api/external/monitoring/requests": "포함되는 요청",
         "GET /api/external/generations/{requestId}": "조회에 사용할 API 키",
         "GET /api/external/history": "포함되는 기록",
         "DELETE /api/external/history/{historyId}": "삭제 조건",
@@ -1529,7 +1551,7 @@
           "type": "등록할 모델 종류"
         },
         "GET /api/external/history": {
-          "type": "매체 종류: image·video·audio·all. 대소문자를 구분하지 않으며, 알 수 없는 값은 all로 처리합니다.",
+          "type": "작업 종류: image·video·audio·assistant·all. 대소문자를 구분하지 않으며, 알 수 없는 값은 all로 처리합니다.",
           "sort": "정렬: date_desc·date_asc. 대소문자를 구분하지 않으며, 알 수 없는 값은 date_desc로 처리합니다.",
           "limit": "페이지당 항목 수. 정수로 읽어 1~100으로 조정하며, 읽을 수 없는 값은 24로 처리합니다.",
           "offset": "건너뛸 항목 수. 정수로 읽어 0~1,000으로 조정하며, 읽을 수 없는 값은 0으로 처리합니다.",
@@ -1540,7 +1562,7 @@
           "includeTotal": "전체 개수 포함. true·1·yes / false·0·no를 대소문자 구분 없이 읽으며, 알 수 없는 값은 true로 처리합니다."
         },
         "GET /api/external/history/status": {
-          "type": "매체 종류: image·video·audio·all. 대소문자를 구분하지 않으며, 알 수 없는 값은 all로 처리합니다.",
+          "type": "작업 종류: image·video·audio·assistant·all. 대소문자를 구분하지 않으며, 알 수 없는 값은 all로 처리합니다.",
           "query": "검색어. 앞뒤 공백을 제거하고 최대 200자까지 사용합니다.",
           "model": "모델 필터. 앞뒤 공백을 제거하고 최대 200자까지 사용합니다.",
           "prompt": "프롬프트 필터. 앞뒤 공백을 제거하고 최대 200자까지 사용합니다.",
@@ -2270,5 +2292,408 @@
     "modelOptionsError": "모델 목록을 불러오지 못했습니다.",
     "retryModels": "모델 목록 다시 불러오기",
     "emptyTitle": "에셋이 없습니다"
+  },
+  "queueMonitoring": {
+    "title": "모니터링",
+    "description": "서비스 대기열부터 실행과 재처리까지, 작업의 흐름을 확인하세요.",
+    "tabs": {
+      "service": "서비스 대기열",
+      "failed": "재처리 대기열",
+      "history": "이력 조회",
+      "statistics": "요청 통계",
+      "current": "현재 작업"
+    },
+    "all": "전체",
+    "refresh": "새로고침",
+    "loading": "불러오는 중…",
+    "apply": "적용",
+    "search": "작업 검색",
+    "searchHint": "작업명, 작업 ID, 실행 ID 또는 모델",
+    "filters": {
+      "kind": "작업 종류",
+      "status": "작업 상태",
+      "model": "모델",
+      "resource": "실행 자원",
+      "origin": "접수 경로",
+      "worker": "서버 ID",
+      "from": "시작 시각",
+      "to": "종료 시각"
+    },
+    "views": {
+      "current": "현재 작업",
+      "history": "이력 조회"
+    },
+    "periodHint": "현재 작업은 날짜 제한 없이 조회합니다. 이력 기본 24시간, 최대 31일입니다. 입력 시각은 현재 기기의 시간대입니다.",
+    "globalScope": "모든 서버의 공통 대기열",
+    "runtimeShared": "큐 가동",
+    "runtimePaused": "큐 일시중지",
+    "sampledAt": "조회 시각",
+    "counts": {
+      "pending": "서비스 대기",
+      "active": "실행 중",
+      "unresolvedJobs": "미해결 작업",
+      "uncertainJobs": "결과 미확정"
+    },
+    "slots": "병렬 실행 현황",
+    "slotsHint": "실행 작업과 결과 미확정 예약을 따로 표시합니다.",
+    "pools": {
+      "generation": "이미지·영상·오디오 생성",
+      "media-operation": "미디어 편집",
+      "assistant": "AI 어시스턴트",
+      "storage-cleanup": "저장소 정리"
+    },
+    "poolCount": "빈 자리 {available} · 미확정 {uncertain}",
+    "configuredLimit": "첫 작업 전 설정 한도",
+    "availableSlots": "{count}자리 사용 가능",
+    "noOccupants": "점유 작업 없음",
+    "excess": "현재 한도보다 {count}자리 초과 점유",
+    "truncated": "자원 또는 점유 내역이 많아 일부를 표시합니다. 작업 목록에서 이어서 확인하세요.",
+    "kindsTitle": "작업 종류별 현황",
+    "kindCount": "대기 {pending} · 실행 {active}",
+    "failedSummary": "미해결 {count}개 · 결과 확인 필요 {reconciliation}개",
+    "openFailed": "재처리 대기열 보기",
+    "processScope": "이 응답 서버의 워커 상태",
+    "processStarted": "가동 중",
+    "processStopped": "시작되지 않음",
+    "processStopping": "종료 중",
+    "heartbeat": "마지막 응답",
+    "jobs": "작업 목록",
+    "selectionPaused": "작업을 선택하여 목록 자동 갱신을 멈췄습니다.",
+    "clearSelection": "선택 해제",
+    "manualRefresh": "이 페이지는 수동으로 새로고침합니다.",
+    "polling": "현재 목록과 집계를 4초마다 갱신합니다.",
+    "empty": "조회된 작업이 없습니다",
+    "emptyHint": "대기열이 비었거나 선택한 조건에 맞는 작업이 없습니다.",
+    "noModel": "모델 없음",
+    "page": "{page}페이지",
+    "previous": "이전 페이지",
+    "next": "다음 페이지",
+    "stale": "갱신에 실패하여 마지막 조회 결과를 표시합니다.",
+    "invalidUrl": "일부 조회 조건이 올바르지 않아 기본 조건으로 표시합니다.",
+    "errors": {
+      "title": "조회할 수 없습니다",
+      "auth": "설정된 관리자 계정으로 다시 로그인해 주세요.",
+      "input": "조회 조건을 확인해 주세요. 기간과 페이지 크기에는 제한이 있습니다.",
+      "rate": "요청이 많습니다. {seconds}초 후 다시 시도해 주세요.",
+      "conflict": "상태가 변경되었습니다. 최신 내용을 확인한 뒤 다시 검토해 주세요.",
+      "unavailable": "서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요."
+    },
+    "kinds": {
+      "generate_image": "이미지 생성",
+      "generate_video": "영상 생성",
+      "generate_audio": "오디오 생성",
+      "media_operation": "미디어 편집",
+      "assistant": "AI 어시스턴트",
+      "storage_cleanup": "저장소 정리"
+    },
+    "origins": {
+      "classic": "생성 화면",
+      "space": "스페이스",
+      "external_api": "외부 API",
+      "storage_cleanup": "저장소 정리",
+      "unknown": "접수 경로 확인 불가"
+    },
+    "statuses": {
+      "suspended": "처리 보류",
+      "ready": "서비스 대기",
+      "retry_wait": "자동 재시도 대기",
+      "active": "실행 중",
+      "succeeded": "완료",
+      "dead_letter": "실패 확정",
+      "reconciliation_required": "결과 확인 필요",
+      "cancelled": "취소",
+      "abandoned": "포기",
+      "blocked": "순서 대기",
+      "uncertain": "결과 미확정",
+      "reserved": "예약 유지",
+      "open": "미해결",
+      "redriven": "재처리 접수",
+      "resolved": "해결",
+      "failed": "실패",
+      "retrying": "자동 재시도",
+      "protected": "파일 보호",
+      "accepted": "접수",
+      "file_linked": "파일 보호 중",
+      "cleanup_released": "정리 예약 해제",
+      "upload_grace": "업로드 대기"
+    },
+    "reasons": {
+      "QUEUE_PAUSED": "큐 일시중지",
+      "RETRY_DELAY": "자동 재시도 예정",
+      "SCHEDULED": "실행 예정 시각 대기",
+      "GROUP_CLOSED": "순서 묶음 종료",
+      "GROUP_BLOCKED": "앞선 작업 대기",
+      "MODEL_UNAVAILABLE": "모델 사용 불가",
+      "RESOURCE_FULL": "실행 자리 대기",
+      "CANCEL_REQUESTED": "취소 요청 확인 중",
+      "CONDITIONS_PENDING": "실행 조건 확인 대기"
+    },
+    "detailTitle": "작업 상세",
+    "detailHint": "원래 접수와 현재 실행, 모든 시도와 관리자 조치를 확인합니다.",
+    "detailTabsLabel": "작업 상세 보기",
+    "detailTabs": {
+      "flow": "처리 흐름",
+      "attempts": "실행 시도",
+      "failures": "실패 이력",
+      "actions": "관리자 조치",
+      "general": "일반"
+    },
+    "jobId": "작업 ID",
+    "sourceId": "원래 접수 ID",
+    "executionId": "현재 실행 ID",
+    "failureId": "실패 기록 ID",
+    "copy": "복사",
+    "copied": "복사됨",
+    "copyId": "{label} 복사",
+    "cycle": "처리 주기 {cycle}",
+    "sourceMissing": "원본 업무 데이터가 없습니다. 보존된 큐 기록으로 표시합니다.",
+    "phase": "현재 단계",
+    "unknown": "확인 불가",
+    "unknownTime": "접수 시각을 입증하는 기록이 없습니다.",
+    "phases": {
+      "claimed": "실행 준비",
+      "remote_started": "외부 실행 시작",
+      "settling": "결과 확정",
+      "ended": "시도 종료",
+      "saving_results": "결과 저장 중",
+      "admitted": "접수"
+    },
+    "groupState": "순서 {sequence} · 현재 진행 순서 {head}",
+    "admitted": "최초 접수",
+    "redriveAdmitted": "이번 주기 재처리 접수",
+    "attemptStarted": "현재 실행 시작",
+    "localFinished": "서버의 실행 시도 종료",
+    "localFinishHint": "서버의 종료 시각만으로 외부 작업 종료를 확정할 수 없습니다.",
+    "allCyclesHint": "모든 처리 주기의 시도와 실패는 해당 탭에서 아래로 스크롤해 확인할 수 있습니다.",
+    "attemptOrdinal": "누적 시도 {ordinal} · 처리 주기 {cycle}",
+    "imported": "이전 시스템에서 옮긴 기록입니다. 외부 작업의 실제 실행 시각으로 해석하지 않습니다.",
+    "released": "예약 해제",
+    "reservationUnknown": "결과 미확정 · 예약 유지",
+    "reservationHeld": "예약 유지",
+    "inspectFailure": "이 실패 기록 검토",
+    "inspectCurrentFailure": "현재 실패 기록으로 돌아가기",
+    "noHistory": "보존된 내역이 없습니다.",
+    "actorOpaque": "개별 관리자 신원은 표시하지 않으며 서버 감사 기록으로 추적합니다.",
+    "actionsTitle": "가능한 관리자 조치",
+    "actions": {
+      "redrive": "재처리 접수",
+      "reconcile": "외부 결과 확인",
+      "abandon": "작업 포기",
+      "cancel_group": "순서 묶음 취소"
+    },
+    "finalValidationNote": "현재 확인 가능한 조건입니다. 실제 조치 시 서버가 다시 검증합니다.",
+    "checkedAt": "조건 확인 시각",
+    "pendingOperation": "전송 결과가 확인되지 않았습니다. 같은 요청으로 다시 확인할 수 있습니다.",
+    "retrySameOperation": "같은 요청으로 다시 확인",
+    "reasonLabel": "조치 사유",
+    "reasonChoices": {
+      "CAUSE_FIXED": "실패 원인을 수정했습니다",
+      "RETRY_APPROVED": "재처리를 검토했습니다",
+      "REMOTE_CHECK_REQUIRED": "외부 결과를 확인합니다",
+      "OPERATOR_ABANDON": "관리자 판단으로 포기합니다"
+    },
+    "impacts": {
+      "redrive": "원래 실패 기록을 보존하고 새 처리 주기를 접수합니다. 유료 생성이 실행될 수 있으며, 결과 회수 모드라면 기존 결과를 수집합니다.",
+      "reconcile": "저장된 Modal 실행의 결과만 조회합니다. 새 유료 생성을 제출하지 않으며 종료가 확인된 경우에만 예약을 해제합니다.",
+      "abandon": "이 작업의 처리를 포기합니다. 성공 처리하거나 삭제하지 않으며, 외부 실행 종료·예약 해제·순서 진행을 보장하지 않습니다."
+    },
+    "outcomes": {
+      "redrive_succeeded": "재처리를 접수했습니다. 작업이 실제로 완료되기 전에는 해결로 표시하지 않습니다.",
+      "redrive_accepted": "재처리 요청이 접수되었습니다. 최신 작업 상태를 확인해 주세요.",
+      "redrive_failed": "재처리를 접수하지 못했습니다.",
+      "redrive_rejected": "현재 조건에서는 재처리할 수 없습니다.",
+      "reconcile_succeeded": "외부 종료를 확인해 반영했습니다. 결과 수집이 필요하면 재처리를 검토해 주세요.",
+      "reconcile_accepted": "외부 결과 확인 요청이 접수되었습니다. 확인 완료 전까지 현재 예약은 유지됩니다.",
+      "reconcile_failed": "외부 결과를 확정하지 못했습니다. 불확실한 예약을 유지합니다.",
+      "reconcile_rejected": "현재 조건에서는 외부 결과를 확인할 수 없습니다.",
+      "abandon_succeeded": "포기를 기록했습니다. 남아 있는 예약과 순서 차단을 확인해 주세요.",
+      "abandon_accepted": "포기 요청이 접수되었습니다. 최신 상태를 확인해 주세요.",
+      "abandon_failed": "포기를 기록하지 못했습니다.",
+      "abandon_rejected": "현재 조건에서는 포기할 수 없습니다."
+    },
+    "sending": "처리 중…",
+    "confirmOperation": "확인하고 실행",
+    "close": "닫기",
+    "reviewRequired": "최신 상태를 조회했습니다. 이 창을 닫고 조치 가능 여부를 다시 검토해 주세요.",
+    "collectMode": "새 생성 대신 기존 원격 결과를 수집하는 주기로 접수했습니다.",
+    "unknownReason": "서버에서 확인할 조건이 남아 있습니다.",
+    "failedHint": "같은 작업의 반복 실패를 한 행으로 묶습니다. 재처리 접수는 실제 성공과 구분합니다.",
+    "failureState": "실패 처리 상태",
+    "failureStates": {
+      "unresolved": "미해결",
+      "redriving": "재처리 중",
+      "resolved": "해결 이력",
+      "abandoned": "포기 이력",
+      "all": "모든 이력"
+    },
+    "classification": "실패 분류",
+    "classifications": {
+      "terminal": "실패 확정",
+      "reconciliation": "외부 결과 확인 필요"
+    },
+    "errorCode": "오류 코드",
+    "failureCount": "실패 기록 {count}개",
+    "noFailures": "해당하는 실패 작업이 없습니다",
+    "failedEmptyHint": "선택한 처리 상태와 조건을 확인해 주세요.",
+    "auditOutcomes": {
+      "accepted": "접수",
+      "succeeded": "조치 완료",
+      "failed": "조치 실패",
+      "rejected": "거절"
+    },
+    "operationReasons": {
+      "QUEUE_FINAL_VALIDATION_REQUIRED": "실제 요청 시 최종 검증이 필요합니다.",
+      "QUEUE_DLQ_NOT_OPEN": "현재 열린 실패 기록이 아닙니다.",
+      "QUEUE_JOB_NOT_FAILED": "현재 실패 상태의 작업이 아닙니다.",
+      "QUEUE_PAUSED": "큐가 일시중지되어 있습니다.",
+      "QUEUE_REMOTE_STOP_NOT_CONFIRMED": "외부 종료 또는 예약 해제가 확인되지 않았습니다.",
+      "QUEUE_JOB_CANCEL_REQUESTED": "작업 취소가 요청되어 있습니다.",
+      "QUEUE_GROUP_CLOSED": "작업의 순서 묶음이 종료되었습니다.",
+      "QUEUE_REDRIVE_SOURCE_CHANGED": "원본 정리 작업의 상태나 버전이 바뀌었습니다.",
+      "QUEUE_REDRIVE_SOURCE_MISSING": "재처리에 필요한 원본이 없거나 실패 상태가 아닙니다.",
+      "QUEUE_REDRIVE_OWNER_CHANGED": "원본의 소유 범위가 바뀌었습니다.",
+      "QUEUE_REDRIVE_ASSET_PROTECTED": "사용 중이거나 보존해야 하는 파일입니다.",
+      "QUEUE_REDRIVE_INPUT_MISSING": "필요한 입력 파일이나 연결을 사용할 수 없습니다.",
+      "QUEUE_REDRIVE_TARGET_CHANGED": "대상 노드의 종류나 설정이 바뀌었습니다.",
+      "QUEUE_REDRIVE_NODE_ACTIVE": "같은 노드에 다른 작업이 진행 중입니다.",
+      "QUEUE_REDRIVE_MODEL_UNAVAILABLE": "해당 모델을 사용할 수 없습니다.",
+      "QUEUE_REDRIVE_CREDENTIAL_REVOKED": "필요한 모델 자격 증명 또는 API 키를 사용할 수 없습니다.",
+      "QUEUE_REDRIVE_SNAPSHOT_INVALID": "저장된 실행 입력을 검증할 수 없습니다.",
+      "QUEUE_REDRIVE_SNAPSHOT_MISSING": "재현 가능한 실행 입력이 없습니다.",
+      "QUEUE_REDRIVE_INPUT_LIMIT": "검토할 입력이 조회 한도를 초과했습니다.",
+      "QUEUE_REDRIVE_OWNER_LIMIT": "사용자의 대기 작업 한도에 도달했습니다.",
+      "QUEUE_REDRIVE_GLOBAL_LIMIT": "서버의 대기 작업 한도에 도달했습니다.",
+      "QUEUE_REDRIVE_PROVIDER_LIMIT": "모델의 대기 작업 한도에 도달했습니다.",
+      "QUEUE_RECONCILIATION_UNSUPPORTED": "이 작업은 저장된 Modal 이미지·영상 결과 확인을 지원하지 않습니다.",
+      "QUEUE_RECONCILIATION_BUSY": "외부 결과 확인이 이미 진행 중입니다.",
+      "QUEUE_REMOTE_REFERENCE_MISSING": "조회할 원격 실행의 영속 근거가 없습니다.",
+      "QUEUE_REMOTE_STILL_UNCONFIRMED": "외부 작업이 아직 종료되었다고 확인할 수 없습니다.",
+      "QUEUE_VERSION_CONFLICT": "실패 기록의 상태가 바뀌었습니다.",
+      "CAUSE_FIXED": "실패 원인 수정",
+      "RETRY_APPROVED": "재처리 검토",
+      "REMOTE_CHECK_REQUIRED": "외부 결과 확인",
+      "OPERATOR_ABANDON": "관리자 판단으로 포기",
+      "PROVIDER_UNAVAILABLE": "외부 처리 서버를 사용할 수 없습니다.",
+      "MEDIA_CLEANUP_FAILED": "파일 저장소에서 파일을 삭제하지 못했습니다."
+    },
+    "timelineHint": "작업이 실제로 실행된 시간과 예약을 유지한 시간을 나란히 보여줍니다. 막대 길이는 진행률이 아닙니다.",
+    "waitingInterval": "확인 가능한 대기",
+    "executionInterval": "실행 시도",
+    "reservationInterval": "예약 유지 구간",
+    "recentMinutes": "최근 {minutes}분",
+    "timelineLimit": "기본 최근 5분, 최대 24시간을 조회하며 시도 50개씩 표시합니다.",
+    "rowsShown": "시도 {count}개 표시",
+    "emptyTimeline": "이 구간에 해당하는 실행이 없습니다",
+    "timelineEmptyHint": "실행 또는 예약 유지가 겹치는 다른 기간을 선택해 보세요.",
+    "timelineTable": "실행 시도와 예약 유지 시간축",
+    "timelineRange": "조회 구간 안의 실행·예약",
+    "equivalentTimes": "정확한 시각과 실행 정보",
+    "ongoing": "현재까지",
+    "clippedInterval": "선택한 조회 구간 밖의 일부 시간은 막대에서 잘려 보입니다.",
+    "reservationTimingHint": "미확정 표시는 현재 관측한 예약 상태입니다. 기록이 없는 과거 상태 전환 시각이나 원격 종료 시각은 추정하지 않습니다.",
+    "modelLimits": "모델별 병렬 한도",
+    "modelLimitsHint": "생성 공통 자리와 모델별 자리가 모두 남아야 실행할 수 있습니다. 미확정 예약도 한도를 점유합니다.",
+    "modelLimitCount": "점유 {reserved} / 한도 {capacity} · 미확정 {uncertain}",
+    "requestId": "현재 요청 ID",
+    "sourceRequestId": "원래 요청 ID",
+    "protectedCount": "처리 보류 {count}개",
+    "oldestWaiting": "최장 대기",
+    "elapsedMinutes": "{minutes}분 경과",
+    "waitingAgeHint": "원래 접수부터 지난 시간이며 차단·지연 작업도 포함합니다.",
+    "redriveCount": "재처리 {count}회",
+    "sinceFailure": "실패 후 {minutes}분",
+    "technicalDetails": "기술 정보",
+    "queueDetails": "보호·모델 한도·서버 정보",
+    "poolUsage": "실행 {active} · 미확정 {uncertain} · 가용 {available}",
+    "moreOccupants": "추가 작업 {count}개 보기",
+    "timeOfDay": "{label} 시간",
+    "invalidIdentifier": "올바른 식별자를 모두 입력하면 조건이 적용됩니다.",
+    "runningFor": "실행 {minutes}분",
+    "jobsPolling": "현재 작업 목록을 4초마다 갱신합니다.",
+    "navigation": "모니터링 탐색",
+    "toggleNavigation": "모니터링 메뉴",
+    "detailedInformation": "상세 정보",
+    "loadMoreHistory": "내역 더 불러오기",
+    "historyEnd": "모든 내역을 확인했습니다.",
+    "requestResult": "요청 결과",
+    "currentExecutionResult": "현재 재처리 실행의 결과입니다. 원래 요청 ID는 아래에서 따로 확인할 수 있습니다.",
+    "resultMissing": "연결된 요청 정보가 없거나 보존 기간이 지나 상세 결과를 확인할 수 없습니다.",
+    "resultError": "요청 결과를 불러오지 못했습니다. 권한·요청 보존 상태를 확인하거나 다시 시도해 주세요.",
+    "cleanup": {
+      "title": "정리 정보",
+      "missing": "정리 기록이 없습니다.",
+      "reason": "정리 사유",
+      "file": "파일 이름",
+      "fileUnavailable": "파일명 없음",
+      "assetId": "에셋 ID",
+      "provider": "파일 저장소",
+      "objectId": "저장소 파일 식별자",
+      "objectRedacted": "비공개",
+      "mediaType": "파일 종류",
+      "mime": "파일 형식",
+      "size": "파일 크기",
+      "bytes": "{bytes}바이트",
+      "attempts": "삭제 시도",
+      "graceUntil": "업로드 유예 종료",
+      "retryAt": "다음 실행 가능 시각",
+      "usageTitle": "사용처",
+      "states": {
+        "linked": "파일 보호 중",
+        "uploading": "업로드 대기",
+        "pending": "삭제 대기",
+        "processing": "삭제 중",
+        "completed": "삭제 완료",
+        "failed": "삭제 실패"
+      },
+      "reasons": {
+        "upload_session": "업로드 시작",
+        "upload_failed": "업로드 실패",
+        "generation_input": "생성 입력 파일",
+        "generation_output": "생성 결과 파일",
+        "media_operation_output": "편집 결과 파일",
+        "asset_delete": "에셋 삭제",
+        "history_delete": "이력 삭제",
+        "submission_failed": "요청 실패",
+        "expired_upload": "업로드 만료",
+        "unknown": "원인 미확인"
+      },
+      "usage": {
+        "graphs": "스페이스",
+        "operations": "미디어 작업",
+        "generations": "생성 요청",
+        "assistants": "어시스턴트",
+        "projectCovers": "프로젝트 표지"
+      },
+      "mediaTypes": {
+        "image": "이미지",
+        "video": "영상",
+        "audio": "오디오"
+      },
+      "status": "상태"
+    },
+    "resourcesTitle": "실행 자원",
+    "autoRefreshOn": "자동 갱신 켜짐",
+    "autoRefreshOff": "자동 갱신 꺼짐",
+    "remoteFinishUnknown": "종료 미확인",
+    "currentAttemptElapsed": "현재 시도 경과",
+    "cycleWaiting": "이번 주기 시작 전",
+    "resultPreview": "결과 요약",
+    "resultPreviewHint": "전체 요청 정보는 오른쪽 일반 탭에서 확인합니다.",
+    "outputsCount": "결과 {count}개",
+    "columns": {
+      "job": "작업",
+      "model": "모델 / 처리기",
+      "admitted": "이번 주기 접수",
+      "started": "현재 시도 시작",
+      "beforeStart": "시작 전 경과",
+      "duration": "실행 시간",
+      "attempts": "시도",
+      "failures": "실패 기록"
+    },
+    "cycleFirstStarted": "이번 주기 첫 실행",
+    "resultWaiting": "실행 중 · 결과 대기",
+    "failureAt": "실패 시각",
+    "failureElapsed": "실패 후 경과",
+    "redrives": "재처리"
   }
 }

@@ -133,7 +133,7 @@ describe("GenerationHistoryScreen", () => {
     await waitFor(()=>expect(useGenerationHistoryListMock).toHaveBeenLastCalledWith(expect.objectContaining({query:'',model:'test-model',prompt:'rain'})));
   });
 
-  it("shows an audio filter and requests audio history when selected", () => {
+  it("shows an audio filter and requests audio history when selected", async () => {
     useGenerationHistoryListMock.mockReturnValue({
       items: [],
       total: 0,
@@ -154,7 +154,8 @@ describe("GenerationHistoryScreen", () => {
     expect(screen.queryByRole("button", { name: "Community" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "필터" }));
-    const audioFilter = screen.getByRole("button", { name: "오디오" });
+    await userEvent.setup().click(screen.getByRole("combobox", {name:"유형"}));
+    const audioFilter = await screen.findByRole("option", { name: "오디오" });
     expect(audioFilter).toBeInTheDocument();
     expect(useGenerationHistoryListMock).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -164,7 +165,7 @@ describe("GenerationHistoryScreen", () => {
       }),
     );
 
-    fireEvent.click(audioFilter);
+    await userEvent.setup().click(audioFilter);
 
     expect(useGenerationHistoryListMock).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -206,7 +207,7 @@ describe("GenerationHistoryScreen", () => {
     fireEvent.click(screen.getByRole("button", { name: "실패" }));
     expect(useGenerationHistoryListMock).toHaveBeenLastCalledWith(expect.objectContaining({ status: "failed" }));
 
-    fireEvent.click(screen.getAllByRole("button", { name: "전체" })[1]);
+    fireEvent.click(screen.getByRole("button", { name: "전체" }));
     expect(screen.getByTestId("history-items-count")).toHaveTextContent("2");
   });
 
@@ -670,4 +671,25 @@ it.each(["개 대신 고양이로", ""])("shows a readonly preset chip and user 
   expect(screen.queryByText("직접 입력한 프롬프트가 없습니다.")).not.toBeInTheDocument();
   expect(screen.getAllByRole("button",{name:"복사"})[0]).toBeEnabled();
   expect(screen.queryByRole("button",{name:/프리셋 제거/})).not.toBeInTheDocument();
+});
+
+it("queries assistant history from the type dropdown and opens its text result without asset editing",async()=>{
+  const item={...detailFixture,id:"assistant-result",type:"assistant",model:"test-model",prompt:"Summarize the campaign",inputText:"The source text",outputText:"A completed assistant result",resultUrl:null,thumbnailUrl:null,assetId:null,graphId:"assistant-space",graphNodeId:"assistant-node",sourceAssetIds:["assistant-input"],assistantSettings:{outputMode:"list"}};
+  useGenerationHistoryListMock.mockReturnValue({items:[item],isLoading:false,hasNextPage:false,error:null,sentinelRef:{current:null},removeItem:vi.fn()});
+  vi.stubGlobal("fetch",vi.fn(async()=>Response.json({item})));const user=userEvent.setup();renderWithIntl(<GenerationHistoryScreen/>);
+  await user.click(screen.getByRole("button",{name:"필터"}));await user.click(screen.getByRole("combobox",{name:"유형"}));await user.click(await screen.findByRole("option",{name:"AI 어시스턴트"}));
+  expect(useGenerationHistoryListMock).toHaveBeenLastCalledWith(expect.objectContaining({type:"assistant"}));
+  await user.keyboard("{Escape}");await user.click(screen.getByRole("button",{name:"open detail"}));
+  const dialog=await screen.findByRole("dialog");expect(within(dialog).getAllByText("A completed assistant result").length).toBeGreaterThan(0);expect(within(dialog).queryByRole("button",{name:"저장"})).not.toBeInTheDocument();
+  expect(within(dialog).getAllByRole("tab").map(tab=>tab.textContent)).toEqual(["일반","프롬프트","설정","메타데이터","히스토리"]);
+  await user.click(within(dialog).getByRole("tab",{name:"프롬프트"}));
+  expect(within(dialog).getByText("Summarize the campaign")).toBeInTheDocument();expect(within(dialog).getByText("The source text")).toBeInTheDocument();
+  await user.click(within(dialog).getByRole("tab",{name:"설정"}));expect(within(dialog).getByText("test-model")).toBeInTheDocument();expect(within(dialog).getByText("목록")).toBeInTheDocument();
+  expect(within(dialog).queryByText("저장된 설정이 없습니다.")).not.toBeInTheDocument();
+  await user.click(within(dialog).getByRole("tab",{name:"메타데이터"}));expect(within(dialog).getByText("요청 ID").nextElementSibling).toHaveTextContent("assistant-result");
+  expect(within(dialog).queryByText("재생 길이")).not.toBeInTheDocument();
+  await user.click(within(dialog).getByRole("tab",{name:"히스토리"}));expect(within(dialog).getByText("assistant-space")).toBeInTheDocument();expect(within(dialog).getByText("assistant-node")).toBeInTheDocument();expect(within(dialog).getByText("assistant-input")).toBeInTheDocument();
+  expect(within(dialog).queryByText("결과 이미지")).not.toBeInTheDocument();
+  fireEvent.click(dialog.querySelector('[data-app-media-detail-content]')!);expect(screen.getByRole("dialog")).toBeInTheDocument();
+  fireEvent.click(dialog.querySelector('[data-app-media-detail-backdrop]')!);expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });

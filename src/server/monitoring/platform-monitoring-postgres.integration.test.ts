@@ -1,3 +1,6 @@
+import {getMonitoringOverview} from "./overview";
+import {getMonitoringStats} from "./stats";
+import {parseMonitoringQuery} from "./monitoring-query";
 // @vitest-environment node
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
@@ -169,4 +172,76 @@ describe.skipIf(!postgresIntegrationEnabled)("platform monitoring owner SQL boun
       expect(JSON.stringify(lines)).not.toContain(owner);
     } finally { sink.mockRestore(); }
   });
+  it("filters assistant metrics by owner/model/status and API submission with explicit media-only opt-out",async()=>{
+    const graph=await prisma.generationGraph.create({data:{ownerEmail:owner,title:"Assistant metrics"}}),node=await prisma.generationGraphNode.create({data:{id:randomUUID(),graphId:graph.id,kind:"generate.assistant",config:{},configVersion:1,x:0,y:0}}),assistantModel=randomUUID();
+    const receiptKey=(await prisma.apiKey.findFirstOrThrow({where:{ownerEmail:owner}})).id;
+    const ids:string[]=[];
+    try {
+      const first=await prisma.assistantExecution.create({data:{ownerEmail:owner,graphId:graph.id,graphNodeId:node.id,modelKey:assistantModel,status:"completed",inputSnapshot:{instruction:"Private prompt"}}});ids.push(first.id);
+      const second=await prisma.assistantExecution.create({data:{ownerEmail:owner,graphId:graph.id,graphNodeId:node.id,modelKey:assistantModel,status:"failed",inputSnapshot:{instruction:"Private prompt"}}});ids.push(second.id);
+      const foreign=await prisma.assistantExecution.create({data:{ownerEmail:other,graphId:graph.id,graphNodeId:node.id,modelKey:assistantModel,status:"completed",inputSnapshot:{}}});ids.push(foreign.id);
+      await prisma.nodeExecutionSubmission.create({data:{ownerEmail:owner,apiKeyId:receiptKey,graphId:graph.id,nodeId:node.id,executionId:second.id,nodeKind:"generate.assistant",requestHash:"test",inputSnapshot:{}}});
+      const query={...parseMonitoringQuery(new URLSearchParams({type:"assistant",model:assistantModel}),{includeAssistant:true}),ownerEmail:owner};
+      expect(await getMonitoringOverview(query)).toMatchObject({totalCount:2,failedCount:1,usageByType:{assistant:2,image:0,video:0,audio:0}});
+      expect((await getMonitoringStats(query)).reduce((sum,row)=>sum+row.total,0)).toBe(2);
+      expect((await getMonitoringOverview({...query,apiKey:{mode:"ui"}})).totalCount).toBe(1);
+      expect((await getMonitoringOverview({...query,apiKey:{mode:"id",value:receiptKey}})).failedCount).toBe(1);
+      expect((await getMonitoringOverview({...query,statuses:["failed"]})).totalCount).toBe(1);
+      const mediaOnly={...parseMonitoringQuery(new URLSearchParams({model:assistantModel})),ownerEmail:owner};expect((await getMonitoringOverview(mediaOnly)).totalCount).toBe(0);
+    }finally{await prisma.nodeExecutionSubmission.deleteMany({where:{executionId:{in:ids}}});await prisma.assistantExecution.deleteMany({where:{id:{in:ids}}});await prisma.generationGraph.delete({where:{id:graph.id}});}
+  });
+
+  it("exposes assistant requests, text and metrics through owner and authorized global APIs", async () => {
+    const graph = await prisma.generationGraph.create({ data: { ownerEmail: owner, title: "External assistant metrics" } });
+    const node = await prisma.generationGraphNode.create({ data: { id: randomUUID(), graphId: graph.id, kind: "generate.assistant", config: {}, configVersion: 1, x: 0, y: 0 } });
+    const assistantModel = randomUUID(), imageId = randomUUID();
+    const keyId = (await prisma.apiKey.findUniqueOrThrow({ where: { keyHash: hashApiKey(token) } })).id;
+    const createdAt = new Date(Date.now() - 600_000);
+    const req = (extra = "", credential = token) => new Request("http://localhost/api/external/monitoring?model=" + assistantModel + "&" + extra, { headers: { "X-API-Key": credential } });
+    try {
+      const base = { graphId: graph.id, graphNodeId: node.id, modelKey: assistantModel, createdAt };
+      const completed = await prisma.assistantExecution.create({ data: { ...base, ownerEmail: owner, status: "completed", inputSnapshot: { instruction: "needle", text: "source", secret: "never-expose" }, outputText: "result" } });
+      const failed = await prisma.assistantExecution.create({ data: { ...base, ownerEmail: owner, status: "failed", inputSnapshot: { text: "failure" }, errorCode: "ASSISTANT_FAILED" } });
+      const active = await prisma.assistantExecution.create({ data: { ...base, ownerEmail: owner, status: "processing", inputSnapshot: {}, outputText: "unfinished" } });
+      const foreign = await prisma.assistantExecution.create({ data: { ...base, ownerEmail: other, status: "completed", inputSnapshot: {}, outputText: "foreign" } });
+      for (const [executionId, receiptOwner, apiKeyId] of [[completed.id, owner, keyId], [active.id, owner, keyId], [foreign.id, other, otherKeyId]]) {
+        await prisma.nodeExecutionSubmission.create({ data: { ownerEmail: receiptOwner, apiKeyId, graphId: graph.id, nodeId: node.id, executionId, nodeKind: "generate.assistant", requestHash: randomUUID(), inputSnapshot: {} } });
+      }
+      await prisma.imageGeneration.create({ data: { requestId: imageId, ownerEmail: owner, apiKeyId: keyId, modelKey: assistantModel, prompt: "media", status: "completed", progress: 100, createdAt } });
+      expect(await (await overview(req())).json()).toMatchObject({ totalCount: 4, activeCount: 1, failedCount: 1, usageByType: { assistant: 3, image: 1, video: 0, audio: 0 } });
+      expect(await (await overview(req("type=assistant"))).json()).toMatchObject({ totalCount: 3, activeCount: 1 });
+      const daily = await (await stats(req("type=assistant"))).json();
+      expect(daily.items.reduce((sum: number, row: { total: number }) => sum + row.total, 0)).toBe(3);
+      const page = await (await requests(req())).json();
+      expect(page.total).toBe(4);
+      expect(page.items.map((row: { id: string }) => row.id).sort()).toEqual([imageId, completed.id, failed.id, active.id].sort());
+      const second = await (await requests(req("limit=1&offset=1&includeTotal=false"))).json();
+      expect(second.total).toBeNull(); expect(second.items).toEqual(page.items.slice(1, 2));
+      const apiPage = await (await requests(req("type=assistant&apiKeyId=" + keyId))).json();
+      expect(apiPage.total).toBe(2);
+      expect(apiPage.items.every((row: { apiKeyLabel: string }) => row.apiKeyLabel === "lf_live_...owner")).toBe(true);
+      expect((await (await requests(req("type=assistant&apiKeyId=ui"))).json()).items).toMatchObject([{ id: failed.id, apiKeyLabel: "UI" }]);
+      expect((await (await requests(req("type=assistant&status=failed"))).json()).items).toMatchObject([{ id: failed.id }]);
+      expect((await (await requests(req("type=assistant&query=needle"))).json()).items).toMatchObject([{ id: completed.id }]);
+      expect((await (await requests(req("type=assistant&query=failure"))).json()).items).toMatchObject([{ id: failed.id }]);
+      expect((await (await requests(req("type=assistant&from=" + new Date(createdAt.getTime() + 1).toISOString()))).json()).total).toBe(0);
+      const leaders = await (await top(req("type=assistant"))).json();
+      expect(leaders.models).toMatchObject([{ key: assistantModel, total: 3 }]);
+      expect(leaders.apiKeys).toEqual(expect.arrayContaining([expect.objectContaining({ key: keyId, total: 2 }), expect.objectContaining({ key: "UI", total: 1 })]));
+      const result = await (await detail(req("type=assistant&requestId=" + completed.id))).json();
+      expect(result).toMatchObject({ type: "assistant", prompt: "needle", inputText: "source", outputText: "result", assets: [] });
+      expect(JSON.stringify(result)).not.toContain("never-expose");
+      expect(await (await detail(req("type=assistant&requestId=" + active.id))).json()).toMatchObject({ outputText: null });
+      expect((await detail(req("type=assistant&requestId=" + foreign.id))).status).toBe(404);
+      expect((await overview(req("scope=all"))).status).toBe(403);
+      expect((await detail(req("scope=all&type=assistant&requestId=" + foreign.id))).status).toBe(403);
+      expect(await (await overview(req("scope=all", adminToken))).json()).toMatchObject({ totalCount: 5, usageByType: { assistant: 4 } });
+      expect((await detail(req("scope=all&type=assistant&requestId=" + foreign.id, adminToken))).status).toBe(200);
+      expect((await requests(req("apiKeyId=" + otherKeyId))).status).toBe(404);
+    } finally {
+      await prisma.imageGeneration.deleteMany({ where: { requestId: imageId } });
+      await prisma.generationGraph.delete({ where: { id: graph.id } });
+    }
+  });
+
 });

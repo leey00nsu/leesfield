@@ -1,5 +1,6 @@
 "use client";
 
+import { AppPreviewImage } from "../app-preview-image";
 import { AppVideoPlayer } from "../app-video-player";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { useReducedMotion } from "framer-motion";
@@ -17,7 +18,7 @@ function MovementVideo({ item, active, root }: {
   const playing = useRef(false);
   const [visible, setVisible] = useState(false);
   const [foreground, setForeground] = useState(() => typeof document === "undefined" || !document.hidden);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState(false), [frameReady, setFrameReady] = useState(false);
   useEffect(() => {
     const video = element.current;
     if (!video || !root.current || typeof IntersectionObserver === "undefined") return;
@@ -51,9 +52,10 @@ function MovementVideo({ item, active, root }: {
     };
   }, []);
   return <>
-    <AppVideoPlayer src={item.video} active={shouldPlay} controls={false} ref={element} poster={item.image} muted loop playsInline preload="none"
+    <AppVideoPlayer src={item.video} active={shouldPlay} controls={false} ref={element} className="size-full object-cover" poster={item.image} muted loop playsInline preload="none"
       style={{ backgroundImage: `url("${item.image}")`, backgroundSize: "cover", backgroundPosition: "center" }}
-      aria-hidden="true" onError={() => setFailed(true)} />
+      aria-hidden="true" onLoadedData={() => setFrameReady(true)} onError={() => setFailed(true)} />
+    {!frameReady && !failed && <AppPreviewImage src={item.image} alt="" loading="lazy" className="pointer-events-none absolute inset-0 size-full object-cover" />}
     {failed && <span className={styles.fallback}>{t("movementPreviewUnavailable")}</span>}
   </>;
 }

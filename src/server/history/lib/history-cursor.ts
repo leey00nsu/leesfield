@@ -1,13 +1,13 @@
 import type { GenerationHistoryItem } from "@/entities/generation/model/types";
 export type HistoryCursor = { v: 1; at: string; rank: number; id: string; scope: string };
 export class InvalidHistoryCursor extends Error {}
-export function historyRank(item: Pick<GenerationHistoryItem, "origin" | "type">) { return item.origin === "edit" ? 3 : ({ image: 0, video: 1, audio: 2 })[item.type]; }
+export function historyRank(item: Pick<GenerationHistoryItem, "origin" | "type">) { return item.origin === "edit" ? 3 : ({ image: 0, video: 1, audio: 2, assistant: 4 })[item.type]; }
 export function decodeHistoryCursor(raw: string | null, scope: string): HistoryCursor | null {
   if (!raw) return null;
   try {
     if (raw.length > 4096) throw new Error();
     const value = JSON.parse(Buffer.from(raw, "base64url").toString());
-    if (value.v !== 1 || typeof value.at !== "string" || !Number.isFinite(Date.parse(value.at)) || !Number.isInteger(value.rank) || value.rank < 0 || value.rank > 3 || typeof value.id !== "string" || !value.id || value.scope !== scope) throw new Error();
+    if (value.v !== 1 || typeof value.at !== "string" || !Number.isFinite(Date.parse(value.at)) || !Number.isInteger(value.rank) || value.rank < 0 || value.rank > 4 || typeof value.id !== "string" || !value.id || value.scope !== scope) throw new Error();
     return value;
   } catch { throw new InvalidHistoryCursor("INVALID_HISTORY_CURSOR"); }
 }

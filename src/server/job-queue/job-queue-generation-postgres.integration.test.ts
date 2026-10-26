@@ -154,7 +154,7 @@ describe.skipIf(!postgresIntegrationEnabled)("generation common queue integratio
       expect((await prisma.queueJob.findFirstOrThrow({ where: { sourceId: row.id } })).status).toBe("succeeded");
       const task = await prisma.mediaCleanupTask.findFirstOrThrow({ where: { requestId: row.requestId } });
       expect(task.status).toBe("linked");
-      expect((await prisma.queueJob.findFirstOrThrow({ where: { sourceId: task.id, sourceRevision: task.queueRevision } })).status).toBe("suspended");
+      expect(await prisma.queueJob.count({ where: { sourceId: task.id } })).toBe(0);
       await expect(createImageGenerationRecord(randomUUID(), { model: modelKey + "image", prompt: "new" } as never, ownerEmail)).rejects.toThrow("QUEUE_PAUSED");
       expect(mocks.resolve).toHaveBeenCalledTimes(1);
     } finally { await prisma.queueRuntime.update({ where: { id: 1 }, data: { mode: "shared" } }); }

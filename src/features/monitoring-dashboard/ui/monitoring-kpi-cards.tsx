@@ -69,8 +69,8 @@ function KpiChart({
   formatValue: (value: number) => string;
 }) {
   const t = useTranslations("monitoringDashboard");
-  if (isLoading) return <AppSkeleton className="h-28 w-full rounded-lg" />;
-  if (!data.length) return <div className="flex h-28 items-center justify-center text-xs text-muted-foreground">{t("stats.empty")}</div>;
+  if (isLoading) return <AppSkeleton className="h-56 w-full rounded-lg" />;
+  if (!data.length) return <div className="flex h-56 items-center justify-center text-xs text-muted-foreground">{t("stats.empty")}</div>;
   const chartData = data;
 
   return (
@@ -78,11 +78,11 @@ function KpiChart({
       aria-label={`${label} chart`}
       className="border-0 bg-transparent p-0"
       data-monitoring-kpi-chart=""
-      height={112}
+      height={224}
     >
       <AreaChart
         data={chartData}
-        margin={{ top: 10, right: 6, bottom: 0, left: -18 }}
+        margin={{ top: 10, right: 10, bottom: 0, left: 0 }}
       >
         <defs>
           <linearGradient id={chartId} x1="0" y1="0" x2="0" y2="1">
@@ -108,7 +108,7 @@ function KpiChart({
           tick={{ fill: "#8b8f94", fontSize: 10 }}
           axisLine={{ stroke: "rgba(255,255,255,0.12)" }}
           tickLine={false}
-          width={40}
+          width={60}
         />
         <Tooltip
           content={({ active, payload, label: tooltipLabel }) => {
@@ -173,7 +173,7 @@ function StatCard({
       variant="editorial-flat"
       radius="lg"
       padding="lg"
-      className="relative min-h-[18rem]"
+      className="relative min-h-[24rem]"
     >
       <div className="flex items-center gap-3">
         <Icon className="h-5 w-5 text-white/52" />
@@ -201,7 +201,7 @@ function UsagePieChart({
   labels: Record<keyof MonitoringOverview["usageByType"], string>;
 }) {
   const safeTotal = Object.values(usageByType).reduce(
-    (sum, value) => sum + Math.max(0, value),
+    (sum, value) => sum + Math.max(0, value??0),
     0,
   );
   const chartData: UsageSlice[] =
@@ -222,6 +222,7 @@ function UsagePieChart({
             value: usageByType.audio,
             color: "rgba(255,255,255,0.22)",
           },
+          ...(usageByType.assistant!==undefined?[{name:labels.assistant,value:usageByType.assistant,color:"#9e8cff"}]:[]),
           {
             name: labels.other,
             value: usageByType.other,
@@ -238,20 +239,20 @@ function UsagePieChart({
 
   return (
     <div
-      className="grid min-h-[8.25rem] grid-cols-[8.25rem_minmax(0,1fr)] items-center gap-4"
+      className="grid min-h-[14rem] grid-cols-[minmax(0,1fr)] sm:grid-cols-[12rem_minmax(0,1fr)] items-center gap-4"
       data-monitoring-usage-pie=""
     >
       <AppChartContainer
         aria-label={`${totalLabel} chart`}
-        className="h-[8.25rem] w-[8.25rem] border-0 bg-transparent p-0"
-        height={132}
+        className="mx-auto h-48 w-48 border-0 bg-transparent p-0"
+        height={192}
       >
         <PieChart>
           <Pie
             data={chartData}
             dataKey="value"
-            innerRadius={42}
-            outerRadius={60}
+            innerRadius={62}
+            outerRadius={88}
             paddingAngle={safeTotal > 0 ? 2 : 0}
             stroke="rgba(0,0,0,0.24)"
             strokeWidth={2}
@@ -337,7 +338,7 @@ export function MonitoringKpiCards({
   }));
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
       <StatCard
         title={t("kpi.successRate")}
         value={isLoading ? "..." : successRate}
@@ -353,7 +354,7 @@ export function MonitoringKpiCards({
           />
         }
       />
-      <MonitoringStatsChart data={stats} isLoading={statsLoading} compact />
+      <MonitoringStatsChart data={stats} isLoading={statsLoading} />
       <StatCard
         title={t("kpi.avgLatency")}
         footnote={t("kpi.durationFootnote")}
@@ -383,6 +384,7 @@ export function MonitoringKpiCards({
               video: t("filters.type.video"),
               audio: t("filters.type.audio"),
               other: t("kpi.other"),
+              assistant:t("filters.type.assistant"),
             }}
           />
         }

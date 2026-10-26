@@ -5,7 +5,10 @@ import { prisma } from "@/server/db/prisma";
 import { postgresIntegrationEnabled } from "@/test-utils/postgres-integration";
 import { removeFixtureQueueJobs } from "@/test-utils/job-queue-postgres";
 import { createStorageCleanupIntent, queueStorageCleanup, linkStorageCleanupToAsset,
-  activateExpiredCleanupIntents, requeueFailedStorageCleanups } from "@/server/media-assets/media-cleanup-repository";
+  activateExpiredCleanupIntents, retireLinkedStorageCleanupJobs, releaseStorageCleanupsForRequest,
+  requeueFailedStorageCleanups } from "@/server/media-assets/media-cleanup-repository";
+import { withQueueTransaction } from "./job-queue-transaction";
+import { enqueueQueueJobTx, queueScopeDigest } from "./job-queue-registration";
 import { createStorageCleanupHandler } from "./handlers/storage-cleanup-handler";
 import type { MediaStorageAdapter } from "@/server/media-assets/media-storage";
 import { createQueueRunner } from "./job-queue-runner";
@@ -38,20 +41,81 @@ describe.skipIf(!postgresIntegrationEnabled)("cleanup common queue", () => {
     runner ??= createQueueRunner([handler]);
     await runner.pump(); await runner.drain();
   }
-  it("keeps uploading/linked intents suspended, activates grace expiry and rejects earlier revisions", async () => {
+  async function legacyJob(task: Awaited<ReturnType<typeof createStorageCleanupIntent>>) {
+    return withQueueTransaction(tx => enqueueQueueJobTx(tx, {
+      kind: "storage_cleanup", source: { type: "storage_cleanup", id: task.id, revision: task.queueRevision },
+      ownerScopeDigest: queueScopeDigest(ownerEmail), snapshotRef: `cleanup:${task.id}:${task.queueRevision}`,
+      availableAt: task.retryAt, suspended: true,
+    }));
+  }
+  it("persists protection without queue work, atomically links assets and queues expiry exactly once", async () => {
     const first = await createStorageCleanupIntent(undefined, input());
+    expect(first.status).toBe("uploading");
+    expect(await prisma.queueJob.count({ where: { sourceId: first.id } })).toBe(0);
     await run(); expect(deletion).not.toHaveBeenCalled();
     const asset = await prisma.mediaAsset.create({ data: { ownerEmail, type: "image", origin: "upload", storageProvider: first.storageProvider,
       storageObjectId: first.storageObjectId, mimeType: "image/png" } });
     const linked = await linkStorageCleanupToAsset(undefined, { ...first, assetId: asset.id, reason: "upload_session" });
     expect(linked.queueRevision).toBe(first.queueRevision + 1);
-    expect((await prisma.queueJob.findFirstOrThrow({ where: { sourceId: first.id, sourceRevision: first.queueRevision } })).status).toBe("cancelled");
+    expect(linked.status).toBe("linked");
+    expect(await prisma.queueJob.count({ where: { sourceId: first.id } })).toBe(0);
     await activateExpiredCleanupIntents(new Date(Date.now() + 3_600_000));
     await run(); expect(deletion).not.toHaveBeenCalled();
     const expired = await createStorageCleanupIntent(undefined, { ...input(), retryAt: new Date(Date.now() - 1000) });
-    await activateExpiredCleanupIntents();
+    await Promise.all([activateExpiredCleanupIntents(), activateExpiredCleanupIntents()]);
+    expect(await prisma.queueJob.count({ where: { sourceId: expired.id } })).toBe(1);
     await run();
     expect(deletion).toHaveBeenCalledExactlyOnceWith(expired.storageObjectId);
+  });
+  it("activates an old suspended upload without duplication and fences its revision when linked", async () => {
+    const task = await createStorageCleanupIntent(undefined, { ...input(), retryAt: new Date(Date.now() - 1000) });
+    const old = await legacyJob(task);
+    await activateExpiredCleanupIntents();
+    expect(await prisma.queueJob.findUniqueOrThrow({ where: { id: old.id } })).toMatchObject({ status: "ready", sourceRevision: task.queueRevision });
+    const asset = await prisma.mediaAsset.create({ data: { ownerEmail, type: "image", origin: "upload", storageProvider: task.storageProvider,
+      storageObjectId: task.storageObjectId, mimeType: "image/png" } });
+    await expect(prisma.$transaction(async tx => {
+      await linkStorageCleanupToAsset(tx, { ...task, assetId: asset.id, reason: "upload_session" });
+      throw Error("ROLLBACK_LINK");
+    })).rejects.toThrow("ROLLBACK_LINK");
+    expect((await prisma.queueJob.findUniqueOrThrow({ where: { id: old.id } })).status).toBe("ready");
+    await linkStorageCleanupToAsset(undefined, { ...task, assetId: asset.id, reason: "upload_session" });
+    expect((await prisma.queueJob.findUniqueOrThrow({ where: { id: old.id } })).status).toBe("cancelled");
+    expect(await prisma.queueJob.count({ where: { sourceId: task.id } })).toBe(1);
+    await run(); expect(deletion).not.toHaveBeenCalled();
+  });
+  it("retires only proven valid legacy protection and keeps missing assets and storage unchanged", async () => {
+    const valid = await createStorageCleanupIntent(undefined, input());
+    const asset = await prisma.mediaAsset.create({ data: { ownerEmail, type: "image", origin: "upload", storageProvider: valid.storageProvider,
+      storageObjectId: valid.storageObjectId, mimeType: "image/png" } });
+    const linked = await linkStorageCleanupToAsset(undefined, { ...valid, assetId: asset.id, reason: "upload_session" });
+    const known = await legacyJob(linked);
+    const missing = await createStorageCleanupIntent(undefined, input());
+    await prisma.mediaCleanupTask.update({ where: { id: missing.id }, data: { status: "linked" } });
+    const unknown = await legacyJob(missing);
+    expect(await retireLinkedStorageCleanupJobs()).toEqual({ count: 1 });
+    expect(await retireLinkedStorageCleanupJobs()).toEqual({ count: 0 });
+    expect((await prisma.queueJob.findUniqueOrThrow({ where: { id: known.id } })).status).toBe("cancelled");
+    expect((await prisma.queueJob.findUniqueOrThrow({ where: { id: unknown.id } })).status).toBe("suspended");
+    expect(await prisma.mediaAsset.findUniqueOrThrow({ where: { id: asset.id } })).toMatchObject({ status: "completed" });
+    expect(await prisma.mediaCleanupTask.findUniqueOrThrow({ where: { id: valid.id } })).toMatchObject({ status: "linked" });
+    expect(deletion).not.toHaveBeenCalled();
+  });
+  it("keeps linked request intent available for failed submission cleanup and explicit deletion", async () => {
+    const requestId = randomUUID();
+    const first = await createStorageCleanupIntent(undefined, { ...input(), requestId });
+    const asset = await prisma.mediaAsset.create({ data: { ownerEmail, type: "image", origin: "upload", storageProvider: first.storageProvider,
+      storageObjectId: first.storageObjectId, mimeType: "image/png" } });
+    await linkStorageCleanupToAsset(undefined, { ...first, assetId: asset.id, reason: "generation_input" });
+    expect(await releaseStorageCleanupsForRequest(undefined, requestId)).toEqual({ count: 1 });
+    expect(await releaseStorageCleanupsForRequest(undefined, requestId)).toEqual({ count: 0 });
+    expect(await prisma.queueJob.count({ where: { sourceId: first.id, status: "ready" } })).toBe(1);
+    // A new explicit delete request supersedes unclaimed cleanup, without a duplicate runnable job.
+    await prisma.mediaAsset.update({ where: { id: asset.id }, data: { status: "deleting" } });
+    const pending = await queueStorageCleanup(undefined, { ...first, assetId: asset.id, reason: "history_delete", retryAt: new Date() });
+    expect(pending.status).toBe("pending");
+    expect(await prisma.queueJob.count({ where: { sourceId: first.id, status: "ready" } })).toBe(1);
+    await run(); expect(deletion).toHaveBeenCalledExactlyOnceWith(first.storageObjectId);
   });
   it("protects graph references and restores deleting assets without calling storage", async () => {
     const i = input();
@@ -64,7 +128,10 @@ describe.skipIf(!postgresIntegrationEnabled)("cleanup common queue", () => {
     await run();
     expect(deletion).not.toHaveBeenCalled();
     expect((await prisma.mediaAsset.findUniqueOrThrow({ where: { id: asset.id } })).status).toBe("completed");
-    expect((await prisma.queueJob.findFirstOrThrow({ where: { sourceId: task.id } })).status).toBe("suspended");
+    const settled = await prisma.queueJob.findFirstOrThrow({ where: { sourceId: task.id } });
+    expect(settled.status).toBe("cancelled");
+    expect(await prisma.queueAttempt.findUniqueOrThrow({ where: { id: settled.currentAttemptId! } })).toMatchObject({ outcome: "protected", phase: "ended" });
+    expect(await prisma.queueReservation.count({ where: { attemptId: settled.currentAttemptId!, releasedAt: null } })).toBe(0);
   });
   it("uses exactly five attempts with backoff and preserves exhausted work for operator redrive", async () => {
     deletion.mockRejectedValue(new Error("DELETE_FAILED"));

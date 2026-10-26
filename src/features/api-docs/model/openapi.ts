@@ -8,7 +8,7 @@ import { applyErrorResponseExamples } from "./error-response-examples";
 import { getModelRegistrationDocumentationSchema } from "./model-registration-schema";
 import { applyApiReferenceMetadata, type ApiReferenceTranslations } from "./api-reference-metadata";
 import type { SecurityRequirementObject } from "openapi3-ts/oas31";
-import { externalHistoryQuerySchema, externalHistorySelectorSchema, externalHistoryResponseSchema, externalHistoryStatusSchema, externalHistoryDetailSchema } from "@/shared/api/platform-contract";
+import { externalHistoryQuerySchema, externalHistorySelectorSchema, externalHistoryReadSelectorSchema, externalHistoryResponseSchema, externalHistoryStatusSchema, externalHistoryDetailSchema } from "@/shared/api/platform-contract";
 import { promptPresetSchema, promptPresetKeySchema, promptPresetModalitySchema, createPromptPresetSchema, updatePromptPresetSchema, promptPresetRevisionSchema } from "@/shared/prompt-presets/prompt-preset-contract";
 import { externalMonitoringOperationQueries, externalMonitoringOverviewSchema, externalMonitoringStatsSchema, externalMonitoringRequestsSchema, externalMonitoringTopSchema, externalMonitoringApiKeysSchema, externalMonitoringDetailSchema } from "@/shared/api/platform-monitoring-contract";
 import { externalAdminModelQuerySchema, externalAdminModelListSchema, externalAdminModelSchema, externalAdminModelUpdateSchema, externalAdminHfImportSchema, externalAdminHfImportResponseSchema, externalAdminModalImportSchema, externalAdminModalListSchema, externalAdminModalImportResponseSchema } from "@/shared/api/platform-admin-contract";
@@ -203,7 +203,7 @@ export function getOpenApiDocument(translations?: OpenApiTranslations) {
   registry.registerPath({
     method: "get", path: "/api/external/history/{historyId}", tags: ["History"], security,
     description: "Owner JSON detail, stored input settings, input/output URLs and warnings. platform:read or higher. Unlike generation status, includes UI jobs and jobs submitted with other keys of this owner.",
-    request: { params: z.object({ historyId: z.string().min(1) }), query: externalHistorySelectorSchema },
+    request: { params: z.object({ historyId: z.string().min(1) }), query: externalHistoryReadSelectorSchema },
     responses: { 200: { description: "History detail", headers: responseHeaders, content: json(externalHistoryDetailSchema) }, ...platformErrors, 400: error("INVALID_QUERY"), 404: error("HISTORY_NOT_FOUND") },
   });
   registry.registerPath({
@@ -313,9 +313,9 @@ export function getOpenApiDocument(translations?: OpenApiTranslations) {
       { name: "Models", description: translations?.tags?.models },
       { name: "Spaces", description: translations?.tags?.spaces ?? "Space authoring and single-node execution" },
       { name: "Assets", description: translations?.tags?.assets ?? "Durable assets and uploads" },
-      { name: "History", description: translations?.tags?.history ?? "Generation history" },
+      { name: "History", description: translations?.tags?.history ?? "Image, video, audio and AI assistant history, including completed media edits." },
       { name: "Prompt presets", description: translations?.tags?.promptPresets ?? "Prompt presets" },
-      { name: "Monitoring", description: translations?.tags?.monitoring ?? "Request metrics" },
+      { name: "Monitoring", description: translations?.tags?.monitoring ?? "Image, video, audio and AI assistant request metrics. Service and reprocessing queues are excluded." },
       { name: "Model administration", description: translations?.tags?.modelAdministration ?? "Model management" },
     ],
   });

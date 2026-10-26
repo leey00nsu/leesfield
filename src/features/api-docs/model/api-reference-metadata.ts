@@ -15,7 +15,7 @@ const defaultActions: Record<string, string> = {
   "POST /api/external/prompt-presets/{key}/restore": "Restore a built-in preset's name and prompt.",
   "GET /api/external/monitoring/overview": "Get request counts, success rates and processing times.",
   "GET /api/external/monitoring/stats": "Get request and error statistics over time.",
-  "GET /api/external/monitoring/requests": "List API requests.",
+  "GET /api/external/monitoring/requests": "List generation requests.",
   "GET /api/external/monitoring/requests/detail": "Get a request's inputs and results.",
   "GET /api/external/monitoring/top": "Compare usage, errors and processing times by model or API key.",
   "GET /api/external/monitoring/api-keys": "List API keys for filtering request metrics.",
@@ -31,8 +31,22 @@ const defaultActions: Record<string, string> = {
   "GET /api/external/models": "List available image, video and audio models.",
   "GET /api/external/models/{modelId}/schema": "Get a model's input schema and file requirements."
 };
+const defaultNotes: Record<string, string> = {
+  "GET /api/external/history": "Includes the account's web and API image, video, audio and AI assistant jobs and completed media edits. Assistant prompt, inputText and outputText are limited to 4,000 characters each; hidden records exclude assistants.",
+  "GET /api/external/history/{historyId}": "For type=assistant, use origin=generation. prompt, inputText and completed outputText are limited to 20,000 characters each; media arrays are empty.",
+  "GET /api/external/monitoring/overview": "Covers image, video, audio and AI assistant requests. Service and reprocessing queues are excluded.",
+  "GET /api/external/monitoring/requests": "Includes the account's web and API generation requests.",
+  "GET /api/external/monitoring/requests/detail": "For type=assistant, requestId is the execution ID. prompt, inputText and completed outputText are limited to 20,000 characters each; media arrays are empty.",
+};
+const defaultNoteTitles: Record<string, string> = {
+  "GET /api/external/history": "Included records",
+  "GET /api/external/history/{historyId}": "Assistant results",
+  "GET /api/external/monitoring/overview": "Metrics scope",
+  "GET /api/external/monitoring/requests": "Included requests",
+  "GET /api/external/monitoring/requests/detail": "Assistant results",
+};
 const historyParameterDescriptions: Record<string, string> = {
-  type: "Media type: image, video, audio or all. Case-insensitive; unrecognized values use all.",
+  type: "Job type: image, video, audio, assistant or all. Case-insensitive; unrecognized values use all.",
   sort: "Sort order: date_desc or date_asc. Case-insensitive; unrecognized values use date_desc.",
   limit: "Items per page. Parsed as an integer and clamped to 1–100; unparseable values use 24.",
   offset: "Items to skip. Parsed as an integer and clamped to 0–1000; unparseable values use 0.",
@@ -62,9 +76,9 @@ export function applyApiReferenceMetadata(document: OpenApiDocument, translation
       operation["x-resource-scope"] = path.startsWith("/api/external/admin/") ? "global"
         : path === "/api/external/generations/{requestId}" ? "account-and-api-key"
         : path.startsWith("/api/external/models") ? "catalog" : "owner";
-      const note = translations?.notes?.[key];
+      const note = translations?.notes?.[key] ?? defaultNotes[key];
       operation["x-usage-notes"] = note ? note.split(/\n\s*\n/) : [];
-      operation["x-usage-title"] = translations?.noteTitles?.[key];
+      operation["x-usage-title"] = translations?.noteTitles?.[key] ?? defaultNoteTitles[key];
       if (path === "/api/external/generations" && method === "post") {
         operation["x-conditional-permissions"] = [{ field: "promptPreset", permission: "presets:read", condition: "present" }];
         operation["x-request-limits"] = {
@@ -90,6 +104,8 @@ export function applyApiReferenceMetadata(document: OpenApiDocument, translation
           ? "spacesIdempotencyKey" : parameter.name;
         parameter.description = translations?.operationParameters?.[key]?.[parameter.name]
           ?? (historyList && parameter.in === "query" ? historyParameterDescriptions[parameter.name] : undefined)
+          ?? (parameter.name === "type" && (parameter.schema as OpenApiSchema | undefined)?.enum?.includes("assistant")
+            ? translations?.parameters?.jobType ?? "Job type: image, video, audio or assistant." : undefined)
           ?? translations?.parameters?.[descriptionKey] ?? parameter.description;
         const schema = parameter.schema as OpenApiSchema | undefined;
         if (!schema) continue;

@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, type MediaCleanupTask } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 
 import { prisma } from "@/server/db/prisma";
@@ -121,13 +121,18 @@ async function changeIntent(tx: CleanupClient, input: StorageCleanupIntent, stat
       status, retryAt: input.retryAt ?? (status === "uploading" ? cleanupUploadRetryAt(now) : now),
       attempts: 0, leaseToken: null, leaseUntil: null, lastError: null, queueRevision: { increment: 1 } },
   });
-  await enqueueQueueJobTx(tx, {
+  // Protection is a durable storage ledger, not executable queue work.
+  if (status === "pending") await enqueueCleanupTaskTx(tx, task);
+  return task;
+}
+
+async function enqueueCleanupTaskTx(tx: CleanupClient, task: MediaCleanupTask) {
+  return enqueueQueueJobTx(tx, {
     kind: "storage_cleanup", source: { type: "storage_cleanup", id: task.id, revision: task.queueRevision },
     snapshotRef: "cleanup:" + task.id + ":" + task.queueRevision,
     ownerScopeDigest: queueScopeDigest(task.ownerEmail ?? "storage:" + task.storageProvider),
-    suspended: status !== "pending", availableAt: task.retryAt,
+    availableAt: task.retryAt,
   });
-  return task;
 }
 export function createStorageCleanupIntent(client: CleanupClient | undefined, input: StorageCleanupIntent) {
   return inCleanupTransaction(client, tx => changeIntent(tx, input, "uploading"));
@@ -169,10 +174,40 @@ export function activateExpiredCleanupIntents(now = new Date(), limit = 100) {
       orderBy: [{ retryAt: "asc" }, { id: "asc" }], take: limit });
     for (const task of tasks) {
       await tx.mediaCleanupTask.update({ where: { id: task.id }, data: { status: "pending" } });
+      // New intents have no QueueJob. Old deployments may have a suspended one.
+      // Both paths retain the revision and converge under the same queue lock.
+      await enqueueCleanupTaskTx(tx, task);
       await tx.queueJob.updateMany({ where: { sourceType: "storage_cleanup", sourceId: task.id, sourceRevision: task.queueRevision, status: "suspended" },
         data: { status: "ready", availableAt: now, version: { increment: 1 } } });
     }
     return tasks.length;
+  });
+}
+
+/** Retire old protective jobs only when a valid, same-owner asset is proven.
+ * No file or ledger is deleted; unlinked/uncertain/ordered work stays untouched.
+ */
+export function retireLinkedStorageCleanupJobs(limit = 100) {
+  return withQueueTransaction(async tx => {
+    const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT j.id FROM "QueueJob" j
+      JOIN "MediaCleanupTask" t ON t.id = j."sourceId" AND t."queueRevision" = j."sourceRevision"
+      JOIN "MediaAsset" a ON a."storageProvider" = t."storageProvider"
+        AND a."storageObjectId" = t."storageObjectId" AND a."ownerEmail" = t."ownerEmail"
+      WHERE j.kind = 'storage_cleanup' AND j."sourceType" = 'storage_cleanup'
+        AND j.status = 'suspended' AND j."currentAttemptId" IS NULL AND j."orderGroupId" IS NULL
+        AND t.status = 'linked' AND t.attempts = 0 AND t."leaseToken" IS NULL AND t."leaseUntil" IS NULL
+        AND a.status = 'completed' AND (t."assetId" IS NULL OR t."assetId" = a.id)
+        AND NOT EXISTS (SELECT 1 FROM "QueueJob" other WHERE other."sourceType" = 'storage_cleanup'
+          AND other."sourceId" = t.id AND (other.status IN ('active','dead_letter','reconciliation_required')
+            OR EXISTS (SELECT 1 FROM "QueueAttempt" p WHERE p."jobId" = other.id
+              AND (p."finishedAt" IS NULL OR EXISTS (SELECT 1 FROM "QueueReservation" r
+                WHERE r."attemptId" = p.id AND r."releasedAt" IS NULL)))
+            OR EXISTS (SELECT 1 FROM "QueueDeadLetter" d WHERE d."jobId" = other.id AND d.state IN ('open','redriven'))))
+      ORDER BY j."createdAt", j.id LIMIT ${Math.max(1, Math.min(100, Math.trunc(limit) || 100))}
+      FOR UPDATE OF j`);
+    return tx.queueJob.updateMany({ where: { id: { in: rows.map(row => row.id) }, status: "suspended" },
+      data: { status: "cancelled", version: { increment: 1 } } });
   });
 }
 

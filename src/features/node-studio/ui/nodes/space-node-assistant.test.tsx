@@ -462,7 +462,9 @@ describe("SpaceAssistantNode", () => {
     expect(video).not.toHaveAttribute("src"); expect(video).toHaveAttribute("preload", "none");
     expect(within(references).getByAltText("Image reference 2")).toHaveAttribute("loading", "lazy");
     expect(mocks.getAsset).not.toHaveBeenCalled();
-    const observer = observers.find(entry => entry.target === video.parentElement)!;
+    const reference = within(references).getAllByRole("listitem")[0];
+    expect(reference).toContainElement(video);
+    const observer = observers.find(entry => entry.target === reference)!;
     act(() => { observer.callback([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver); });
     expect(video).toHaveAttribute("src", "https://assets.invalid/video-asset");
     expect(video).toHaveAttribute("preload", "metadata"); expect(video).not.toHaveAttribute("autoplay");

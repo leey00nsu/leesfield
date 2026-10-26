@@ -1,5 +1,7 @@
 "use client";
-/* eslint-disable @next/next/no-img-element -- Crop coordinates require the original, without variant/cover transforms. */
+
+import { AppPreviewImage } from "@/shared/ui/app-preview-image";
+import { AppVideoPlayer } from "@/shared/ui/app-video-player";
 import { useEffect, useRef, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
 import { ArrowUp, Check, ChevronDown, X } from "lucide-react";
 import { useLocale } from "next-intl";
@@ -58,8 +60,8 @@ export function MediaCropEditor({ asset, edit, preset, onChange, onCancel, onCon
       }}
       onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }}
       onLostPointerCapture={() => { drag.current = null; }} onPointerDown={event => event.stopPropagation()}>
-      {video ? <video src={asset.url} muted playsInline preload="metadata" className={styles.original} aria-label={label("Original video", "원본 영상")} />
-        : <img src={asset.url} alt={label("Original image", "원본 이미지")} className={styles.original} draggable={false} />}
+      {video ? <AppVideoPlayer src={asset.url} controls={false} inlineOnly muted playsInline preload="metadata" className={styles.original} aria-label={label("Original video", "원본 영상")} />
+        : <AppPreviewImage src={asset.url} alt={label("Original image", "원본 이미지")} className={styles.original} draggable={false} />}
       <div className={styles.cropRect} style={{ left: rect.x / width * 100 + "%", top: rect.y / height * 100 + "%",
         width: rect.width / width * 100 + "%", height: rect.height / height * 100 + "%" }}
         tabIndex={0} data-crop-handle="move" role="group" aria-label={label("Move crop selection", "자르기 영역 이동")}

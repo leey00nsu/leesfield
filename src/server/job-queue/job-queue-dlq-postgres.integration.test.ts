@@ -22,9 +22,12 @@ import type { QueueHandler } from "./job-queue-handler";
 import { assistantQueueHandler } from "./handlers/assistant-handler";
 import { mediaOperationQueueHandler } from "./handlers/media-operation-handler";
 import { setSubmissionLedgerForTests } from "@/server/generation-admission/submission-ledger";
+import { getConsoleCapabilities } from "./job-queue-console-capabilities";
+import { Client } from "pg";
+import { QUEUE_TRANSACTION_LOCK } from "./contracts";
 
 const remote = vi.hoisted(() => ({ json: vi.fn(), upload: vi.fn(), download: vi.fn(), storage: vi.fn(), paid: vi.fn(), frozen: vi.fn() }));
-vi.mock("@/server/generation-request/request-snapshot", () => ({ frozenExecutionModel: remote.frozen }));
+vi.mock("@/server/generation-request/request-snapshot", async original => ({ ...await original<typeof import("@/server/generation-request/request-snapshot")>(), frozenExecutionModel: remote.frozen }));
 vi.mock("@/server/generation-worker/generation-payload", () => {
   const runtime = async () => ({});
   const build = async (row: { modelKey: string; prompt: string }) => ({ model: row.modelKey, prompt: row.prompt, width: 64, height: 64 });
@@ -121,6 +124,7 @@ describe.skipIf(!postgresIntegrationEnabled)("DLQ operator persistence", () => {
   it("deduplicates concurrent redrive, keeps original failure/order and resolves only after success", async () => {
     const key = randomUUID(); const first = await source("image", key); const second = await source("image", key);
     const entry = await fail(image);
+    expect((await getConsoleCapabilities(entry.id)).redrive.status).toBe("requires_validation");
     const input = command();
     const responses = await Promise.all(Array.from({ length: 8 }, () => operateQueue(actor, "redrive", entry.id, input)));
     expect(new Set(responses.map(r => JSON.stringify(r))).size).toBe(1);
@@ -159,6 +163,10 @@ describe.skipIf(!postgresIntegrationEnabled)("DLQ operator persistence", () => {
     const config = buildModalModelDraft(workflows.find(w => w.id === "minimax-h3-pdd-fl2va")).providerConfig;
     await prisma.modalComfyJob.create({ data: { requestId: first.row.requestId, jobId: "known-job", fingerprint: "input",
       submission: JSON.parse(JSON.stringify({ inputs: {}, advanced: {}, execution: { config, values: {}, origin: "https://queue-test.modal.run" } })) } });
+    const capabilities=await getConsoleCapabilities(entry.id);
+    expect(capabilities.redrive.status).toBe("blocked");
+    expect(capabilities.reconcile).toMatchObject({status:"requires_validation",evidenceRef:"modal:"+first.row.requestId});
+    expect(remote.json).not.toHaveBeenCalled();expect(remote.paid).not.toHaveBeenCalled();
     remote.json.mockResolvedValue({ id: "known-job", status: "in_progress" });
     const checking = { ...command(), evidenceRef: "modal:" + first.row.requestId };
     expect(await operateQueue(actor, "reconcile", entry.id, checking)).toMatchObject({ outcome: "failed", result: { code: "QUEUE_REMOTE_STILL_UNCONFIRMED" } });
@@ -168,7 +176,11 @@ describe.skipIf(!postgresIntegrationEnabled)("DLQ operator persistence", () => {
       if (path.endsWith("/assets")) return { job_id: "known-job", assets: [{ id: "output", output_key: "video", media_type: "video" }], pagination: { has_more: false } };
       return { id: "known-job", status: "completed" };
     });
-    expect(await operateQueue(actor, "reconcile", entry.id, { ...checking, requestId: randomUUID() })).toMatchObject({ outcome: "succeeded" });
+    // Administrative releases use the database clock even on a slower worker.
+    try {
+      vi.setSystemTime(new Date(Date.now() - 60_000));
+      expect(await operateQueue(actor, "reconcile", entry.id, { ...checking, requestId: randomUUID() })).toMatchObject({ outcome: "succeeded" });
+    } finally { vi.useRealTimers(); }
     expect(await prisma.queueReservation.count({ where: { attempt: { jobId: first.job.id }, releasedAt: null } })).toBe(0);
     expect(await operateQueue(actor, "redrive", entry.id, command(1))).toMatchObject({ outcome: "succeeded", result: { mode: "collect" } });
     remote.download.mockResolvedValue({ buffer: Buffer.from("video"), contentType: "video/mp4", bytes: 5 });
@@ -204,6 +216,7 @@ describe.skipIf(!postgresIntegrationEnabled)("DLQ operator persistence", () => {
     const task = await queueStorageCleanup(undefined, { ownerEmail, storageProvider: "leemage", storageObjectId: randomUUID(), reason: "upload_failed" });
     const cleanup = createStorageCleanupHandler();
     const entry = await fail(cleanup);
+    expect((await getConsoleCapabilities(entry.id)).redrive.status).toBe("requires_validation");
     expect(await operateQueue(actor, "redrive", entry.id, command())).toMatchObject({ outcome: "succeeded", result: { executionId: task.id, cycle: 2 } });
     const claim = await claimQueueJob(randomUUID(), (tx, job, lease) => cleanup.prepareTx(tx, job, lease));
     await settleQueueFailure(claim!.lease, cleanup, { code: "DELETE_FAILED", phase: "storage.delete", disposition: "retry", executionStopped: true });
@@ -238,6 +251,17 @@ describe.skipIf(!postgresIntegrationEnabled)("DLQ operator persistence", () => {
     const aJob = await withQueueTransaction(tx => enqueueQueueJobTx(tx, { kind: "assistant",
       source: { type: "assistant_execution", id: a.id }, ownerScopeDigest: digest(), snapshotRef: "assistant:" + a.id }));
     const aEntry = await fail(assistantQueueHandler);
+    expect((await getConsoleCapabilities(aEntry.id)).redrive.status).toBe("requires_validation");
+    const llm=await prisma.modelCatalog.findUniqueOrThrow({where:{key:modelPrefix+"llm"},select:{id:true}});
+    await prisma.modelCredential.delete({where:{modelId:llm.id}});
+    expect((await getConsoleCapabilities(aEntry.id)).redrive.reasons).toContain("QUEUE_REDRIVE_CREDENTIAL_REVOKED");
+    await prisma.modelCredential.create({data:{modelId:llm.id,ciphertext:"test",iv:"test",tag:"test"}});
+    await prisma.generationGraphNode.update({where:{id:assistantNode.id},data:{kind:"changed"}});
+    expect((await getConsoleCapabilities(aEntry.id)).redrive.reasons).toContain("QUEUE_REDRIVE_TARGET_CHANGED");
+    await prisma.generationGraphNode.update({where:{id:assistantNode.id},data:{kind:"generate.assistant"}});
+    const active=await prisma.assistantExecution.create({data:{ownerEmail,graphId:graph.id,graphNodeId:assistantNode.id,modelKey:modelPrefix+"llm",inputSnapshot:{}}});
+    expect((await getConsoleCapabilities(aEntry.id)).redrive.reasons).toContain("QUEUE_REDRIVE_NODE_ACTIVE");
+    await prisma.assistantExecution.delete({where:{id:active.id}});
     expect(await operateQueue(actor, "redrive", aEntry.id, command())).toMatchObject({ outcome: "succeeded" });
     const nextAssistant = await prisma.queueJob.findUniqueOrThrow({ where: { id: aJob.id } });
     expect(await prisma.assistantExecution.findUnique({ where: { id: nextAssistant.executionId } })).toMatchObject({ inputSnapshot: a.inputSnapshot, status: "pending" });
@@ -250,6 +274,7 @@ describe.skipIf(!postgresIntegrationEnabled)("DLQ operator persistence", () => {
     const mJob = await withQueueTransaction(tx => enqueueQueueJobTx(tx, { kind: "media_operation",
       source: { type: "media_operation", id: m.id }, ownerScopeDigest: digest(), snapshotRef: "media-operation:" + m.id }));
     const mEntry = await fail(mediaOperationQueueHandler);
+    expect((await getConsoleCapabilities(mEntry.id)).redrive.status).toBe("requires_validation");
     expect(await operateQueue(actor, "redrive", mEntry.id, command())).toMatchObject({ outcome: "succeeded" });
     const nextMedia = await prisma.queueJob.findUniqueOrThrow({ where: { id: mJob.id } });
     expect(nextMedia.executionId).not.toBe(m.id);
@@ -299,6 +324,7 @@ describe.skipIf(!postgresIntegrationEnabled)("DLQ operator persistence", () => {
     await prisma.modalComfyJob.create({ data: { requestId: first.row.requestId, jobId: "stopped-job", fingerprint: "input",
       submission: JSON.parse(JSON.stringify({ inputs: {}, advanced: {}, execution: { config, values: {}, origin: "https://queue-test.modal.run" } })) } });
     remote.json.mockResolvedValue({ id: "stopped-job", status: "failed" });
+    expect((await getConsoleCapabilities(entry.id)).reconcile.status).toBe("requires_validation");
     expect(await operateQueue(actor, "reconcile", entry.id, { ...command(1), evidenceRef: "modal:" + first.row.requestId })).toMatchObject({ outcome: "succeeded" });
     expect((await prisma.queueJob.findUniqueOrThrow({ where: { id: first.job.id } })).status).toBe("abandoned");
     expect((await prisma.queueOrderGroup.findUniqueOrThrow({ where: { id: first.job.orderGroupId! } })).blockedByJobId).toBe(first.job.id);
@@ -312,5 +338,47 @@ describe.skipIf(!postgresIntegrationEnabled)("DLQ operator persistence", () => {
     await prisma.imageGeneration.update({ where: { id: first.row.id }, data: { requestParams: { requestVersion: 3, model: modelPrefix + "image", prompt: "original" } } });
     const entry = await fail(image);
     expect(await operateQueue(actor, "redrive", entry.id, command())).toMatchObject({ outcome: "succeeded" });
+  });
+  it("previews source, owner, model, input, runtime and group failures with safe reasons", async () => {
+    const first=await source("image",randomUUID()),entry=await fail(image);
+    const reason=async()=> (await getConsoleCapabilities(entry.id)).redrive.reasons;
+    await prisma.queueRuntime.update({where:{id:1},data:{mode:"paused"}});expect(await reason()).toContain("QUEUE_PAUSED");
+    await prisma.queueRuntime.update({where:{id:1},data:{mode:"shared"}});
+    await prisma.queueOrderGroup.update({where:{id:first.job.orderGroupId!},data:{closedAt:new Date()}});expect(await reason()).toContain("QUEUE_GROUP_CLOSED");
+    await prisma.queueOrderGroup.update({where:{id:first.job.orderGroupId!},data:{closedAt:null}});
+    await prisma.imageGeneration.update({where:{id:first.row.id},data:{ownerEmail:"changed@example.com"}});expect(await reason()).toContain("QUEUE_REDRIVE_OWNER_CHANGED");
+    await prisma.imageGeneration.update({where:{id:first.row.id},data:{ownerEmail}});
+    await prisma.modelCatalog.update({where:{key:modelPrefix+"image"},data:{isActive:false}});expect(await reason()).toContain("QUEUE_REDRIVE_MODEL_UNAVAILABLE");
+    await prisma.modelCatalog.update({where:{key:modelPrefix+"image"},data:{isActive:true}});
+    remote.frozen.mockReturnValue(undefined);expect(await reason()).toContain("QUEUE_REDRIVE_SNAPSHOT_MISSING");remote.frozen.mockReturnValue({provider:"modal_comfyui"});
+    remote.frozen.mockImplementationOnce(()=>{throw new Error("SECRET_BAD_SNAPSHOT");});expect(await reason()).toContain("QUEUE_REDRIVE_SNAPSHOT_INVALID");
+    const asset=await prisma.mediaAsset.create({data:{ownerEmail,type:"image",origin:"upload",storageProvider:"fixture",storageObjectId:randomUUID(),mimeType:"image/png",status:"failed"}});
+    await prisma.generationInputAsset.create({data:{ownerEmail,requestId:first.row.requestId,generationType:"image",assetId:asset.id,field:"referenceImages",multiple:true}});
+    expect(await reason()).toContain("QUEUE_REDRIVE_INPUT_MISSING");
+    await prisma.mediaAsset.update({where:{id:asset.id},data:{status:"completed"}});
+    expect((await getConsoleCapabilities(entry.id)).redrive.status).toBe("requires_validation");
+    await prisma.generationSubmission.createMany({data:Array.from({length:20},()=>({requestId:randomUUID(),ownerEmail,scope:"fixture",payloadHash:"fixture",state:"preparing",expiresAt:new Date(Date.now()+60000)}))});
+    expect(await reason()).toContain("QUEUE_REDRIVE_OWNER_LIMIT");await prisma.generationSubmission.deleteMany({where:{ownerEmail}});
+    await prisma.imageGeneration.delete({where:{id:first.row.id}});expect(await reason()).toContain("QUEUE_REDRIVE_SOURCE_MISSING");
+    expect(remote.json).not.toHaveBeenCalled();expect(remote.paid).not.toHaveBeenCalled();
+  });
+  it("previews under queue and asset locks without creating executions, writes or provider calls", async () => {
+    const first=await source(),entry=await fail(image);
+    const asset=await prisma.mediaAsset.create({data:{ownerEmail,type:"image",origin:"upload",storageProvider:"fixture",storageObjectId:randomUUID(),mimeType:"image/png"}});
+    await prisma.generationInputAsset.create({data:{ownerEmail,requestId:first.row.requestId,generationType:"image",assetId:asset.id,field:"referenceImages",multiple:true}});
+    const before={job:await prisma.queueJob.findUnique({where:{id:first.job.id}}),entry:await prisma.queueDeadLetter.findUnique({where:{id:entry.id}}),
+      sources:await prisma.imageGeneration.count({where:{ownerEmail}}),audit:await prisma.queueAdminAction.count(),admission:await prisma.generationSubmission.count({where:{ownerEmail}})};
+    const client=new Client({connectionString:process.env.DATABASE_URL});await client.connect();
+    try{
+      await client.query("BEGIN");await client.query("SELECT pg_advisory_xact_lock(hashtext($1))",[QUEUE_TRANSACTION_LOCK]);
+      await client.query('SELECT id FROM "MediaAsset" WHERE id=$1 FOR UPDATE',[asset.id]);
+      const cap=await getConsoleCapabilities(entry.id);expect(cap.redrive.status).toBe("requires_validation");
+      expect(JSON.stringify(cap)).not.toContain("private frozen prompt");expect(JSON.stringify(cap)).not.toContain(ownerEmail);
+      expect(await prisma.queueJob.findUnique({where:{id:first.job.id}})).toEqual(before.job);
+      expect(await prisma.queueDeadLetter.findUnique({where:{id:entry.id}})).toEqual(before.entry);
+      expect(await prisma.imageGeneration.count({where:{ownerEmail}})).toBe(before.sources);
+      expect(await prisma.queueAdminAction.count()).toBe(before.audit);expect(await prisma.generationSubmission.count({where:{ownerEmail}})).toBe(before.admission);
+      expect(remote.json).not.toHaveBeenCalled();expect(remote.upload).not.toHaveBeenCalled();expect(remote.paid).not.toHaveBeenCalled();
+    }finally{await client.query("ROLLBACK");await client.end();}
   });
 });

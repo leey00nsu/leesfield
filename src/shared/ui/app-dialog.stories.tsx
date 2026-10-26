@@ -15,6 +15,8 @@ import {
   AppDialogTitle,
 } from "@/shared/ui/app-dialog";
 import { AppInput } from "@/shared/ui/app-input";
+import { AppMediaDetailDialog, AppMediaDetailBackdrop, useMediaDetailDialog } from "@/shared/ui/app-media-detail-dialog";
+import { AppMediaDetailRail } from "@/shared/ui/app-media-detail-rail";
 import { AppFormField, AppLabel } from "@/shared/ui/app-form-control";
 
 type AppDialogPreviewProps = {
@@ -172,3 +174,23 @@ export const MediaDialog: Story = {
     );
   },
 };
+
+function SharedMediaDetailPreview({readOnly=false}:{readOnly?:boolean}) {
+  const [open,setOpen]=useState(true),[name,setName]=useState("Example asset"),[savedName,setSavedName]=useState("Example asset");
+  const dialog=useMediaDetailDialog(()=>setOpen(false));
+  return <>
+    <AppButton onClick={()=>{setName(savedName);dialog.setDirty(false);setOpen(true);}}>Open shared detail</AppButton>
+    <AppMediaDetailDialog controller={dialog} open={open} className="grid-rows-[minmax(160px,30dvh)_minmax(0,1fr)] lg:grid-cols-[1fr_25rem] lg:grid-rows-[minmax(0,1fr)]">
+      <AppDialogTitle className="sr-only">Shared media detail</AppDialogTitle>
+      <AppMediaDetailBackdrop className="flex min-h-0 items-center justify-center bg-black/30 p-6">
+        <div data-app-media-detail-content="" className="grid aspect-square max-h-full w-64 place-items-center rounded-lg bg-muted p-6 text-center">Media preview</div>
+      </AppMediaDetailBackdrop>
+      <AppMediaDetailRail readOnly={readOnly} formId="shared-detail-story" closeLabel="Close" tabsLabel="Detail tabs" saveLabel="Save" onClose={dialog.requestClose}
+        saveDisabled={name===savedName} onSubmit={event=>{event.preventDefault();setSavedName(name);dialog.setDirty(false);}}
+        tabs={[{value:"general",label:"General",content:readOnly?<p>Read-only result</p>:<AppFormField><AppLabel htmlFor="shared-detail-name">Name</AppLabel><AppInput id="shared-detail-name" value={name} onChange={event=>{setName(event.target.value);dialog.setDirty(event.target.value!==savedName);}}/></AppFormField>},{value:"metadata",label:"Metadata",content:<p>Example metadata</p>}]}/>
+    </AppMediaDetailDialog>
+  </>;
+}
+
+export const SharedMediaDetail: Story = { render:()=> <SharedMediaDetailPreview/> };
+export const ReadOnlyMediaDetail: Story = { render:()=> <SharedMediaDetailPreview readOnly/> };

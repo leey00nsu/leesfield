@@ -7,15 +7,19 @@ export const externalHistorySelectorSchema = z.object({
   origin: z.enum(["generation", "edit"]).default("generation"),
 });
 export type ExternalHistorySelector = z.infer<typeof externalHistorySelectorSchema>;
+export const externalHistoryReadSelectorSchema = externalHistorySelectorSchema.extend({
+  type: z.enum(["image", "video", "audio", "assistant"]),
+});
 
 export const externalHistoryQuerySchema = z.object({
-  type: z.enum(["image", "video", "audio", "all"]).optional(),
+  type: z.enum(["image", "video", "audio", "assistant", "all"]).optional(),
   query: z.string().optional(), model: z.string().optional(), prompt: z.string().optional(),
   sort: z.enum(["date_desc", "date_asc"]).optional(), limit: z.string().optional(), offset: z.string().optional(),
   includeTotal: z.string().optional(), cursor: z.string().optional(), hidden: z.string().optional(),
 });
 export const externalHistoryItemSchema = z.object({
-  id: z.string(), type: z.enum(["image", "video", "audio"]), origin: z.enum(["generation", "edit"]).optional(),
+  id: z.string(), type: z.enum(["image", "video", "audio", "assistant"]), origin: z.enum(["generation", "edit"]).optional(),
+  inputText: z.string().max(4_000).optional(), outputText: z.string().max(4_000).nullable().optional(),
   status: z.enum(["pending", "processing", "uploading", "completed", "failed", "cancelled"]),
   prompt: z.string(), model: z.string().nullable(), createdAt: z.string(), finishedAt: z.string().nullable().optional(), updatedAt: z.string().nullable().optional(),
   resultUrl: z.string().nullable(), thumbnailUrl: z.string().nullable(), errorMessage: z.string().nullable(),
@@ -35,8 +39,9 @@ export const externalHistoryStatusSchema = z.object({
 
 export const externalHistoryDetailSchema = z.object({
   id: z.string(),
-  type: z.enum(["image", "video", "audio"]),
+  type: z.enum(["image", "video", "audio", "assistant"]),
   origin: z.enum(["generation", "edit"]),
+  inputText: z.string().max(20_000).optional(), outputText: z.string().max(20_000).nullable().optional(),
   status: z.string(),
   model: z.string().nullable(),
   prompt: z.string(),

@@ -62,8 +62,8 @@ export function createQueueRunner(handlers: readonly QueueHandler[], options: {
         },
       });
       if (controller.signal.aborted) throw controller.signal.reason;
-      await settleQueueSuccess(claimed.lease, handler, result);
-      serverLogger.info("queue.job.settled", { phase: "settle", outcome: "succeeded" });
+      const outcome = await settleQueueSuccess(claimed.lease, handler, result);
+      serverLogger.info("queue.job.settled", { phase: "settle", outcome });
     } catch (error) {
       try {
         const classified = handler.classifyFailure(error, claimed.job);
@@ -150,7 +150,7 @@ export function createQueueRunner(handlers: readonly QueueHandler[], options: {
     start, stop, pump,
     async drain() { await pumpPromise; await Promise.allSettled([...inFlight.values()]); },
     getState() {
-      return { started: Boolean(timer), stopping, inFlight: inFlight.size,
+      return { started: Boolean(timer), stopping, inFlight: inFlight.size, workerInstanceId: workerId,
         running: Boolean(pumpPromise), lastHeartbeatAt };
     },
   };

@@ -1,14 +1,14 @@
 "use client";
 
-import { AudioLines, Image as ImageIcon, Video } from "lucide-react";
+import { AudioLines, Image as ImageIcon, Video, Sparkles } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { MediaType } from "@/shared/media-assets/media-asset-contract";
 import { cn } from "@/shared/lib/utils";
 import { AppBadge } from "@/shared/ui/app-badge";
 
-const mediaIcons = { image: ImageIcon, video: Video, audio: AudioLines };
+const mediaIcons = { image: ImageIcon, video: Video, audio: AudioLines, assistant: Sparkles };
 
-export function AppMediaTypeBadge({ type, className }: { type: MediaType; className?: string }) {
+export function AppMediaTypeBadge({ type, className }: { type: MediaType | "assistant"; className?: string }) {
   const t = useTranslations("history.types");
   const Icon = mediaIcons[type];
   const label = t(type);

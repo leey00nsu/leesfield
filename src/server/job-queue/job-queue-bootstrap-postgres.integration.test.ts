@@ -78,9 +78,10 @@ describe.skipIf(!postgresIntegrationEnabled)("automatic first queue bootstrap an
     await cleanup("linked", "linked"); await cleanup("uploading", "uploading"); await cleanup("failed", "failed", 5); await cleanup("completed", "completed");
     expect(await runQueueBootstrap(environment)).toMatchObject({ state: "initialized", epoch: 2 });
     const jobs = (await db.query('SELECT "sourceId", status FROM "QueueJob" ORDER BY "sourceId"')).rows;
-    expect(jobs).toHaveLength(104);
+    expect(jobs).toHaveLength(102);
     expect(jobs.filter(j => j.status === "ready").map(j => j.sourceId)).toEqual(Array.from({ length: 101 }, (_, n) => "image-" + String(n).padStart(3, "0")));
-    expect(jobs.filter(j => j.status === "suspended").map(j => j.sourceId)).toEqual(["linked", "uploading"]);
+    expect(jobs.filter(j => ["linked", "uploading"].includes(j.sourceId))).toEqual([]);
+    expect((await db.query(`SELECT status FROM "MediaCleanupTask" WHERE id IN ('linked','uploading') ORDER BY id`)).rows.map(r=>r.status)).toEqual(["linked","uploading"]);
     expect(jobs.find(j => j.sourceId === "failed")?.status).toBe("dead_letter");
     expect((await db.query('SELECT count(*)::int AS n FROM "QueueDeadLetter"')).rows[0].n).toBe(1);
     expect((await db.query('SELECT count(*)::int AS n FROM "QueueAttempt"')).rows[0].n).toBe(5);
@@ -120,8 +121,8 @@ describe.skipIf(!postgresIntegrationEnabled)("automatic first queue bootstrap an
     const result = await cli({ TZ }).result(); expect(result.code).toBe(0);
     expect((await db.query(`SELECT count(*)::int AS n FROM "QueueJob" j JOIN "ImageGeneration" s ON s.id=j."sourceId"
       WHERE j."createdAt"<>s."createdAt" OR j."availableAt"<>s."createdAt"`)).rows[0].n).toBe(0);
-    expect((await db.query(`SELECT j.status, j."availableAt"=s."retryAt" AS "sameRetryAt", s.status AS "sourceStatus"
-      FROM "QueueJob" j JOIN "MediaCleanupTask" s ON s.id=j."sourceId" WHERE s.id='protected'`)).rows[0]).toEqual({ status: "suspended", sameRetryAt: true, sourceStatus: "uploading" });
+    expect((await db.query(`SELECT count(*)::int AS n FROM "QueueJob" WHERE "sourceId"='protected'`)).rows[0].n).toBe(0);
+    expect((await db.query(`SELECT status, "retryAt">now() AS protected FROM "MediaCleanupTask" WHERE id='protected'`)).rows[0]).toEqual({status:"uploading",protected:true});
   });
 
   it("leaves an active lease, unknown reservations, DLQ and audit unchanged on redeploy", async () => {

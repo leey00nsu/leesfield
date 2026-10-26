@@ -3,6 +3,7 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GenerationGraphApiError } from "../api/generation-graph-api";
+import { createSpaceEditorSession } from "../model/space-editor-store";
 import type { GenerationGraphSnapshotDto } from "../model/graph-types";
 import {
   GraphAutosaveController,
@@ -41,6 +42,22 @@ async function flushPromises() {
 describe("GraphAutosaveController", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
+
+  it("persists the final document when a store subscriber settles a user transaction synchronously", async () => {
+    const editor = createSpaceEditorSession({ id: "graph_1", version: 1, document: baseDraft });
+    const save = vi.fn().mockResolvedValue(graph(2, "settled"));
+    const controller = new GraphAutosaveController({ graphId: "graph_1", initialVersion: 1, initialDraft: baseDraft, save });
+    editor.subscribeDurable(event => controller.update(event.document));
+    editor.store.subscribe(state => {
+      if (state.document.title === "pending") editor.applySystemTransaction(d => ({ ...d, title: "settled" }));
+    });
+    editor.dispatch({ type: "title.set", title: "pending" });
+    await controller.saveNow();
+    expect(save).toHaveBeenCalledOnce();
+    expect(save.mock.calls[0][1].title).toBe(editor.getDocument().title);
+    expect(save.mock.calls[0][1].title).toBe("settled");
+    controller.dispose(); editor.dispose();
+  });
 
   it("does not write stale selections on unrelated autosaves, but persists an explicit clear", async () => {
     const node = { id: "n", kind: "generate.image", config: {}, configVersion: 1, position: { x: 0, y: 0 }, selectedOutputAssetId: "old" };

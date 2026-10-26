@@ -9,7 +9,7 @@ import { AppTabs, type AppTabItem } from "./app-tabs";
 
 export function AppMediaDetailRail({
   tabs, formId, onSubmit, onClose, closeLabel, tabsLabel, saveLabel,
-  saving = false, saveDisabled = false, busy = false, actions, message, testId, headerActions, notice,
+  readOnly = false, value, onValueChange, saving = false, saveDisabled = false, busy = false, actions, message, testId, headerActions, notice,
 }: {
   tabs: AppTabItem[];
   formId: string;
@@ -17,7 +17,10 @@ export function AppMediaDetailRail({
   onClose: () => void;
   closeLabel: string;
   tabsLabel: string;
-  saveLabel: string;
+  saveLabel?: string;
+  readOnly?: boolean;
+  value?: string;
+  onValueChange?: (value: string) => void;
   saving?: boolean;
   saveDisabled?: boolean;
   busy?: boolean;
@@ -32,15 +35,15 @@ export function AppMediaDetailRail({
       header={<div className="flex items-center justify-between gap-2"><div className="flex items-center gap-2">{headerActions}</div><AppCloseButton aria-label={closeLabel} disabled={busy} onClick={onClose} /></div>}
       footer={<div className="grid gap-2">
         {message}
-        <AppButton type="submit" form={formId} size="lg" variant="generate"
+        {!readOnly && <AppButton type="submit" form={formId} size="lg" variant="generate"
           disabled={saveDisabled || busy || saving} className="h-12 w-full rounded-xl text-sm shadow-none">
           <Save className="size-4" />{saveLabel}
-        </AppButton>
+        </AppButton>}
         <div className="grid grid-cols-4 gap-2 lg:grid-cols-2">{actions}</div>
       </div>}>
-      <form id={formId} onSubmit={onSubmit} className="flex min-h-0 w-full flex-col gap-3">
+      <form id={formId} onSubmit={readOnly ? event => event.preventDefault() : onSubmit} className="flex min-h-0 w-full flex-col gap-3">
         {notice}
-        <AppTabs ariaLabel={tabsLabel} items={tabs} className="flex min-h-0 flex-1 flex-col" panelClassName="min-h-0 overflow-y-auto overscroll-contain" listClassName="w-full min-h-11 shrink-0 items-center justify-start overflow-x-auto overflow-y-hidden" triggerClassName="h-8 min-h-8 flex-none px-2 text-xs" />
+        <AppTabs value={value} onValueChange={onValueChange} ariaLabel={tabsLabel} items={tabs} className="flex min-h-0 flex-1 flex-col" panelClassName="min-h-0 overflow-y-auto overscroll-contain" listClassName="w-full min-h-11 shrink-0 items-stretch justify-start overflow-x-auto overflow-y-hidden group-data-horizontal/tabs:h-auto" triggerClassName="h-auto min-h-8 min-w-0 flex-auto px-2 py-2 text-xs whitespace-normal" />
       </form>
     </AppDetailRail>
   );

@@ -22,7 +22,7 @@ async function getHandler(request: Request) {
   if (rateLimited) return rateLimited;
 
   const { searchParams } = new URL(request.url);
-  const query = parseMonitoringQuery(searchParams, { defaultDays: 30 });
+  const query = parseMonitoringQuery(searchParams, { includeAssistant:true, defaultDays: 30 });
 
   try {
     const payload = await getMonitoringStats(query);

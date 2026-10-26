@@ -8,6 +8,6 @@ export async function GET(request: Request) {
   return withExternalApi(request, async (auth) => {
     const limited = await enforceRateLimit(RATE_LIMITS.readOwner, auth.ownerEmail);
     if (limited) return limited;
-    return Response.json(externalHistoryStatusSchema.parse(await getHistoryStatus(new URL(request.url).searchParams, auth.ownerEmail)), { headers: { "Cache-Control": "no-store" } });
+    return Response.json(externalHistoryStatusSchema.parse(await getHistoryStatus(new URL(request.url).searchParams, auth.ownerEmail, { includeAssistant: true })), { headers: { "Cache-Control": "no-store" } });
   }, "platform:read");
 }

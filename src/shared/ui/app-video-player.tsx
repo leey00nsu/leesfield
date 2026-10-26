@@ -6,6 +6,7 @@ import { useLocale } from "next-intl";
 import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
 import { cn } from "@/shared/lib/utils";
 import { AppButton } from "./app-button";
+import { AppMediaPreviewLoading } from "./app-media-preview-loading";
 import { AppMediaPlayerControls } from "./app-media-player-controls";
 import { mediaIsFullscreen, mediaTimeLabel, useAppMediaPlayer, type AppMediaSettings } from "./use-app-media-player";
 import { useAppVideoPreviewPolicy } from "./use-app-video-preview-policy";
@@ -16,6 +17,8 @@ export type AppVideoPlayerProps = Omit<ComponentProps<"video">, "src" | "control
   mediaRef?: Ref<HTMLVideoElement>; mediaClassName?: string;
   /** Free static reference previews on visibility loss; playback keeps position by default. */
   releaseWhenInactive?: boolean;
+  /** Cards keep only their skeleton visible until a first frame is available. */
+  showLoadingWhenInactive?: boolean;
   autoPreview?: { selected?: boolean; hovered?: boolean };
   captionsSrc?: string; captionsLang?: string; captionsLabel?: string;
 };
@@ -32,7 +35,7 @@ export function AppVideoPlayer(props: AppVideoPlayerProps) {
 }
 function VideoSource({ src, active = true, embedded = false, controls = true, inlineOnly = false, autoPreview,
   className, mediaClassName, title, mediaRef, ref, settings, onSettingsChange, preload = "metadata", playsInline = true,
-  disablePictureInPicture, controlsList, captionsSrc, captionsLang = "en", captionsLabel = "Captions", children, releaseWhenInactive = false, ...mediaProps }: AppVideoPlayerProps & {
+  disablePictureInPicture, controlsList, captionsSrc, captionsLang = "en", captionsLabel = "Captions", children, releaseWhenInactive = false, showLoadingWhenInactive = false, ...mediaProps }: AppVideoPlayerProps & {
   settings: AppMediaSettings; onSettingsChange: (settings: AppMediaSettings) => void;
 }) {
   const tc = useCanvasTranslation(), locale = useLocale(), ko = locale === "ko";
@@ -51,6 +54,26 @@ function VideoSource({ src, active = true, embedded = false, controls = true, in
   }, []);
   const [fullscreen, setFullscreen] = useState(false), [pip, setPip] = useState(false), [captionsOn, setCaptionsOn] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [preview, setPreview] = useState({ loaded: false, started: preload !== "none", error: false });
+  useEffect(() => {
+    const element = video.current;
+    if (!element) return;
+    const loaded = () => setPreview({ loaded: true, started: true, error: false });
+    const loading = () => setPreview(value => ({ ...value, started: true, error: false }));
+    const emptied = () => setPreview({ loaded: false, started: false, error: false });
+    const failed = () => setPreview({ loaded: false, started: true, error: true });
+    element.addEventListener("loadeddata", loaded);
+    element.addEventListener("loadstart", loading);
+    element.addEventListener("emptied", emptied);
+    element.addEventListener("error", failed);
+    if (element.readyState >= 2) loaded();
+    return () => {
+      element.removeEventListener("loadeddata", loaded);
+      element.removeEventListener("loadstart", loading);
+      element.removeEventListener("emptied", emptied);
+      element.removeEventListener("error", failed);
+    };
+  }, []);
   useEffect(() => {
     const element = video.current;
     const container = root.current;
@@ -88,14 +111,19 @@ function VideoSource({ src, active = true, embedded = false, controls = true, in
   const media = <video {...mediaProps} ref={video} preload={active ? preload : "none"} controls={false} playsInline={playsInline}
     controlsList={inlineOnly ? "nofullscreen" : controlsList} disablePictureInPicture={inlineOnly || disablePictureInPicture || undefined}
     aria-label={mediaProps["aria-label"] ?? title ?? tc("Video preview")} title={title}
-    className={controls ? cn(styles.videoMedia, mediaClassName) : cn(className, mediaClassName)}>
+    className={controls ? cn(styles.videoMedia, mediaClassName) : cn(styles.previewMedia, mediaClassName)}>
     {captionsSrc && <track ref={caption} key={captionsSrc} kind="captions" src={captionsSrc} srcLang={captionsLang} label={captionsLabel} />}
     {children}
   </video>;
-  if (!controls) return media;
+  const loadingPreview = !preview.loaded && !preview.error && !player.error && (showLoadingWhenInactive || active && (preview.started || preload !== "none"));
+  if (!controls) return <span className={cn("relative block overflow-hidden", styles.previewFrame, className)} data-app-video-preview="" aria-busy={loadingPreview}>
+    {media}
+    {loadingPreview && <AppMediaPreviewLoading />}
+    {preview.error && <span className={styles.previewError} role="status">{tc("Could not play the video. Try again.")}</span>}
+  </span>;
   return <div ref={attachRoot} className={cn(styles.video, embedded && styles.embedded, "nodrag nopan nowheel", className)} data-app-video-player=""
     onPointerDown={event => event.stopPropagation()} onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
-    {media}
+    <div className={styles.videoViewport} aria-busy={loadingPreview}>{media}{loadingPreview && <AppMediaPreviewLoading />}</div>
     <input className={styles.timeline} type="range" aria-label={tc("Playback position")} min={0} max={player.duration || 0} step="0.1"
       style={{ "--media-progress": `${player.duration ? Math.max(0, Math.min(100, player.position / player.duration * 100)) : 0}%` } as CSSProperties}
       value={Math.min(player.position, player.duration || 0)} disabled={!player.ready || !player.duration}
@@ -115,7 +143,7 @@ function VideoSource({ src, active = true, embedded = false, controls = true, in
       {capabilities.fullscreen && !inlineOnly && <AppButton type="button" variant="ghost" size="icon-sm" className={styles.control}
         aria-label={ko ? (fullscreen ? "전체 화면 종료" : "전체 화면") : (fullscreen ? "Exit full screen" : "Enter full screen")} onClick={() => void toggleFullscreen()}>{fullscreen ? <Minimize /> : <Maximize />}</AppButton>}
     </AppMediaPlayerControls>
-    {(!player.ready || player.buffering) && !player.error && <span className={styles.status} role="status"><LoaderCircle className={styles.spinner} aria-hidden="true" />{ko ? (player.buffering ? "버퍼링 중" : "불러오는 중") : (player.buffering ? "Buffering" : "Loading video")}</span>}
+    {player.buffering && preview.loaded && !player.error && <span className={styles.status} role="status"><LoaderCircle className={styles.spinner} aria-hidden="true" />{ko ? "버퍼링 중" : "Buffering"}</span>}
     {player.error && <p className={styles.error} role="alert">{tc("Could not play the video. Try again.")} <AppButton type="button" variant="ghost" size="sm" onClick={() => player.togglePlay(true)}>{tc("Retry")}</AppButton></p>}
     {actionError && <p className={styles.error} role="status">{actionError}</p>}
   </div>;

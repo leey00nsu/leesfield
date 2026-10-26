@@ -46,7 +46,7 @@
 .trimTrack { position: relative; height: 56px; min-width: 80px; flex: 1; touch-action: none; outline: none; }
 .filmstrip { position: absolute; inset: 0; display: flex; overflow: hidden; border-radius: 8px; background: #3b3b3b; pointer-events: none; }
 .filmstrip img { height: 100%; flex: 1; min-width: 0; object-fit: cover; }
-.filmstrip span { margin: auto; color: #aaa; }
+.filmstrip > span:not([data-preview-state]) { margin: auto; color: #aaa; }
 .trimShade { position: absolute; top: 0; bottom: 0; background: #0009; pointer-events: none; border-radius: 4px; }
 .trimSelection { position: absolute; inset-block: 0; border-block: 3px solid #4097ff; cursor: grab; touch-action: none; }
 .trimSelection:active { cursor: grabbing; }

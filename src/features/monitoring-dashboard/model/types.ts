@@ -1,7 +1,7 @@
 import type { ImageVariants } from "@/shared/media-assets/image-variants";
 import type { HistoryInputMedia } from "@/shared/generation/history-detail";
 import type { PromptProvenance } from "@/shared/generation-graph/prompt-provenance";
-export type MonitoringType = "all" | "image" | "video" | "audio";
+export type MonitoringType = "all" | "image" | "video" | "audio" | "assistant";
 
 export type MonitoringStatusFilter =
   | "all"
@@ -27,6 +27,7 @@ export type MonitoringOverview = {
     video: number;
     audio: number;
     other: number;
+    assistant?: number;
   };
 };
 

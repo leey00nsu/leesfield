@@ -1,3 +1,4 @@
+import { getAssistantHistoryItem } from "@/server/history/assistant-history";
 import { getHistoryRecordItem } from "@/server/history/handlers/get-history";
 import { getOwnedHistoryRecord, deleteOwnedHistoryRecord } from "@/server/history/history-record";
 import { externalHistorySelectorSchema } from "@/shared/api/platform-contract";
@@ -25,6 +26,13 @@ async function ownedRecord(request: Request, context: Context) {
   return getOwnedHistoryRecord(session.adminEmail, historyId, parsed.data);
 }
 async function getObservedHandler(request: Request, context: Context) {
+  const search=new URL(request.url).searchParams;
+  if(search.get("type")==="assistant") {
+    const session=await getSession();if(!session.isLoggedIn||!session.adminEmail)return new Response(null,{status:401});
+    if(!["item","detail"].includes(search.get("view")??""))return new Response(null,{status:400});
+    const item=await getAssistantHistoryItem(session.adminEmail,(await context.params).historyId);
+    return item?jsonWithNoStore({item}):new Response(null,{status:404});
+  }
   const result = await ownedRecord(request, context);
   if ("error" in result) return result.error;
   if (new URL(request.url).searchParams.get("view") === "detail") {

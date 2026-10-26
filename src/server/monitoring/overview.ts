@@ -9,7 +9,8 @@ import {
 import {
   ACTIVE_STATUSES,
   FINISHED_STATUSES,
-  buildBaseSelect,
+  buildMonitoringBaseSelect,
+  buildAssistantBaseSelect,
   buildRawWhere,
 } from "@/server/monitoring/monitoring-sql";
 import { measureDatabase } from "@/server/observability/request-observability";
@@ -26,6 +27,7 @@ export type MonitoringOverview = {
     video: number;
     audio: number;
     other: number;
+    assistant?: number;
   };
 };
 
@@ -37,7 +39,7 @@ type MetricRow = {
 };
 
 type UsageRow = {
-  type: "image" | "video" | "audio" | "other";
+  type: "image" | "video" | "audio" | "assistant" | "other";
   total: number | bigint;
 };
 
@@ -58,6 +60,8 @@ async function getActiveCount(query: MonitoringQuery) {
     apiKey: query.apiKey,
   };
 
+  const assistantCount=async()=>{if(!query.includeAssistant)return 0;const rows=await prisma.$queryRaw<{count:number}[]>(Prisma.sql`SELECT count(*)::int AS count FROM (${buildAssistantBaseSelect(buildRawWhere(baseFilters,{includeStatus:true}))}) a`);return rows[0]?.count??0;};
+  if(query.type==="assistant")return assistantCount();
   if (query.type === "image") {
     return prisma.imageGeneration.count({
       where: buildImageWhere(baseFilters, { includeStatus: true }),
@@ -76,7 +80,7 @@ async function getActiveCount(query: MonitoringQuery) {
     });
   }
 
-  const [imageCount, videoCount, audioCount] = await Promise.all([
+  const [imageCount, videoCount, audioCount,assistant] = await Promise.all([
     prisma.imageGeneration.count({
       where: buildImageWhere(baseFilters, { includeStatus: true }),
     }),
@@ -86,9 +90,10 @@ async function getActiveCount(query: MonitoringQuery) {
     prisma.audioGeneration.count({
       where: buildAudioWhere(baseFilters, { includeStatus: true }),
     }),
+    assistantCount(),
   ]);
 
-  return imageCount + videoCount + audioCount;
+  return imageCount + videoCount + audioCount + assistant;
 }
 
 async function getMetrics(query: MonitoringQuery) {
@@ -104,18 +109,7 @@ async function getMetrics(query: MonitoringQuery) {
   const includeStatus = true;
   const where = buildRawWhere(filters, { includeDate: true, includeStatus });
 
-  const imageSelect = buildBaseSelect("ImageGeneration", where);
-  const videoSelect = buildBaseSelect("VideoGeneration", where);
-  const audioSelect = buildBaseSelect("AudioGeneration", where);
-
-  const baseQuery =
-    query.type === "image"
-      ? imageSelect
-      : query.type === "video"
-        ? videoSelect
-        : query.type === "audio"
-          ? audioSelect
-          : Prisma.sql`${imageSelect} UNION ALL ${videoSelect} UNION ALL ${audioSelect}`;
+  const baseQuery = buildMonitoringBaseSelect(query,where);
 
   const rows = await prisma.$queryRaw<MetricRow[]>`
     SELECT
@@ -170,14 +164,8 @@ async function getUsageByType(query: MonitoringQuery) {
   const imageSelect = buildUsageSelect("ImageGeneration", "image", where);
   const videoSelect = buildUsageSelect("VideoGeneration", "video", where);
   const audioSelect = buildUsageSelect("AudioGeneration", "audio", where);
-  const baseQuery =
-    query.type === "image"
-      ? imageSelect
-      : query.type === "video"
-        ? videoSelect
-        : query.type === "audio"
-          ? audioSelect
-          : Prisma.sql`${imageSelect} UNION ALL ${videoSelect} UNION ALL ${audioSelect}`;
+  const assistantSelect=Prisma.sql`SELECT 'assistant'::text AS "type" FROM (${buildAssistantBaseSelect(where)}) a`;
+  const baseQuery=query.type==="assistant"?assistantSelect:query.type==="image"?imageSelect:query.type==="video"?videoSelect:query.type==="audio"?audioSelect:Prisma.sql`${imageSelect} UNION ALL ${videoSelect} UNION ALL ${audioSelect}${query.includeAssistant?Prisma.sql` UNION ALL ${assistantSelect}`:Prisma.empty}`;
 
   const rows = await prisma.$queryRaw<UsageRow[]>`
     SELECT "type", COUNT(*)::int as total
@@ -187,11 +175,12 @@ async function getUsageByType(query: MonitoringQuery) {
     GROUP BY "type"
   `;
 
-  const usageByType = {
+  const usageByType:MonitoringOverview["usageByType"] = {
     image: 0,
     video: 0,
     audio: 0,
     other: 0,
+    ...(query.includeAssistant?{assistant:0}:{}),
   };
 
   for (const row of rows) {

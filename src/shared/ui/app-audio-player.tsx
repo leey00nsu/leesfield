@@ -8,6 +8,7 @@ import { cn } from "@/shared/lib/utils";
 import type { MediaAssetDto } from "@/shared/media-assets/media-asset-contract";
 import { getMediaAssetName } from "@/shared/media-assets/media-asset-name";
 import { AppButton } from "./app-button";
+import { AppMediaPreviewLoading } from "./app-media-preview-loading";
 import { AppMediaPlayerControls } from "./app-media-player-controls";
 import { AudioWaveformGraphic } from "./app-audio-waveform";
 import { mediaTimeLabel, useAppMediaPlayer, type AppMediaSettings } from "./use-app-media-player";
@@ -51,7 +52,7 @@ function AudioSource({ src, asset, active = true, embedded = false, controls = t
     {(title || asset) && !embedded && <span className={styles.filename} title={title ?? getMediaAssetName(asset!)}>{title ?? getMediaAssetName(asset!)}</span>}
     <div className={styles.waveform} data-space-audio-waveform={waveform.state} data-app-audio-waveform={waveform.state}>
       <AudioWaveformGraphic peaks={waveform.peaks} progress={progress} />
-      {waveform.state === "loading" && <span className={styles.waveformStatus} role="status">{tc("Loading waveform...")}</span>}
+      {waveform.state === "loading" && <AppMediaPreviewLoading label={tc("Loading waveform...")} />}
       <input className={styles.waveformSeek} type="range" aria-label={tc("Playback position")}
         min={0} max={player.duration || 0} step="0.01" value={Math.min(player.position, player.duration || 0)} disabled={!player.duration}
         aria-valuetext={`${mediaTimeLabel(player.position)} / ${mediaTimeLabel(player.duration)}`} onChange={event => player.seek(Number(event.target.value))}

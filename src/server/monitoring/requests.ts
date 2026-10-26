@@ -1,4 +1,6 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db/prisma";
+import { buildRawWhere } from "./monitoring-sql";
 import type { MonitoringQuery } from "@/server/monitoring/monitoring-query";
 import {
   buildAudioWhere,
@@ -9,7 +11,7 @@ import { measureDatabase } from "@/server/observability/request-observability";
 
 export type MonitoringRequestItem = {
   id: string;
-  type: "image" | "video" | "audio";
+  type: "image" | "video" | "audio" | "assistant";
   status: string;
   model: string | null;
   createdAt: string;
@@ -32,7 +34,7 @@ const ORDER_BY = [
   { requestId: "desc" as const },
 ];
 
-type RequestType = "image" | "video" | "audio";
+type RequestType = MonitoringRequestItem["type"];
 
 type RequestRecordBase = {
   requestId: string;
@@ -85,6 +87,40 @@ function toMonitoringRequestItem(
   };
 }
 
+async function listAssistantRequests(query: MonitoringQuery, take: number, offset = 0) {
+  const where = buildRawWhere(query, { includeDate: true, includeStatus: true });
+  const search = query.query
+    ? Prisma.sql`WHERE a."inputSnapshot"->>'instruction' ILIKE ${"%" + query.query + "%"}
+        OR a."inputSnapshot"->>'text' ILIKE ${"%" + query.query + "%"}
+        OR a."modelKey" ILIKE ${"%" + query.query + "%"}`
+    : Prisma.empty;
+  const base = Prisma.sql`
+    SELECT * FROM (
+      SELECT a.id AS "requestId", a."ownerEmail", a.status::text AS status,
+        a."modelKey", a."createdAt", a."updatedAt", a."finishedAt", n."apiKeyId"
+      FROM "AssistantExecution" a
+      LEFT JOIN "NodeExecutionSubmission" n ON n."executionId" = a.id AND n."ownerEmail" = a."ownerEmail"
+      ${search}
+    ) s ${where}`;
+  const [totals, records] = await Promise.all([
+    query.includeTotal !== false
+      ? prisma.$queryRaw<Array<{ total: number }>>`SELECT COUNT(*)::int AS total FROM (${base}) s`
+      : Promise.resolve([]),
+    prisma.$queryRaw<RequestRecordBase[]>`SELECT * FROM (${base}) s ORDER BY "createdAt" DESC, "requestId" DESC LIMIT ${take} OFFSET ${offset}`,
+  ]);
+  const keyIds = [...new Set(records.flatMap(row => row.apiKeyId ? [row.apiKeyId] : []))];
+  const keys = keyIds.length ? await prisma.apiKey.findMany({
+    where: { id: { in: keyIds }, ...(query.ownerEmail !== undefined ? { ownerEmail: query.ownerEmail } : {}) },
+    select: { id: true, maskedKey: true },
+  }) : [];
+  const keyLabels = new Map(keys.map(key => [key.id, key.maskedKey]));
+  return {
+    total: totals[0]?.total ?? 0,
+    records: records.map(row => ({ ...row, type: "assistant" as const,
+      apiKey: row.apiKeyId ? { maskedKey: keyLabels.get(row.apiKeyId) ?? null } : null })),
+  };
+}
+
 async function getMonitoringRequestsUnobserved(
   query: MonitoringQuery,
 ): Promise<MonitoringRequestResponse> {
@@ -101,6 +137,12 @@ async function getMonitoringRequestsUnobserved(
   const limit = query.limit;
   const offset = query.offset;
   const includeTotal = query.includeTotal !== false;
+
+  if (query.type === "assistant") {
+    const page = await listAssistantRequests(query, limit, offset);
+    return { updatedAt: new Date().toISOString(), items: page.records.map(toMonitoringRequestItem),
+      total: includeTotal ? page.total : null, limit, offset };
+  }
 
   const select = {
     requestId: true,
@@ -231,6 +273,7 @@ async function getMonitoringRequestsUnobserved(
     imageRecords,
     videoRecords,
     audioRecords,
+    assistantPage,
   ] = await Promise.all([
     includeTotal ? prisma.imageGeneration.count({ where: imageWhere }) : Promise.resolve(0),
     includeTotal ? prisma.videoGeneration.count({ where: videoWhere }) : Promise.resolve(0),
@@ -253,9 +296,11 @@ async function getMonitoringRequestsUnobserved(
       take,
       select,
     }),
+    query.includeAssistant ? listAssistantRequests(query, take) : Promise.resolve({ total: 0, records: [] }),
   ]);
 
   const mergedRecords = [
+    ...assistantPage.records,
     ...imageRecords.map((record) => ({
       ...record,
       type: "image" as const,
@@ -277,7 +322,7 @@ async function getMonitoringRequestsUnobserved(
   return {
     updatedAt: new Date().toISOString(),
     items,
-    total: includeTotal ? imageTotal + videoTotal + audioTotal : null,
+    total: includeTotal ? imageTotal + videoTotal + audioTotal + assistantPage.total : null,
     limit,
     offset,
   };

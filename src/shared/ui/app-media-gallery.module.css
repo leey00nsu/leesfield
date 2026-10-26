@@ -1,0 +1,11 @@
+.previewCard [data-media-preview-overlay],
+.previewCard [data-media-preview-overlay] * {
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+}
+
+.previewCard:has([data-media-preview-loading]) [data-media-preview-overlay],
+.previewCard:has([data-media-preview-loading]) [data-media-preview-overlay] * {
+  visibility: hidden;
+  pointer-events: none;
+  transition: none;
+}

@@ -65,14 +65,14 @@ Nixpacks start는 `pnpm release:migrate && pnpm queue:bootstrap && pnpm start`�
 
 | DB의 현재 큐 상태 | 배포 시작 동작 |
 | --- | --- |
-| 최초 paused·epoch1·사용 이력 없음 | 대기/보호 intent를100개씩 연결 → 정합성 검사 → 활성화·epoch 증가 → 앱 시작 |
+| 최초 paused·epoch1·사용 이력 없음 | 실행 대기 작업을100개씩 연결 → 정합성 검사 → 활성화·epoch 증가 → 앱 시작 |
 | 이미 shared·검증 완료 | runtime 한 행만 읽고 앱 시작. active가 있어도 idle 검사·이관·epoch 변경 없음 |
 | 사용 후 paused | QUEUE_BOOTSTRAP_OPERATOR_PAUSED로 실패. 운영자가 중지한 큐를 배포가 자동 재개하지 않음 |
 | 불명확/모순된 상태 또는 준비 실패 | non-zero로 서버 시작 중단. 안전한 오류·단계를 확인하고 원인 수정 후 재배포 |
 
 최초 준비는 cursor·source identity와 기존 epoch fencing을 사용한다. 두 시작 프로세스가 경합해도 먼저 끝난 활성화로 수렴하며, 중간 종료·실패 뒤 재실행은 커밋한 batch부터 이어간다. 전체 준비 deadline은90초이고 DB connect2초/query5초/lock2초 제한을 유지한다. deadline 시 연결을 종료해 진행 중 transaction을 rollback하며 이미 커밋한 진행 위치는 보존한다. 대량 기록으로 제한을 넘기면 원인/진행 위치를 확인하고 재배포하거나 아래 수동 도구로 같은 전환을 이어갈 수 있다. health start period는 migration·준비·서버 시작에 필요한 시간을 포함하도록 실제 배포에서 확인한다.
 
-pending을 일반 큐에 연결하고 cleanup uploading/linked 보호 상태는 보존한다. 완료·취소·실패 생성 이력은 실행하지 않으며 failed cleanup은 terminal DLQ로 보관한다. 예상 밖 최초 processing/uploading은 TRANSITION_EXPECTED_IDLE로 중단한다. 준비 도구는 DB 작업만 수행하고 provider 제출·물리 파일 삭제를 하지 않는다. 정상 최초 배포에서는 수동 전환 명령이 필요 없다.
+pending을 일반 큐에 연결하고 cleanup uploading/linked는 ledger만 보존하며 실행 QueueJob을 만들지 않는다. 만료 uploading은 앱 maintenance가 멱등 등록한다. 완료·취소·실패 생성 이력은 실행하지 않으며 failed cleanup은 terminal DLQ로 보관한다. 예상 밖 최초 processing/uploading은 TRANSITION_EXPECTED_IDLE로 중단한다. 준비 도구는 DB 작업만 수행하고 provider 제출·물리 파일 삭제를 하지 않는다. 정상 최초 배포에서는 수동 전환 명령이 필요 없다.
 
 운영 점검/명시적 복구에는 기존 queue:transition을 사용한다. status에서 실제 epoch를 읽고 사용한다. 아래1은 최초 상태의 예시이며 사용 후 운영 중지의 epoch로 그대로 복사하지 않는다.
 
@@ -97,6 +97,8 @@ pnpm queue:transition activate --expected-epoch=1
 `.github/workflows/production-security.yml`은 dependency 또는 workflow 변경과 매주 schedule에서 `pnpm security:production`을 실행한다. 이 workflow는 알려진 production dependency 취약점을 알리는 감사 신호이며 Coolify Auto Deploy를 차단하는 gate가 아니다. 프로젝트 lockfile은 source-map-js를1.2.2로 고정해 indexed source-map offset의 event-loop DoS(GHSA-68fv-2mgg-jv7q) 패치를 포함한다. 의존성 override를 갱신하거나 제거할 때는 실제 설치 버전과 production audit 및 build를 함께 확인한다.
 
 Feature 완료 전에는 lee-spec-kit의 로컬 검사로 `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm build`, `pnpm security:production`, `pnpm test:production-integration`을 실행한다. production integration script는 호출자가 가진 `DATABASE_URL`을 사용하지 않고 1 GiB tmpfs의 PostgreSQL 16 컨테이너를 만들며 migration과 전체 테스트가 끝나면 `--rm` 컨테이너를 stop한다. Docker나 PostgreSQL image를 사용할 수 없는 환경에서는 통합 검사를 성공으로 건너뛰지 않는다.
+
+스페이스 브라우저 검사는 `pnpm e2e:spaces:isolated`를 사용한다. 매 실행마다 현재 소스를 별도 임시 작업 공간에 복사하고 새 Next 컴파일 캐시·PostgreSQL·스토리지 프로젝트를 사용한다. 패키지만 공유하고 원본 `.env`·`next-env.d.ts`·빌드 산출물을 복사하지 않으며 생성 타입/설정은 임시 공간 안에 남긴다. 사용자 개발 서버를 종료하거나 이전 검사 캐시를 지울 필요가 없다. 별도 소유자의 준비용 스페이스에서 실제 canvas·설정 준비까지 확인한 뒤 병렬 사례를 시작하며, API200만으로 편집기 준비를 판단하지 않는다. 준비용 graph/browser도 정리하고 readiness.json에 결과를 기록한다. 종료·실패·중단 시 임시 자원을 정리하고 보고서는 `.next/spaces-e2e/<run>/`에 보존한다. 실패 보고서의 `hmr-diagnostics`와 `hmr-counters`에서 재탐색·restart·강제 새로고침을 구분한다. timeout 증가·worker 축소·재실행으로 통과시키기 전에 원인을 확인한다.
 
 안전한 harness 확인은 다음 명령으로 실행한다.
 
@@ -175,6 +177,20 @@ QueueJob 등록은 업무 접수와 같은 transaction이다. paused 또는 DB �
 
 ## DLQ 운영
 
+서비스 대기열의4개 자원 카드에서 자리별 분할 점유와 한도·실행·미확정·가용 수를 보고, 모델별 병렬 한도 버튼에서 모델 자리를 확인한다. 병렬 표는 같은 시도의 자원 예약을 한 행으로 묶고 작업명·모델/처리기·실제 서버 ID·시간·상태를 표시한다. 현재/이력 표의 접수는 이번 처리 주기, 시작/실행 경과는 현재 시도 기준이다. 시작 전은 이번 주기 접수부터 최초 실제 실행까지이며 자동 재시도 간격을 합친 총 대기 시간이 아니다. 최초 접수 기준 기간 필터·정렬은 그대로다. 근거가 없으면 —, 외부 종료가 미확정이면 종료 미확인으로 표시한다. 상세 왼쪽의 처리 흐름·결과 요약과 오른쪽 일반 탭의 전체 요청 정보는 동일 현재 요청을 사용한다. 자동 갱신 켜짐/꺼짐은 화면 조회만 제어하며 큐 pause/activate나 실행 정책을 변경하지 않는다.
+
+관리자 모니터링의 기본 **현재 작업**에서6종류의 현재 목록을 조회하고 **서비스 대기열**에서 전역 요약·4계열 실행 자리·모델별 한도를 확인한다. 에셋과 같은 좌측 메뉴에서 현재 작업·이력 조회·서비스 대기열·재처리 대기열·요청 통계 순서로 선택한다. 모바일은 모니터링 메뉴 버튼으로 펼친다. ‘실행 중’은 active 논리 작업 수이고 ‘결과 미확정’은 불확실한 예약을 남긴 작업 수다. 한 작업이 pool과 model을 함께 점유할 수 있으므로 자원별 예약 수를 합쳐 작업 수로 해석하지 않는다. capacitySource가 policy_default인 pool은 첫 작업 등록 전 설정 한도이며 실제 DB 자원 한도와 구분한다. 자원/점유1000개를 넘으면 화면의 잘림 안내와 작업 필터를 사용한다.
+
+**재처리 대기열**은 표/모바일 카드의 논리 작업당 한 행이며 open/redriven 이력이 여럿이어도 미해결 작업 수는 한 번만 센다. 처리 상태·종류·실패 분류·오류·기간과 공통 검색을 적용하고 상세에서 원래/현재 실행 ID·모든 누적 시도·실패·관리자 조치를 상세 내부에서 스크롤하여 이어 확인한다. 기본 목록20개/최대100개, 일반 작업 목록50개/최대100개, 상세 하위20개/최대100개다. 원본이 삭제됐으면 보존 기록과 확인 불가 상태를 표시한다. 내부 요청 통계와 공개 History·Monitoring은 AI 어시스턴트도 포함하며 type=assistant 또는 all로 조회한다. 유형/모델/상태/실제 접수 API 키·기간으로 좁히고 공개 기본 범위는 소유자이며 전체 조회에는 monitoring:read-all이 필요하다. 어시스턴트 결과는 inputText/outputText로 제공하고 목록 각4,000자·상세 각20,000자로 제한한다. 서비스/재처리 대기열은 관리자 세션 전용이며 공개 History DELETE는 미디어3종만 지원한다. UI 유형은 드롭다운이며 기간은 날짜+초 단위 시간을 적용/취소하는 공통 팝오버다. 서비스 실행 작업은 접지 않고 모두 표시한다. 조회시각은 상세 헤더의 X 맞은편, 복사 결과는 공통 Toast에 표시한다. 요청 통계는 최근 작업 표를 제거하고4개 차트를2x2로 표시한다. 생성 결과의 프롬프트·입력·결과 미디어·오류/경고는 이력 조회의 일반 탭 상세 정보에서 확인하며 현재 재처리 execution의 requestId로 연결한다.
+
+현재 작업은 기본 날짜 제한 없이 조회하고 이력 조회는 기본24시간/최대31일이다. 별도 실행 시간축 화면은 제공하지 않는다. 에셋과 같은 전체 화면 공통 상세에서 실제 접수·시작·로컬 종료 및 모든 시도·실패·관리 조치를 확인한다. 저장 버튼이 없는 읽기 전용 상세이며 모바일에서도 흐름 정보를 일반 탭에서 확인한다. 목록의 상태 아래 큐 일시중지 보조 문구를 숨겨도 실제 runtime 중지는 유지한다. 기록이 없는 과거 전환 시각은 추정하지 않는다. 작업 status·시도 outcome·DLQ state는 서로 다른 기록이다.
+
+현재 첫 목록과 요약은4초 갱신하며 별도 주기 안내·서비스 전역 상태/조회시각 행·실패 묶음 안내는 화면에 표시하지 않는다. 뒤 페이지·이력·숨김/비활성 화면에서는 목록 polling을 멈춘다. 작업 상세 선택 중 목록 자동 재정렬도 정지한다. 조회 시각이 오래됐거나 갱신 경고가 보이면 마지막 성공 결과이며0건/정상으로 판단하지 않는다. 상세/조치 가능성은 공통 상세 하단의 새로고침 또는 조치 후 재조회한다. 미해결 작업 요약은 이동 링크를 제공하지 않으며 좌측 메뉴로 재처리 대기열을 연다. 처리 흐름의 연결된 단계와 시각별 내역에서 기록된 접수·시작·로컬 종료를 확인한다. overview는 전역 DB, 하단 heartbeat는 응답한 프로세스 한 곳의 상태다. 다른 서버가 정상이라고 추정하지 않는다.
+
+결과 확인·재처리·포기 버튼의 사유와 영향을 검토한다. 가능성 조회는 읽기 전용이며 통과해도 실제 요청 때 최종 재검증한다. credential 존재만 사전 확인하며 private snapshot1MiB·입력 참조256개를 넘으면 불가 사유를 표시한다. 결과 확인은 저장된 Modal 이미지/영상 근거로 외부 상태 GET만 수행하며 임의 URL 입력이나 새 생성 POST는 하지 않는다. 종료가 확인되면 미확정 예약을 정리하며 성공 결과 파일 회수는 별도 재처리 접수의 collect 전용 실행으로 진행한다. 실행 중/지원 불가/근거 부족이면 예약을 유지한다. 재처리 접수는 완료가 아니고, 포기는 성공·외부 종료·예약 해제·순서 진행을 뜻하지 않는다.200 failed/accepted와 succeeded의 문구를 구분한다.
+
+전송 응답이 끊기면 ‘같은 요청으로 다시 확인’을 사용한다. 같은 탭의 sessionStorage에 requestId/version/사유/내부 reference를 보관해 화면을 다시 열어도 같은 본문으로 확인한다. 충돌409는 최신 상세를 읽고 조치를 다시 검토한다.401/403은 관리자 로그인·origin,429는 Retry-After,503은 일시적인 서버 불가를 확인한다. 단건 이외 일괄·순서 묶음 취소·전체 pause/한도 편집은 이 화면에서 제공하지 않는다.
+
 내부 경로 /api/internal/job-queue/dead-letters의 목록과 개별 상세에서 종류·오류 코드·기간·처리 상태로 페이지 조회한다. 목록 기본20/최대100이며 상세는 안전한 시도·원격 참조·차단/재투입 이력만 반환한다. prompt·파일 본문·credential·전체 URL은 반환하지 않는다.
 
 관리자 변경 경로는 개별 dead-letters/:id/redrive, reconcile, abandon, batch와 groups/:id/cancel이다. production에서는 session의 adminEmail이 설정 관리자와 일치해야 하며 mutation origin을 검증한다. 변경은 actor10/전체30회 분당 제한, 단건16KiB·일괄32KiB 본문, 일괄 최대20개를 적용한다. requestId(UUID), expectedVersion, reason(3~120자의 안전한 대문자 코드)을 보내며 동일 requestId/본문은 같은 결과, 다른 본문 또는 오래된 version은409다. 성공·거절을 QueueAdminAction으로 감사한다.
@@ -187,7 +203,9 @@ JOB_QUEUE_DETAIL_RETENTION_DAYS는 기본30일, 허용1~365일이다. 공통 mai
 
 원격 object를 만드는 모든 현재 경로는 `MediaCleanupTask`에 provider/object identity를 unique key로 먼저 기록한다. Leemage 업로드는 presign 뒤 bounded PUT 전에 `uploading` intent를 저장하고, MediaAsset과 provenance를 commit하는 transaction에서 task를 `linked`로 연결한다. DB 저장 실패, 제출 실패, 만료 upload, lease 만료와 History 삭제 실패는 같은 identity의 `pending` task로 남아 cleanup worker가 재처리한다.
 
-파일 정리도 공통 runner가 클러스터 전체 최대2개를 실행한다. 재시도는 cycle 총5회,60초부터 최대1시간 지연이며 마지막 실패는 terminal DLQ와 안전한 lastError에 남긴다.404는 성공이다. 실행 직전 asset usage/provenance를 다시 확인하여 참조 중이면 linked/suspended로 복구한다. uploading grace 전과 linked는 선점하지 않는다. intent 변경은 queueRevision을 증가시켜 오래된 완료를 차단한다. 파일·History 삭제는 deleting으로 즉시 숨긴 뒤 물리 삭제를 큐에서 수행하며 완료 후 failed tombstone과 누락 참조 ID를 유지한다.
+파일 정리도 공통 runner가 클러스터 전체 최대2개를 실행한다. 재시도는 cycle 총5회,60초부터 최대1시간 지연이며 마지막 실패는 terminal DLQ와 안전한 lastError에 남긴다.404는 성공이다. 실행 직전 asset usage/provenance를 다시 확인하여 참조 중이면 파일은 linked로 보존하고 삭제 작업은 cancelled, 시도 결과는 protected로 종료한다. 삭제 성공으로 표시하지 않는다. uploading grace 전과 linked는 ledger만 유지하고 QueueJob을 등록하지 않는다. intent 변경은 queueRevision을 증가시켜 오래된 완료를 차단한다. 파일·History 삭제는 deleting으로 즉시 숨긴 뒤 물리 삭제를 큐에서 수행하며 완료 후 failed tombstone과 누락 참조 ID를 유지한다.
+
+정리 작업은 실패·유예 만료·명시적 삭제에서만 등록한다. linked는 정상 에셋의 수명 기록이고 uploading은 업로드 유예 기록이며 현재 작업에 새로 등록하지 않는다. 이전 버전의 linked/suspended 기록은 같은 저장소 identity·owner의 completed 에셋이 확인되고 시도0·활성/미확정/미해제 예약/미해결 실패/순서 묶음이 없을 때 maintenance가100개씩 취소한다. 파일과 ledger는 보존하며 연결 미확인 기록은 건드리지 않는다. 종료된 linked 기록의 표시는 정리 예약 해제다. 일반 탭에서 파일명(보존된 경우)·provider/object ID·정리 원인·현재 참조 수·재시도 시각을 대조한다. 사용처는 조회 시점의 사실이며 삭제 직전에 다시 확인한다.
 
 운영자는 다음 상태를 DB에서 확인한다.
 

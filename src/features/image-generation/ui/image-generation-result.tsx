@@ -1,4 +1,6 @@
 "use client";
+
+import { AppPreviewImage } from "@/shared/ui/app-preview-image";
 import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
@@ -90,8 +92,8 @@ export function ImageGenerationResult({ state, embedded = false }: { state: Imag
                           className="group/result relative min-h-0 min-w-0 overflow-hidden rounded-xl bg-surface-dark"
                         >
                           {image ? <>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
+
+                          <AppPreviewImage
                             src={image.url}
                             alt={tImage("generatedImageAlt", {
                               index: index + 1,

@@ -1,4 +1,7 @@
 "use client";
+
+import { AppMediaPreviewLoading } from "@/shared/ui/app-media-preview-loading";
+import { AppPreviewImage } from "@/shared/ui/app-preview-image";
 import { Pause, Play } from "lucide-react";
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 import { useCanvasTranslation } from "@/shared/i18n/use-canvas-translation";
@@ -119,9 +122,9 @@ export function VideoFrameEditor({ source, active = false, writable, frame, fram
         onPointerUp={event => { if (event.currentTarget.hasPointerCapture(event.pointerId)) { event.currentTarget.releasePointerCapture(event.pointerId); if (writable) frame.onChange(Math.round(framePosition.current * 1000)); } }}>
         <div className="pointer-events-none absolute inset-0 flex" aria-hidden="true">{filmstrip.images.map((image, index) =>
           // Local thumbnails retained by the shared bounded scheduler.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img key={index} src={image} alt="" className="h-full min-w-0 flex-1 object-cover" />)}
-          {!filmstrip.images.length && <span className="m-auto text-[10px] text-neutral-500">{tc("Video")}</span>}</div>
+          <AppPreviewImage key={index} src={image} alt="" className="h-full min-w-0 flex-1 object-cover" />)}
+          {!filmstrip.images.length && ["queued","loading"].includes(filmstrip.status) && <AppMediaPreviewLoading />}
+          {!filmstrip.images.length && !["queued","loading"].includes(filmstrip.status) && <span className="m-auto text-[10px] text-neutral-500">{tc("Video")}</span>}</div>
       </div>
     </div>
     {error && <p role="alert" className="text-[10px] text-red-200">{tc("Could not play the video. Try again.")}</p>}

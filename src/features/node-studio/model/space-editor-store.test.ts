@@ -12,6 +12,23 @@ function document(): SpaceEditorDocument {
 const session = (draft = document()) => createSpaceEditorSession({ id: "space", version: 1, document: draft });
 
 describe("scoped editor session", () => {
+  it("orders nested store and durable-listener transactions for every durable consumer", () => {
+    const editor = session(), first: SpaceEditorDurableEvent[] = [], second: SpaceEditorDurableEvent[] = [];
+    editor.store.subscribe(state => {
+      if (state.document.title === "outer") editor.applySystemTransaction(d => ({ ...d, title: "settled" }));
+    });
+    editor.subscribeDurable(event => {
+      first.push(event);
+      if (event.revision === 1) editor.applySystemTransaction(d => ({ ...d, title: "final" }));
+    });
+    editor.subscribeDurable(event => second.push(event));
+    editor.dispatch({ type: "title.set", title: "outer" });
+    expect(first.map(e => [e.revision, e.document.title])).toEqual([[1, "outer"], [2, "settled"], [3, "final"]]);
+    expect(second).toEqual(first);
+    expect(second.at(-1)?.document).toBe(editor.getDocument());
+    expect(editor.getSnapshot().history.undo).toHaveLength(1);
+    editor.dispose();
+  });
   it("updates server access without replacing pending local edits/history or trusting unsupported configs", () => {
     const editor = session(); editor.dispatch({ type: "node.config.patch", nodeId: "a", patch: { prompt: "unsaved" } });
     const draft = editor.getDocument(), history = editor.getSnapshot().history;

@@ -165,3 +165,18 @@ describe("asset audio cards", () => {
     expect(media.currentTime).toBe(0);
   });
 });
+
+it("uses independent history-style file skeletons without nested retry buttons in asset selectors", () => {
+ const select=vi.fn();
+ const view=renderWithIntl(<MediaAssetCard asset={{...asset,type:"image",url:"/asset-image.png"}} onSelect={select}/>);
+ expect(view.container.querySelector("[data-media-preview-loading]")).toBeInTheDocument();
+ fireEvent.load(view.container.querySelector("img")!);
+ expect(view.container.querySelector("[data-media-preview-loading]")).not.toBeInTheDocument();
+ view.rerender(<MediaAssetCard asset={{...asset,type:"image",url:"/other-image.png"}} onSelect={select}/>);
+ expect(view.container.querySelector("[data-media-preview-loading]")).toBeInTheDocument();
+ fireEvent.error(view.container.querySelector("img")!);
+ expect(view.container.querySelector("[data-media-preview-loading]")).not.toBeInTheDocument();
+ expect(screen.queryByRole("button",{name:"다시 시도"})).not.toBeInTheDocument();
+ expect(view.container.querySelector("button button")).toBeNull();
+ fireEvent.click(screen.getByRole("button",{name:asset.name}));expect(select).toHaveBeenCalledOnce();
+});

@@ -14,12 +14,13 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.auth.mockResolvedValue({ ownerEmail: "owner", apiKeyId: "key", permissions: ["platform:read"] });
   mocks.overview.mockResolvedValue({ activeCount: 0, totalCount: 1, failedCount: 0, errorRate: 0, avgLatencyMs: 0, p95LatencyMs: 0,
-    usageByType: { image: 1, video: 0, audio: 0, other: 0 } });
+    usageByType: { image: 1, video: 0, audio: 0, assistant: 0, other: 0 } });
 });
 it("forces owner in service query, clamps reads, and rejects global escalation before querying", async () => {
   expect((await GET(request("ownerEmail=other&limit=9999&offset=9999&from=2000-01-01&to=2026-10-07&query=" + "a".repeat(300)))).status).toBe(200);
   const query = mocks.overview.mock.calls[0][0];
   expect(query.ownerEmail).toBe("owner");
+  expect(query.includeAssistant).toBe(true);
   expect(query.limit).toBe(200);
   expect(query.offset).toBe(1000);
   expect(query.query).toHaveLength(200);

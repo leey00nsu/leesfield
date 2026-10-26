@@ -228,12 +228,13 @@ describe("Cinema authoring interactions", () => {
   it("isolates failures and recovers on selection after the fallback fails", () => {
     const change = mount({ initialGroup: "shooting", settings: { ...defaultCinemaSettings(), composition: "close-up", aperture: "f14" } });
     fireEvent.error(screen.getByRole("img", { name: "카메라 미리보기 · 클로즈업" }));
-    expect(screen.getByRole("status")).toHaveTextContent("전신 샷");
+    expect(screen.getByText("이미지를 불러오지 못해 전신 샷 예시를 표시합니다.")).toHaveAttribute("role", "status");
     fireEvent.error(screen.getByRole("img", { name: "카메라 미리보기 · 전신 샷" }));
     expect(screen.queryByRole("img", { name: /카메라 미리보기/ })).not.toBeInTheDocument();
     expect(change).not.toHaveBeenCalled();
     fireEvent.keyDown(screen.getByRole("spinbutton", { name: "구도" }), { key: "ArrowUp" });
     expectPhotoPath(screen.getByRole("img", { name: "카메라 미리보기 · 미디엄 클로즈업" }), "/assets/cinema/previews/medium-close-up.webp");
+    fireEvent.load(screen.getByRole("img", { name: "카메라 미리보기 · 미디엄 클로즈업" }));
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
   it("keeps every rapid coverflow step and supports keyboard boundaries and wrapping", () => {

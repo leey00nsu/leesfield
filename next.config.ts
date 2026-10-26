@@ -7,11 +7,13 @@ const withNextIntl = createNextIntlPlugin();
 const nextConfig: NextConfig = {
   reactCompiler: true,
   output: "standalone",
-  // Disposable browser checks must not generate policy files in the checkout.
-  agentRules: process.env.SPACES_E2E_ISOLATED === "1" ? false : undefined,
+  // Workspace AGENTS.md is managed by lee-spec-kit; Next must not rewrite it.
+  agentRules: false,
   experimental: { proxyClientMaxBodySize: mediaProxyBodyLimit() },
-  // The browser suite can run beside the user's development server.
+  // The browser runner uses this in a disposable source workspace.
   distDir: process.env.NODE_STUDIO_E2E_DIST_DIR ?? ".next",
+  // The disposable source snapshot resolves packages through its sibling checkout.
+  turbopack: process.env.SPACES_E2E_MODULE_ROOT ? { root: process.env.SPACES_E2E_MODULE_ROOT } : undefined,
 };
 
 export default withNextIntl(nextConfig);

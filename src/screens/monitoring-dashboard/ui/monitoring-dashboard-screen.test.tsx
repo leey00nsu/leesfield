@@ -1,7 +1,7 @@
-import { act, renderHook, screen, waitFor, within } from "@testing-library/react";
+import { act, renderHook, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { MonitoringDashboardScreen } from "@/screens/monitoring-dashboard/ui/monitoring-dashboard-screen";
+import { MonitoringRequestStatistics as MonitoringDashboardScreen } from "@/screens/monitoring-dashboard/ui/monitoring-request-statistics";
 import { createIntlWrapper, renderWithIntl } from "@/test-utils/intl";
 
 const mockUseMonitoringOverview = vi.hoisted(() => vi.fn());
@@ -83,45 +83,14 @@ function mockRequestPages() {
 }
 
 describe("Monitoring request pagination with the real query", () => {
-  it("지연된 페이지 이동 중 중복 클릭을 막고 다음/이전/행 수/필터를 반영한다", async () => {
-    await useRealRequests();
-    const pages = mockRequestPages();
-    const user = userEvent.setup();
-    renderWithIntl(<MonitoringDashboardScreen />);
-    await pages.complete();
-    expect(await screen.findByText("1-50 / 123")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "다음 페이지" }));
-    expect(screen.getByRole("button", { name: "다음 페이지" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "이전 페이지" })).toBeDisabled();
-    await user.click(screen.getByRole("button", { name: "다음 페이지" }));
-    await pages.complete();
-    expect(await screen.findByText("51-100 / 123")).toBeInTheDocument();
-    expect(screen.getByText("2/3")).toBeInTheDocument();
-    expect(screen.getByText("page-model-51")).toBeInTheDocument();
-    expect(pages.urls.map(u => u.searchParams.get("offset"))).toEqual(["0", "50"]);
-    await user.click(screen.getByRole("button", { name: "다음 페이지" }));
-    await pages.complete();
-    expect(await screen.findByText("101-123 / 123")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "다음 페이지" })).toBeDisabled();
-    await user.click(screen.getByRole("button", { name: "이전 페이지" }));
-    expect(await screen.findByText("51-100 / 123")).toBeInTheDocument();
-    await user.click(screen.getByRole("combobox"));
-    await user.click(await screen.findByRole("option", { name: "100" }));
-    await pages.complete();
-    expect(await screen.findByText("1-100 / 123")).toBeInTheDocument();
-    expect(screen.getByText("1/2")).toBeInTheDocument();
-    expect(pages.urls.at(-1)?.searchParams.get("offset")).toBe("0");
-    expect(pages.urls.at(-1)?.searchParams.get("limit")).toBe("100");
-    await user.click(screen.getByRole("button", { name: "다음 페이지" }));
-    await pages.complete();
-    expect(await screen.findByText("101-123 / 123")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "필터" }));
-    await user.click(screen.getByRole("button", { name: "이미지" }));
-    await pages.complete();
-    expect(await screen.findByText("1-3 / 3")).toBeInTheDocument();
-    expect(pages.urls.at(-1)?.searchParams.get("offset")).toBe("0");
-    expect(pages.urls.every(u => u.searchParams.get("includeTotal") === "true")).toBe(true);
-  }, 30_000);
+  it("통계 화면은 요청 목록을 조회하거나 표시하지 않는다", async () => {
+    mockUseMonitoringRequests.mockClear();
+    renderWithIntl(<MonitoringDashboardScreen/>);
+    expect(mockUseMonitoringRequests).not.toHaveBeenCalled();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.queryByText("최근 작업")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button",{name:"다음 페이지"})).not.toBeInTheDocument();
+  });
 
   it("첫 페이지 캐시 없이 이전 페이지를 조회해도 전체 건수를 확보한다", async () => {
     const useRequests = await useRealRequests();
@@ -141,6 +110,7 @@ describe("Monitoring request pagination with the real query", () => {
 });
 
 beforeEach(() => {
+  vi.clearAllMocks();
   mockUseMonitoringOverview.mockReturnValue({
     data: {
       activeCount: 12,
@@ -262,14 +232,14 @@ beforeEach(() => {
 });
 
 describe("MonitoringDashboardScreen", () => {
-  it("운영 대시보드 카드와 최근 작업 영역을 표시한다", async () => {
+  it("통계 카드와 집계 필터를 표시하고 중복 작업 표는 제거한다", async () => {
     const user = userEvent.setup();
     const { container } = renderWithIntl(<MonitoringDashboardScreen />);
 
     expect(screen.getByText("성공률")).toBeInTheDocument();
     expect(screen.queryByText("활성 작업")).not.toBeInTheDocument();
     expect(screen.getAllByText("요청 수").length).toBeGreaterThan(0);
-    expect(screen.getByText("최근 작업")).toBeInTheDocument();
+    expect(screen.queryByText("최근 작업")).not.toBeInTheDocument();
     expect(screen.getByText("트래픽 & 오류")).toBeInTheDocument();
     expect(screen.queryByText("주의")).not.toBeInTheDocument();
     expect(screen.queryByText("기간 내")).not.toBeInTheDocument();
@@ -279,8 +249,7 @@ describe("MonitoringDashboardScreen", () => {
     expect(screen.queryByPlaceholderText("검색…")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "이미지" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "필터" }));
-    expect(screen.getByRole("button", { name: "이미지" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "비디오" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "유형" })).toBeInTheDocument();
     expect(screen.getByLabelText("시작일")).toBeInTheDocument();
     expect(screen.getByLabelText("종료일")).toBeInTheDocument();
     expect(container.querySelector('input[type="date"]')).toBeNull();
@@ -311,10 +280,22 @@ describe("MonitoringDashboardScreen", () => {
       container.querySelectorAll("[data-monitoring-kpi-chart]"),
     ).toHaveLength(2);
     expect(container.querySelector("[data-monitoring-usage-pie]")).toBeTruthy();
-    expect(screen.getAllByText("이미지").length).toBeGreaterThan(1);
-    expect(screen.getAllByText("비디오").length).toBeGreaterThan(1);
-    expect(screen.getAllByText("오디오").length).toBeGreaterThan(1);
+    expect(screen.getAllByText("이미지").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("비디오").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("오디오").length).toBeGreaterThan(0);
     expect(screen.getByText("기타")).toBeInTheDocument();
+  });
+
+  it("어시스턴트 유형은 LLM 모델만 제공하고 번역된 이름으로 조회한다", async () => {
+    mockUseRuntimeModelCatalog.mockReturnValue({items:[{key:"flux",label:"Flux",type:"image",isActive:true},{key:"assistant-model",label:"Text Model",type:"llm",isActive:true}],isLoading:false,error:null});
+    const user=userEvent.setup(); renderWithIntl(<MonitoringDashboardScreen/>);
+    await user.click(screen.getByRole("button",{name:"필터"}));
+    await user.click(screen.getByRole("combobox",{name:"유형"}));
+    await user.click(await screen.findByRole("option",{name:"AI 어시스턴트"}));
+    await user.click(screen.getByRole("combobox",{name:"모델"}));
+    await user.click(await screen.findByRole("option",{name:"Text Model · AI 어시스턴트"}));
+    expect(screen.queryByRole("option",{name:/Flux/})).not.toBeInTheDocument();
+    expect(mockUseMonitoringOverview).toHaveBeenLastCalledWith(expect.objectContaining({type:"assistant",model:"assistant-model"}));
   });
 
   it("필터 변경을 monitoring query에 반영한다", async () => {
@@ -322,7 +303,8 @@ describe("MonitoringDashboardScreen", () => {
     renderWithIntl(<MonitoringDashboardScreen />);
 
     await user.click(screen.getByRole("button", { name: "필터" }));
-    await user.click(screen.getByRole("button", { name: "이미지" }));
+    await user.click(screen.getByRole("combobox", { name: "유형" }));
+    await user.click(await screen.findByRole("option", { name: "이미지" }));
 
     await waitFor(() => {
       expect(mockUseMonitoringOverview).toHaveBeenLastCalledWith(
@@ -332,51 +314,15 @@ describe("MonitoringDashboardScreen", () => {
         }),
       );
     });
-    expect(mockUseMonitoringRequests).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        type: "image",
-      }),
-      expect.objectContaining({
-        limit: 50,
-        offset: 0,
-      }),
-    );
+    expect(mockUseMonitoringRequests).not.toHaveBeenCalled();
   });
 
-  it("최근 작업을 클릭하면 요청 상세를 연다", async () => {
-    const user = userEvent.setup();
-    mockUseMonitoringRequestDetail.mockImplementation(
-      (_type: "image" | "video" | null, requestId: string | null) => ({
-        data: requestId
-          ? {
-              id: "req-1",
-              type: "image",
-              status: "completed",
-              model: "Flux Pro 1.1",
-              prompt: "A cinematic product shot",
-              createdAt: "2026-04-30T05:58:00.000Z",
-              updatedAt: "2026-04-30T05:58:18.000Z",
-              durationMs: 18_000,
-              progress: 100,
-              errorMessage: null,
-              warningMessage: null,
-              inputImages: [],
-              inputAudios: [],
-              referenceText: null,
-              assets: [],
-            }
-          : null,
-        isLoading: false,
-        error: null,
-      }),
-    );
-
-    renderWithIntl(<MonitoringDashboardScreen />);
-
-    await user.click(within(screen.getByRole("table")).getByText("Flux Pro 1.1"));
-
-    await waitFor(() => {
-      expect(screen.getByText("요청 상세")).toBeInTheDocument();
-    });
+  it("집계 조회 실패를 빈 통계와 구분하고 재시도를 제공한다", async () => {
+    const refetch=vi.fn();mockUseMonitoringStats.mockReturnValue({data:null,isLoading:false,isError:true,error:Error("unavailable"),refetch});
+    mockUseMonitoringOverview.mockReturnValue({data:null,isLoading:false,isError:false,refetch});
+    renderWithIntl(<MonitoringDashboardScreen/>);
+    expect(screen.getByRole("alert")).toHaveTextContent("통계를 불러오지 못했습니다");
+    await userEvent.setup().click(screen.getByRole("button",{name:"다시 시도"}));
+    expect(refetch).toHaveBeenCalledTimes(2);
   });
 });

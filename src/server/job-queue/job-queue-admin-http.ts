@@ -21,7 +21,7 @@ export async function queueAdminBudget(actor: string, action: QueueOperation = "
   if (limited) await auditQueueRejection(actor, action, "QUEUE_RATE_LIMITED");
   return limited;
 }
-async function authorize(request: Request, action?: QueueOperation): Promise<string | Response> {
+export async function authorizeQueueAdmin(request: Request, action?: QueueOperation): Promise<string | Response> {
   const session = await getSession();
   const env = getServerEnv();
   const expected = env.isProduction ? env.adminEmail : resolveLocalAuthBypass()?.adminEmail ?? env.adminEmail;
@@ -38,7 +38,7 @@ async function authorize(request: Request, action?: QueueOperation): Promise<str
   }
   return session.adminEmail;
 }
-function failure(error: unknown) {
+export function queueAdminFailure(error: unknown) {
   if (error instanceof z.ZodError || error instanceof SyntaxError) return json({ message: "INVALID_REQUEST" }, 400);
   if (error instanceof QueueContractError) return json({ message: error.code }, error.code === "QUEUE_PAUSED" ? 503 : 409);
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") return json({ message: "NOT_FOUND" }, 404);
@@ -47,15 +47,15 @@ function failure(error: unknown) {
 }
 export async function queueAdminRead(request: Request, id?: string) {
   try {
-    const auth = await authorize(request);
+    const auth = await authorizeQueueAdmin(request);
     if (auth instanceof Response) return auth;
     return json(id ? await getQueueDeadLetter(id) : await listQueueDeadLetters(Object.fromEntries(new URL(request.url).searchParams)));
-  } catch (error) { return failure(error); }
+  } catch (error) { return queueAdminFailure(error); }
 }
 export async function queueAdminMutation(request: Request, id: string, action: QueueOperation) {
   let actor: string | undefined;
   try {
-    const auth = await authorize(request, action);
+    const auth = await authorizeQueueAdmin(request, action);
     if (auth instanceof Response) return auth;
     actor = auth;
     const limited = await queueAdminBudget(actor, action);
@@ -66,7 +66,7 @@ export async function queueAdminMutation(request: Request, id: string, action: Q
     return json(outcome, outcome.outcome === "rejected" ? 409 : 200);
   } catch (error) {
     if (actor && (error instanceof z.ZodError || error instanceof SyntaxError)) await auditQueueRejection(actor, action, "QUEUE_INPUT_REJECTED");
-    return failure(error);
+    return queueAdminFailure(error);
   }
 }
 const batchSchema = z.object({
@@ -76,7 +76,7 @@ const batchSchema = z.object({
 export async function queueAdminBatch(request: Request) {
   let actor: string | undefined;
   try {
-    const auth = await authorize(request, "redrive");
+    const auth = await authorizeQueueAdmin(request, "redrive");
     if (auth instanceof Response) return auth;
     actor = auth;
     const body = await readValidatedJsonBody(request, 32_768);
@@ -87,11 +87,11 @@ export async function queueAdminBatch(request: Request) {
       const limited = await queueAdminBudget(auth, input.action);
       if (limited) { items.push({ id, status: limited.status, code: "QUEUE_RATE_LIMITED" }); continue; }
       try { const outcome = await operateQueue(auth, input.action, id, operation); items.push({ id, status: outcome.outcome === "rejected" ? 409 : 200, ...outcome }); }
-      catch (error) { const response = failure(error); items.push({ id, status: response.status, ...await response.json() }); }
+      catch (error) { const response = queueAdminFailure(error); items.push({ id, status: response.status, ...await response.json() }); }
     }
     return json({ items });
   } catch (error) {
     if (actor && (error instanceof z.ZodError || error instanceof SyntaxError)) await auditQueueRejection(actor, "redrive", "QUEUE_BATCH_REJECTED");
-    return failure(error);
+    return queueAdminFailure(error);
   }
 }

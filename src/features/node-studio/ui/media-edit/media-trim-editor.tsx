@@ -1,4 +1,7 @@
 "use client";
+
+import { AppMediaPreviewLoading } from "@/shared/ui/app-media-preview-loading";
+import { AppPreviewImage } from "@/shared/ui/app-preview-image";
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
 import { Keyboard, Magnet, Pause, Play, Repeat2, X } from "lucide-react";
 import { useLocale } from "next-intl";
@@ -132,8 +135,7 @@ export function MediaTrimEditor({ asset, edit, onChange, onCancel, onConfirm, st
         }} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} onLostPointerCapture={() => { drag.current = null; }}>
         <div className={styles.filmstrip} aria-hidden="true">{filmstrip.images.length ? filmstrip.images.map((src, i) =>
           // Bounded local thumbnails, retained by the shared scheduler only while subscribed.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img key={i} src={src} alt="" />) : <span>{label("Video", "영상")}</span>}</div>
+          <AppPreviewImage key={i} src={src} alt="" className="h-full min-w-0 flex-1 object-cover" />) : ["queued","loading"].includes(filmstrip.status) ? <AppMediaPreviewLoading /> : <span>{label("Video", "영상")}</span>}</div>
         <div className={styles.trimShade} style={{ left: 0, width: edit.startMs / duration * 100 + "%" }} />
         <div className={styles.trimShade} style={{ right: 0, width: (1 - edit.endMs / duration) * 100 + "%" }} />
         <div className={styles.trimSelection} style={{ left: edit.startMs / duration * 100 + "%", width: (edit.endMs - edit.startMs) / duration * 100 + "%" }}

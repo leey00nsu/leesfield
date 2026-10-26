@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
+import { AppPreviewImage } from "@/shared/ui/app-preview-image";
 import { useLocale } from "next-intl";
 import { cinemaOptionName } from "@/shared/cinema/cinema-catalog";
 import type { CinemaSettings } from "@/shared/cinema/cinema-contract";
@@ -13,9 +13,9 @@ function PhotoFrame({ photo }: { photo: ReturnType<typeof cinemaPhotoPreview> })
   const [failure, setFailure] = useState<"fallback" | "unavailable" | null>(null);
   const shown = failure === "fallback" ? defaultCinemaPhoto : photo;
   return <figure className={styles.preview}>
-    {failure !== "unavailable" && shown.src && <Image key={shown.src} src={shown.src}
+    {failure !== "unavailable" && shown.src && <AppPreviewImage key={shown.src} src={shown.src}
       alt={`${ko ? "카메라 미리보기" : "Camera preview"} · ${cinemaOptionName("composition", shown.composition, ko ? "ko" : "en")}`}
-      width={1376} height={768} unoptimized priority draggable={false}
+      width={1376} height={768} fetchPriority="high" loading="eager" className="size-full object-contain" draggable={false}
       onError={() => setFailure(failure === "fallback" || photo.src === defaultCinemaPhoto.src ? "unavailable" : "fallback")} />}
     {failure && <figcaption className={styles.previewStatus} role="status">
       {failure === "fallback"

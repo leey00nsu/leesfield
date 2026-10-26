@@ -134,6 +134,7 @@ describe("AppVideoPlayer", () => {
     expect(seek).toBeDisabled(); expect(screen.queryByRole("button", { name: "Enter full screen" })).not.toBeInTheDocument();
     metadata(video, Infinity); expect(seek).toBeDisabled();
     metadata(video); expect(loaded).toHaveBeenCalledTimes(2); expect(seek).toBeEnabled();
+    fireEvent.loadedData(video);
     fireEvent.change(seek, { target: { value: "25" } }); expect(video.currentTime).toBe(25);
     fireEvent.keyDown(seek, { key: "ArrowRight" }); expect(video.currentTime).toBe(30);
     fireEvent.keyDown(seek, { key: "End" }); expect(video.currentTime).toBe(80);
@@ -194,7 +195,7 @@ describe("AppVideoPlayer", () => {
   it("preserves the media element and position across inactive previews and frees explicitly disposable references", () => {
     const ref = createRef<HTMLVideoElement>();
     const { rerender, unmount } = mount(<AppVideoPlayer src="/preview.mp4" controls={false} mediaRef={ref} className="preview" active={false} />);
-    const video = ref.current!; expect(video).not.toHaveAttribute("src"); expect(video).toHaveClass("preview");
+    const video = ref.current!; expect(video).not.toHaveAttribute("src"); expect(video.parentElement).toHaveClass("preview");
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     rerender(<AppVideoPlayer src="/preview.mp4" controls={false} mediaRef={ref} active />);
     video.currentTime = 15; act(() => { void video.play(); });
@@ -223,7 +224,7 @@ describe("AppVideoPlayer", () => {
     const { rerender } = mount(<AppVideoPlayer src="/capable.mp4" ref={ref} />); metadata(ref.current!);
     fireEvent.click(screen.getByRole("button", { name: "Picture in Picture" })); expect(pip).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByRole("button", { name: "Enter full screen" }));
-    await act(async () => {}); expect(screen.getByRole("status")).toHaveTextContent("Full screen is unavailable.");
+    await act(async () => {}); expect(screen.getByText("Full screen is unavailable.")).toHaveAttribute("role", "status");
     const video = ref.current;
     rerender(<AppVideoPlayer src="/capable.mp4" ref={ref} inlineOnly />);
     expect(ref.current).toBe(video); expect(video).toHaveAttribute("disablepictureinpicture"); expect(video).toHaveAttribute("controlslist", "nofullscreen");
@@ -243,4 +244,24 @@ describe("AppVideoPlayer", () => {
     Object.defineProperty(document, "hidden", { configurable: true, value: true }); fireEvent(document, new Event("visibilitychange"));
     unmount(); await act(async () => { resolve(); }); expect(video.paused).toBe(true); expect(video).not.toHaveAttribute("src");
   });
+});
+
+it("shows shared skeleton until the first frame, preserves callbacks and clears it on source changes/errors", () => {
+ const ref=createRef<HTMLVideoElement>(), loaded=vi.fn();
+ const view=mount(<AppVideoPlayer src="/first-frame.mp4" controls={false} ref={ref} onLoadedData={loaded}/>);
+ expect(screen.getByRole("status",{name:"Loading media"})).toBeInTheDocument();
+ fireEvent.loadedMetadata(ref.current!);
+ expect(screen.getByRole("status",{name:"Loading media"})).toBeInTheDocument();
+ fireEvent.loadedData(ref.current!);
+ expect(loaded).toHaveBeenCalledOnce();expect(screen.queryByRole("status",{name:"Loading media"})).not.toBeInTheDocument();
+ view.rerender(<AppVideoPlayer src="/next-frame.mp4" controls={false} ref={ref}/>);
+ expect(screen.getByRole("status",{name:"Loading media"})).toBeInTheDocument();
+ fireEvent.error(ref.current!);
+ expect(screen.queryByRole("status",{name:"Loading media"})).not.toBeInTheDocument();
+ view.rerender(<AppVideoPlayer src="/offscreen.mp4" controls={false} active={false} ref={ref}/>);
+ expect(ref.current).not.toHaveAttribute("src");
+ expect(screen.queryByRole("status",{name:"Loading media"})).not.toBeInTheDocument();
+ view.rerender(<AppVideoPlayer src="/card-offscreen.mp4" controls={false} active={false} showLoadingWhenInactive ref={ref}/>);
+ expect(ref.current).not.toHaveAttribute("src");
+ expect(screen.getByRole("status",{name:"Loading media"})).toBeInTheDocument();
 });

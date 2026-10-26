@@ -1,4 +1,4 @@
-export type MonitoringType = "image" | "video" | "audio" | "all";
+export type MonitoringType = "image" | "video" | "audio" | "assistant" | "all";
 export type MonitoringStatus =
   | "pending"
   | "processing"
@@ -15,6 +15,7 @@ export type ApiKeyFilter =
 
 export type MonitoringQuery = {
   ownerEmail?: string;
+  includeAssistant?: boolean;
   type: MonitoringType;
   statuses: MonitoringStatus[] | null;
   model: string | null;
@@ -191,13 +192,14 @@ function resolveMetric(value: string | null) {
 export function parseMonitoringQuery(
   searchParams: URLSearchParams,
   options?: {
+    includeAssistant?: boolean;
     defaultLimit?: number;
     defaultOffset?: number;
     defaultDays?: number;
     defaultMetric?: MonitoringMetric;
   },
 ): MonitoringQuery {
-  const type = resolveType(searchParams.get("type"));
+  const type = options?.includeAssistant && searchParams.get("type")?.toLowerCase()==="assistant" ? "assistant" : resolveType(searchParams.get("type"));
   const statuses = resolveStatuses(searchParams.get("status"));
   const model = boundedSearchValue(searchParams.get("model")) || null;
   const apiKey = resolveApiKeyFilter(searchParams.get("apiKeyId"));
@@ -228,6 +230,7 @@ export function parseMonitoringQuery(
 
   return {
     type,
+    ...(options?.includeAssistant?{includeAssistant:true}:{}),
     statuses,
     model,
     apiKey,

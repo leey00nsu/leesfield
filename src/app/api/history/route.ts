@@ -22,7 +22,7 @@ async function getObservedHandler(request: Request) {
 
   try {
     const { searchParams } = new URL(request.url);
-    const payload = await getHistory(searchParams, session.adminEmail);
+    const payload = await getHistory(searchParams, session.adminEmail,{includeAssistant:true});
 
     return NextResponse.json(payload, {
       headers: {

@@ -1,4 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { mkdtemp, mkdir, readFile, readdir, readlink, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createSpacesWorkspace } from "./isolated-workspace.mjs";
+import { createHmrDiagnostics } from "./hmr-diagnostics.mjs";
 import {
   SPACES_E2E_AREAS,
   flattenSpacesTests,
@@ -29,6 +34,51 @@ const catalog = [
   browserCase("capture asset.png", "mobile-390", "@spaces-media", "@spaces-capture"),
   browserCase("owner defaults", "desktop", "@spaces-settings"),
 ];
+
+describe("Spaces compiler isolation", () => {
+  it("copies current sources without stale output, secrets or shared generated type files", async () => {
+    const parent = await mkdtemp(join(tmpdir(), "leesfield-isolation-test-")), root = join(parent, "app");
+    let workspace;
+    try {
+      await mkdir(join(root, "src"), { recursive: true }); await mkdir(join(root, "node_modules"));
+      for (const [name, body] of Object.entries({ "src/page.tsx": "current source", "package.json": "{}", "tsconfig.json": "original types", "next.config.ts": "original config", "next-env.d.ts": "original declarations", ".env.local": "private" })) await writeFile(join(root, name), body);
+      await mkdir(join(root, ".next")); await writeFile(join(root, ".next/stale.js"), "stale compiler state");
+      workspace = await createSpacesWorkspace(root);
+      expect(await readFile(join(workspace.directory, "src/page.tsx"), "utf8")).toBe("current source");
+      expect(await readlink(join(workspace.directory, "node_modules"))).toBe(join(root, "node_modules"));
+      expect(workspace.moduleRoot).toBe(parent);
+      for (const excluded of [".next", ".env.local", "next-env.d.ts"]) expect(await readdir(workspace.directory)).not.toContain(excluded);
+      await writeFile(join(workspace.directory, "tsconfig.json"), "generated isolated types");
+      await writeFile(join(workspace.directory, "next-env.d.ts"), "generated declarations");
+      await writeFile(join(root, "src/page.tsx"), "subsequent edit");
+      expect(await readFile(join(workspace.directory, "src/page.tsx"), "utf8")).toBe("current source");
+      expect(await readFile(join(root, "tsconfig.json"), "utf8")).toBe("original types");
+      expect(await readFile(join(root, "next-env.d.ts"), "utf8")).toBe("original declarations");
+      await workspace.cleanup(); await workspace.cleanup();
+      expect(await readdir(parent)).toEqual(["app"]);
+    } finally { await workspace?.cleanup(); await rm(parent, { recursive: true, force: true }); }
+  });
+  it("removes a partial source snapshot when preparation fails", async () => {
+    const parent = await mkdtemp(join(tmpdir(), "leesfield-isolation-test-")), root = join(parent, "app");
+    try {
+      await mkdir(join(root, "src"), { recursive: true });
+      await expect(createSpacesWorkspace(root)).rejects.toMatchObject({ code: "ENOENT" });
+      expect(await readdir(parent)).toEqual(["app"]);
+    } finally { await rm(parent, { recursive: true, force: true }); }
+  });
+  it("retains bounded HMR failure evidence without recording RSC payloads", () => {
+    const diagnostics = createHmrDiagnostics();
+    diagnostics.message("\u0000private RSC text"); diagnostics.message('{"type":"sync","errors":["private error"]}');
+    diagnostics.message('{"type":"turbopack-connected"}'); diagnostics.navigation();
+    for (let index = 0; index < 40; index++) {
+      diagnostics.message('{"type":"reloadPage","data":"HMR hash mismatch"}');
+      diagnostics.message('{"type":"turbopack-message","data":[{"type":"restart","resource":{"path":"static/chunks/entry.js"}}]}');
+    }
+    expect(diagnostics.snapshot()).toMatchObject({ connections: 1, navigations: 1, reloads: 40, restarts: 40 });
+    expect(diagnostics.snapshot().events).toHaveLength(32);
+    expect(JSON.stringify(diagnostics.snapshot())).not.toContain("private");
+  });
+});
 
 describe("Spaces E2E collection validation", () => {
   it("keeps listed, unexecuted project cases and normalizes reporter tags", () => {

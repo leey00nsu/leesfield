@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     const limited = await enforceRateLimit(RATE_LIMITS.readOwner, auth.ownerEmail);
     if (limited) return limited;
     try {
-      return Response.json(externalHistoryResponseSchema.parse(await getHistory(new URL(request.url).searchParams, auth.ownerEmail)), { headers: { "Cache-Control": "no-store" } });
+      return Response.json(externalHistoryResponseSchema.parse(await getHistory(new URL(request.url).searchParams, auth.ownerEmail, { includeAssistant: true })), { headers: { "Cache-Control": "no-store" } });
     } catch (error) {
       if (error instanceof InvalidHistoryCursor) return buildErrorResponse(error.message, 400);
       throw error;

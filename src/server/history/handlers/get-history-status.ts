@@ -1,3 +1,4 @@
+import {assistantHistoryWhere} from "../assistant-history";
 import type {
   AudioGenerationStatus,
   ImageGenerationStatus,
@@ -107,8 +108,16 @@ async function getActiveAudioStatus(
 export async function getHistoryStatus(
   searchParams: URLSearchParams,
   ownerEmail: string,
+  options:{includeAssistant?:boolean}={},
 ) {
   const query = parseHistoryQuery(searchParams);
+  const assistantStatus=async():Promise<ActiveStatus>=>{
+    if(!options.includeAssistant||query.hidden)return {activeCount:0,latestUpdatedAt:null};
+    const where={...assistantHistoryWhere(query,ownerEmail),status:{in:["pending","processing"] as ("pending"|"processing")[]}};
+    const [activeCount,latest]=await Promise.all([prisma.assistantExecution.count({where}),prisma.assistantExecution.findFirst({where,orderBy:{updatedAt:"desc"},select:{updatedAt:true}})]);
+    return {activeCount,latestUpdatedAt:latest?.updatedAt??null};
+  };
+  if(query.type==="assistant"){const result=await assistantStatus();return {hasActive:result.activeCount>0,activeCount:result.activeCount,latestUpdatedAt:result.latestUpdatedAt?.toISOString()??null};}
 
   if (query.type === "image") {
     const where = { ownerEmail, hiddenAt: query.hidden ? { not: null } : null, ...buildImageWhere(query) };
@@ -144,18 +153,16 @@ export async function getHistoryStatus(
   const videoWhere = { ownerEmail, hiddenAt: query.hidden ? { not: null } : null, ...buildVideoWhere(query) };
   const audioWhere = { ownerEmail, hiddenAt: query.hidden ? { not: null } : null, ...buildAudioWhere(query) };
 
-  const [imageStatus, videoStatus, audioStatus] = await Promise.all([
+  const [imageStatus, videoStatus, audioStatus,assistant] = await Promise.all([
     getActiveImageStatus(imageWhere),
     getActiveVideoStatus(videoWhere),
     getActiveAudioStatus(audioWhere),
+    assistantStatus(),
   ]);
 
   const activeCount =
-    imageStatus.activeCount + videoStatus.activeCount + audioStatus.activeCount;
-  const latestUpdatedAt = maxDate(
-    maxDate(imageStatus.latestUpdatedAt, videoStatus.latestUpdatedAt),
-    audioStatus.latestUpdatedAt,
-  );
+    imageStatus.activeCount + videoStatus.activeCount + audioStatus.activeCount+assistant.activeCount;
+  const latestUpdatedAt = maxDate(maxDate(maxDate(imageStatus.latestUpdatedAt, videoStatus.latestUpdatedAt),audioStatus.latestUpdatedAt),assistant.latestUpdatedAt);
 
   return {
     hasActive: activeCount > 0,

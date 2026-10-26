@@ -57,6 +57,13 @@ describe("HistoryItem video", () => {
     );
     expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: "item-video-1" }));
     view.rerender(<HistoryItem autoplay={false} item={{id:"item-video-1",type:"video",status:"completed",prompt:"hello video",model:"wan-video",createdAt:"2026-02-03",resultUrl:"https://example.com/result.mp4",thumbnailUrl:null,errorMessage:null}} />);
-    expect(document.querySelector("video")).not.toHaveAttribute("autoplay");expect(pause).toHaveBeenCalled();play.mockRestore();pause.mockRestore();vi.unstubAllGlobals();
+    expect(document.querySelector("video")).not.toHaveAttribute("autoplay");expect(pause).toHaveBeenCalled();
+    view.rerender(<HistoryItem autoplay={false} item={{id:"item-video-1",type:"video",status:"completed",prompt:"hello video",model:"wan-video",createdAt:"2026-02-03",resultUrl:"https://example.com/replacement.mp4",thumbnailUrl:null,errorMessage:null}} />);
+    expect(screen.queryByText("5.2s")).not.toBeInTheDocument();
+    const replacement=document.querySelector("video")!;Object.defineProperty(replacement,"duration",{value:3.6,configurable:true});
+    fireEvent.loadedMetadata(replacement);fireEvent.loadedData(replacement);
+    expect(screen.getByText("3.6s")).toBeInTheDocument();
+    expect(screen.queryByText("90.0s")).not.toBeInTheDocument();
+    play.mockRestore();pause.mockRestore();vi.unstubAllGlobals();
   });
 });

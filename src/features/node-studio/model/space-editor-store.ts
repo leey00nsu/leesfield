@@ -120,6 +120,8 @@ export function createSpaceEditorSession(snapshot: SpaceEditorSessionSnapshot, o
   const store = createStore<SpaceEditorState>(() => initialState(snapshot));
   const durableListeners = new Set<(event: SpaceEditorDurableEvent) => void>();
   const subscriptions = new Set<() => void>();
+  const pendingEvents: SpaceEditorDurableEvent[] = [];
+  let publishing = 0, notifying = false;
   let serverWritable = snapshot.writable !== false;
   let serverReadOnlyReason = snapshot.readOnlyReason ?? "READ_ONLY";
   let persistedRetired = capturePersistedRetired(store.getState());
@@ -130,6 +132,26 @@ export function createSpaceEditorSession(snapshot: SpaceEditorSessionSnapshot, o
   const getSnapshot = store.getState;
   const unchanged = (): SpaceEditorCommandResult => ({ ok: true, changed: false, document: getDocument(), selectionNodeIds: [] });
 
+  function publishState(state: Partial<SpaceEditorState>, event: SpaceEditorDurableEvent) {
+    // Store subscribers can synchronously publish another transaction. Reserve
+    // this event first, then deliver all revisions in order after state settles.
+    pendingEvents.push(event);
+    publishing++;
+    try { store.setState(state); }
+    finally {
+      publishing--;
+      if (!publishing && !notifying) {
+        notifying = true;
+        try {
+          while (pendingEvents.length) {
+            const next = pendingEvents.shift()!;
+            for (const listener of [...durableListeners]) listener(next);
+          }
+        } finally { notifying = false; }
+      }
+    }
+  }
+
   function publish(result: SpaceEditorCommandResult, origin: SpaceEditorTransactionOrigin, cause: string, history?: SpaceEditorState["history"], acknowledgement?: SaveAcknowledgement): SpaceEditorCommandResult {
     if (!result.ok || (!result.changed && !result.selectionNodeIds.length)) {
       if (acknowledgement) store.setState(acknowledgement);
@@ -138,9 +160,8 @@ export function createSpaceEditorSession(snapshot: SpaceEditorSessionSnapshot, o
     const previous = store.getState(), document = result.document;
     if (!result.changed) {
       const revision = previous.revision + 1;
-      store.setState({ ...acknowledgement, revision });
       const event: SpaceEditorDurableEvent = { document, previousDocument: previous.document, documentChanged: false, origin, cause, selectionNodeIds: result.selectionNodeIds, revision };
-      for (const listener of [...durableListeners]) listener(event);
+      publishState({ ...acknowledgement, revision }, event);
       return result;
     }
     const support = analyzeCanonicalGraphSupport(document);
@@ -154,7 +175,8 @@ export function createSpaceEditorSession(snapshot: SpaceEditorSessionSnapshot, o
     const nextHistory = history ?? (origin === "user" ? {
       undo: [...previous.history.undo, createSpaceEditorHistoryEntry(previous.document, document, result.selectionNodeIds, cause)].slice(-spaceEditorHistoryLimit), redo: [],
     } : previous.history);
-    store.setState({
+    const event: SpaceEditorDurableEvent = { document, previousDocument: previous.document, documentChanged: true, origin, cause, selectionNodeIds: result.selectionNodeIds, revision };
+    publishState({
       ...acknowledgement,
       document, nodeById: document.nodes === previous.document.nodes ? previous.nodeById : new Map(document.nodes.map((node) => [node.id, node])),
       writable: serverWritable && support.writable, readOnlyReason: serverWritable ? support.readOnlyReason : serverReadOnlyReason,
@@ -163,9 +185,7 @@ export function createSpaceEditorSession(snapshot: SpaceEditorSessionSnapshot, o
       hoveredNodeId: previous.hoveredNodeId && nodeIds.has(previous.hoveredNodeId) ? previous.hoveredNodeId : null,
       hoveredEdgeId: previous.hoveredEdgeId && edgeIds.has(previous.hoveredEdgeId) ? previous.hoveredEdgeId : null,
       runtimeByNode, geometryByNode, history: nextHistory, revision,
-    });
-    const event: SpaceEditorDurableEvent = { document, previousDocument: previous.document, documentChanged: true, origin, cause, selectionNodeIds: result.selectionNodeIds, revision };
-    for (const listener of [...durableListeners]) listener(event);
+    }, event);
     return result;
   }
 

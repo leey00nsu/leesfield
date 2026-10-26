@@ -81,10 +81,14 @@ describe("direct editing draft and durable result lifecycle", () => {
   });
   it("undo of pending followed by redo does not restart or resurrect a spinner", async () => {
     const c = setup(), pending = deferred<DirectEditDto>(); c.api.start.mockReturnValue(pending.promise);
+    const events: Array<{ revision: number; document: SpaceEditorDocument }> = [];
+    c.session.subscribeDurable(event => events.push(event));
     c.controller.begin("source", asset, "image.crop"); const submitted = c.controller.confirm();
     await vi.waitFor(() => expect(c.api.start).toHaveBeenCalledOnce());
     c.session.undo(); c.session.redo();
     expect(c.session.getDocument().nodes.at(-1)?.config).toMatchObject({ resultSource: { state: "cancelled" } });
+    expect(events.map(event => event.revision)).toEqual([...events.map(event => event.revision)].sort((a, b) => a - b));
+    expect(events.at(-1)?.document).toEqual(c.session.getDocument());
     pending.resolve(c.operation()); await submitted; expect(c.api.start).toHaveBeenCalledOnce();
   });
   it("reopens pending reservations by GET only, without resubmission", async () => {

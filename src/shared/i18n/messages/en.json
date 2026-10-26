@@ -1,4 +1,5 @@
 {
+  "mediaPreview": {"loading":"Loading media","error":"Unable to load media.","retry":"Retry"},
   "cinema": {
     "shooting": "Camera",
     "visual": "Visual style",
@@ -192,7 +193,9 @@
       "clear": "Clear",
       "reset": "Reset",
       "comingSoon": "Coming soon",
-      "retry": "Retry"
+      "retry": "Retry",
+      "apply": "Apply",
+      "refresh": "Refresh"
     },
     "labels": {
       "filterOptions": "Filter options",
@@ -263,7 +266,8 @@
       "activeConditions": "Active conditions",
       "removeCondition": "Remove condition: {label}",
       "clearInput": "Clear input",
-      "noResults": "No results found"
+      "noResults": "No results found",
+      "time": "Time"
     }
   },
   "landing": {
@@ -695,7 +699,8 @@
     "types": {
       "image": "IMAGE",
       "video": "VIDEO",
-      "audio": "AUDIO"
+      "audio": "AUDIO",
+      "assistant": "AI assistant"
     },
     "origins": {
       "generation": "Generation",
@@ -810,6 +815,13 @@
       "restoreSuccess": "Record restored.",
       "error": "Could not update record visibility.",
       "description": "This changes record visibility. Original files and Space references are preserved."
+    },
+    "assistant": {
+      "outputMode": "Output mode",
+      "outputModes": { "text": "Text", "list": "List" },
+      "general": "General",
+      "inputText": "Input text",
+      "result": "Result"
     }
   },
   "monitoringDashboard": {
@@ -852,7 +864,8 @@
       "type": {
         "image": "Image",
         "video": "Video",
-        "audio": "Audio"
+        "audio": "Audio",
+        "assistant": "AI assistant"
       },
       "statuses": {
         "all": "All statuses",
@@ -871,7 +884,9 @@
       "empty": "No stats for the selected range.",
       "aria": "Request trend chart",
       "totalLabel": "Requests",
-      "errorLabel": "Error rate"
+      "errorLabel": "Error rate",
+      "fetchError": "Statistics could not be loaded. Any visible values may be from an earlier query.",
+      "retry": "Retry"
     },
     "requests": {
       "title": "Recent jobs",
@@ -1356,9 +1371,9 @@
       "tags": {
         "generations": "AI generation",
         "models": "Model discovery",
-        "history": "Generation history",
+        "history": "Image, video, audio and AI assistant history, including completed media edits.",
         "promptPresets": "Prompt presets",
-        "monitoring": "Request metrics",
+        "monitoring": "Image, video, audio and AI assistant request metrics. Service and reprocessing queues are excluded.",
         "modelAdministration": "Model administration"
       },
       "paths": {
@@ -1400,7 +1415,7 @@
         "POST /api/external/prompt-presets/{key}/restore": "Restore a built-in preset's name and prompt.",
         "GET /api/external/monitoring/overview": "Get request counts, success rates and processing times.",
         "GET /api/external/monitoring/stats": "Get request and error statistics over time.",
-        "GET /api/external/monitoring/requests": "List API requests.",
+        "GET /api/external/monitoring/requests": "List generation requests.",
         "GET /api/external/monitoring/requests/detail": "Get a request's inputs and results.",
         "GET /api/external/monitoring/top": "Compare usage, errors and processing times by model or API key.",
         "GET /api/external/monitoring/api-keys": "List API keys for filtering request metrics.",
@@ -1413,6 +1428,7 @@
         "POST /api/external/admin/models/modal-comfyui": "Import a Modal workflow as a model draft."
       },
       "parameters": {
+        "jobType": "Job type: image, video, audio or assistant",
         "Idempotency-Key": "Retry key scoped to the API key. Use visible ASCII after trimming whitespace; invalid values are ignored",
         "X-Idempotency-Key": "Alternative header used when Idempotency-Key is absent",
         "type": "Media type",
@@ -1480,8 +1496,11 @@
         "uploadId": "Upload ID"
       },
       "notes": {
+        "GET /api/external/monitoring/requests/detail": "For type=assistant, requestId is the execution ID. prompt, inputText and completed outputText are limited to 20,000 characters each; media arrays are empty.",
+        "GET /api/external/monitoring/overview": "Covers image, video, audio and AI assistant requests. Service and reprocessing queues are excluded.",
+        "GET /api/external/monitoring/requests": "Includes the account's web and API generation requests.",
         "GET /api/external/generations/{requestId}": "Use the same account and API key that submitted the job.",
-        "GET /api/external/history": "Includes the account’s web jobs, jobs from other API keys and completed edits.",
+        "GET /api/external/history": "Includes the account's web and API image, video, audio and AI assistant jobs and completed media edits. Assistant prompt, inputText and outputText are limited to 4,000 characters each; hidden records exclude assistants.",
         "DELETE /api/external/history/{historyId}": "Active records cannot be deleted. If file cleanup fails, the record is preserved.",
         "GET /api/external/models/{modelId}/schema": "Send files as URLs, data URLs or multipart parts named file:parameterName.",
         "GET /api/external/admin/models": "Includes inactive models and LLMs.",
@@ -1498,9 +1517,12 @@
         "POST /api/external/assets/uploads": "1. Request an upload URL with this API.\n\n2. PUT raw file bytes to upload.upload.url. Use the Content-Type from upload.upload.headers.\n\n3. POST an empty object {} to the confirmation API and use the returned asset.id in a space input.",
         "PUT /api/external/assets/uploads/{uploadId}/content": "Keep target from the issued URL and send X-API-Key. Use the issued Content-Type and send raw file bytes in the body.",
         "POST /api/external/assets/uploads/{uploadId}/confirm": "Send an empty object {}. Use the returned asset.id as the space’s file input.",
-        "GET /api/external/history/{historyId}": "Returns prompts, input files and edit operations/settings. Edits have no generation prompt; source details absent from older records remain unknown. Playback duration uses precise asset metadata."
+        "GET /api/external/history/{historyId}": "Returns prompts, input files and edit settings. Edits have no generation prompt; missing source details remain unknown. Playback duration uses asset metadata.\n\nFor type=assistant, use origin=generation. prompt, inputText and completed outputText are limited to 20,000 characters each; media arrays are empty."
       },
       "noteTitles": {
+        "GET /api/external/monitoring/requests/detail": "Assistant results",
+        "GET /api/external/monitoring/overview": "Metrics scope",
+        "GET /api/external/monitoring/requests": "Included requests",
         "GET /api/external/generations/{requestId}": "Which API key to use",
         "GET /api/external/history": "Included records",
         "DELETE /api/external/history/{historyId}": "Deletion conditions",
@@ -1529,7 +1551,7 @@
           "type": "Model type to register"
         },
         "GET /api/external/history": {
-          "type": "Media type: image, video, audio or all. Case-insensitive; unrecognized values use all.",
+          "type": "Job type: image, video, audio, assistant or all. Case-insensitive; unrecognized values use all.",
           "sort": "Sort order: date_desc or date_asc. Case-insensitive; unrecognized values use date_desc.",
           "limit": "Items per page. Parsed as an integer and clamped to 1–100; unparseable values use 24.",
           "offset": "Items to skip. Parsed as an integer and clamped to 0–1000; unparseable values use 0.",
@@ -1540,7 +1562,7 @@
           "includeTotal": "Include counts. true/1/yes and false/0/no are case-insensitive; unrecognized values use true."
         },
         "GET /api/external/history/status": {
-          "type": "Media type: image, video, audio or all. Case-insensitive; unrecognized values use all.",
+          "type": "Job type: image, video, audio, assistant or all. Case-insensitive; unrecognized values use all.",
           "query": "Search term. Whitespace is trimmed and only the first 200 characters are used.",
           "model": "Model filter. Whitespace is trimmed and only the first 200 characters are used.",
           "prompt": "Prompt filter. Whitespace is trimmed and only the first 200 characters are used.",
@@ -2270,5 +2292,408 @@
     "modelOptionsError": "Could not load model options.",
     "retryModels": "Retry model options",
     "emptyTitle": "No assets"
+  },
+  "queueMonitoring": {
+    "title": "Monitoring",
+    "description": "Follow work through the service queue, execution and recovery.",
+    "tabs": {
+      "service": "Service queue",
+      "failed": "Recovery queue",
+      "history": "Job history",
+      "statistics": "Request statistics",
+      "current": "Current jobs"
+    },
+    "all": "All",
+    "refresh": "Refresh",
+    "loading": "Loading…",
+    "apply": "Apply",
+    "search": "Search jobs",
+    "searchHint": "Job name, job ID, execution ID or model",
+    "filters": {
+      "kind": "Job kind",
+      "status": "Job status",
+      "model": "Model",
+      "resource": "Execution resource",
+      "origin": "Request origin",
+      "worker": "Server ID",
+      "from": "From",
+      "to": "To"
+    },
+    "views": {
+      "current": "Current jobs",
+      "history": "History"
+    },
+    "periodHint": "Current jobs have no default age limit. History defaults to 24 hours, up to 31 days. Times use this device’s time zone.",
+    "globalScope": "Shared queue across all servers",
+    "runtimeShared": "Queue enabled",
+    "runtimePaused": "Queue paused",
+    "sampledAt": "Sampled",
+    "counts": {
+      "pending": "Waiting",
+      "active": "Running",
+      "unresolvedJobs": "Unresolved jobs",
+      "uncertainJobs": "Unconfirmed results"
+    },
+    "slots": "Parallel execution",
+    "slotsHint": "Running work and uncertain reservations are shown separately.",
+    "pools": {
+      "generation": "Image · video · audio generation",
+      "media-operation": "Media editing",
+      "assistant": "AI assistant",
+      "storage-cleanup": "Storage cleanup"
+    },
+    "poolCount": "{available} available · {uncertain} uncertain",
+    "configuredLimit": "Configured limit before first job",
+    "availableSlots": "{count} slots available",
+    "noOccupants": "No occupied slots",
+    "excess": "{count} reservations above the current limit",
+    "truncated": "Only part of the resource or reservation list is shown. Use the job list to continue.",
+    "kindsTitle": "Jobs by kind",
+    "kindCount": "{pending} waiting · {active} running",
+    "failedSummary": "{count} unresolved · {reconciliation} need result verification",
+    "openFailed": "Open recovery queue",
+    "processScope": "Worker on the responding server",
+    "processStarted": "Started",
+    "processStopped": "Not started",
+    "processStopping": "Stopping",
+    "heartbeat": "Last heartbeat",
+    "jobs": "Jobs",
+    "selectionPaused": "Automatic list refresh is paused while a job is selected.",
+    "clearSelection": "Clear selection",
+    "manualRefresh": "Refresh this page manually.",
+    "polling": "Current jobs and summary refresh every 4 seconds.",
+    "empty": "No matching jobs",
+    "emptyHint": "The queue is empty or no jobs match the selected filters.",
+    "noModel": "No model",
+    "page": "Page {page}",
+    "previous": "Previous page",
+    "next": "Next page",
+    "stale": "Refresh failed. Showing the last successful sample.",
+    "invalidUrl": "Some query conditions were invalid. Showing default filters.",
+    "errors": {
+      "title": "Unable to load",
+      "auth": "Sign in again with the configured administrator account.",
+      "input": "Check the query conditions. Date ranges and page sizes are limited.",
+      "rate": "Too many requests. Try again in {seconds} seconds.",
+      "conflict": "The state changed. Review the latest details before trying again.",
+      "unavailable": "Unable to reach the server. Please try again shortly."
+    },
+    "kinds": {
+      "generate_image": "Image generation",
+      "generate_video": "Video generation",
+      "generate_audio": "Audio generation",
+      "media_operation": "Media editing",
+      "assistant": "AI assistant",
+      "storage_cleanup": "Storage cleanup"
+    },
+    "origins": {
+      "classic": "Generation screen",
+      "space": "Space",
+      "external_api": "External API",
+      "storage_cleanup": "Storage cleanup",
+      "unknown": "Unknown origin"
+    },
+    "statuses": {
+      "suspended": "Suspended",
+      "ready": "Waiting",
+      "retry_wait": "Waiting for automatic retry",
+      "active": "Running",
+      "succeeded": "Completed",
+      "dead_letter": "Failed",
+      "reconciliation_required": "Verification needed",
+      "cancelled": "Cancelled",
+      "abandoned": "Abandoned",
+      "blocked": "Waiting for predecessor",
+      "uncertain": "Unconfirmed result",
+      "reserved": "Reservation retained",
+      "open": "Unresolved",
+      "redriven": "Recovery queued",
+      "resolved": "Resolved",
+      "failed": "Failed",
+      "retrying": "Retrying",
+      "protected": "Files protected",
+      "accepted": "Accepted",
+      "file_linked": "File protected",
+      "cleanup_released": "Cleanup reservation released",
+      "upload_grace": "Awaiting upload"
+    },
+    "reasons": {
+      "QUEUE_PAUSED": "Queue paused",
+      "RETRY_DELAY": "Automatic retry scheduled",
+      "SCHEDULED": "Waiting for scheduled time",
+      "GROUP_CLOSED": "Ordered group closed",
+      "GROUP_BLOCKED": "Waiting for predecessor",
+      "MODEL_UNAVAILABLE": "Model unavailable",
+      "RESOURCE_FULL": "Waiting for a free slot",
+      "CANCEL_REQUESTED": "Cancellation requested",
+      "CONDITIONS_PENDING": "Waiting for execution conditions"
+    },
+    "detailTitle": "Job details",
+    "detailHint": "Inspect the original admission, current execution, attempts and administrator actions.",
+    "detailTabsLabel": "Job detail views",
+    "detailTabs": {
+      "flow": "Flow",
+      "attempts": "Attempts",
+      "failures": "Failures",
+      "actions": "Admin actions",
+      "general": "General"
+    },
+    "jobId": "Job ID",
+    "sourceId": "Original source ID",
+    "executionId": "Current execution ID",
+    "failureId": "Failure entry ID",
+    "copy": "Copy",
+    "copied": "Copied",
+    "copyId": "Copy {label}",
+    "cycle": "Cycle {cycle}",
+    "sourceMissing": "The business source is missing. Showing retained queue records.",
+    "phase": "Current phase",
+    "unknown": "Unknown",
+    "unknownTime": "No admission timestamp can be established.",
+    "phases": {
+      "claimed": "Preparing execution",
+      "remote_started": "External execution started",
+      "settling": "Settling result",
+      "ended": "Attempt ended",
+      "saving_results": "Saving results",
+      "admitted": "Admitted"
+    },
+    "groupState": "Sequence {sequence} · current head {head}",
+    "admitted": "Original admission",
+    "redriveAdmitted": "This cycle admitted",
+    "attemptStarted": "Current attempt started",
+    "localFinished": "Local attempt ended",
+    "localFinishHint": "A local finish timestamp does not establish remote termination.",
+    "allCyclesHint": "Scroll down in each tab to review attempts and failures from every cycle.",
+    "attemptOrdinal": "Attempt {ordinal} · cycle {cycle}",
+    "imported": "Imported from the previous system. These timestamps do not prove remote execution times.",
+    "released": "Reservation released",
+    "reservationUnknown": "Unconfirmed result · reservation retained",
+    "reservationHeld": "Reservation retained",
+    "inspectFailure": "Review this failure",
+    "inspectCurrentFailure": "Return to current failure",
+    "noHistory": "No retained records.",
+    "actorOpaque": "Individual administrator identities are omitted; use the server audit trail for attribution.",
+    "actionsTitle": "Available admin actions",
+    "actions": {
+      "redrive": "Queue recovery",
+      "reconcile": "Verify remote result",
+      "abandon": "Abandon job",
+      "cancel_group": "Cancel ordered group"
+    },
+    "finalValidationNote": "These checks describe current conditions. The server validates again when executing an action.",
+    "checkedAt": "Checked",
+    "pendingOperation": "The response was not confirmed. Check again using the same request.",
+    "retrySameOperation": "Check the same request again",
+    "reasonLabel": "Action reason",
+    "reasonChoices": {
+      "CAUSE_FIXED": "The cause was fixed",
+      "RETRY_APPROVED": "Recovery was reviewed",
+      "REMOTE_CHECK_REQUIRED": "Verify the remote result",
+      "OPERATOR_ABANDON": "Administrator chose to abandon"
+    },
+    "impacts": {
+      "redrive": "Keep the original failure and admit another cycle. This may start paid generation. In collection mode, the existing remote result is collected.",
+      "reconcile": "Read the stored Modal execution only. No new paid generation is submitted. Reservations are released only after remote termination is verified.",
+      "abandon": "Record that this job is abandoned. This does not mark success, delete the job, establish remote termination, release reservations or advance ordered work."
+    },
+    "outcomes": {
+      "redrive_succeeded": "Recovery was queued. It remains unresolved until execution succeeds.",
+      "redrive_accepted": "The recovery request was accepted. Check the latest job state.",
+      "redrive_failed": "Recovery could not be queued.",
+      "redrive_rejected": "Current conditions do not allow recovery.",
+      "reconcile_succeeded": "Remote termination was verified and recorded. Review recovery if result collection is needed.",
+      "reconcile_accepted": "Verification was accepted. Reservations remain until termination is confirmed.",
+      "reconcile_failed": "The remote result could not be established. Uncertain reservations remain.",
+      "reconcile_rejected": "Current conditions do not allow remote verification.",
+      "abandon_succeeded": "Abandonment was recorded. Check retained reservations and ordered-work blockers.",
+      "abandon_accepted": "The request was accepted. Check the latest state.",
+      "abandon_failed": "Abandonment could not be recorded.",
+      "abandon_rejected": "Current conditions do not allow abandonment."
+    },
+    "sending": "Working…",
+    "confirmOperation": "Confirm action",
+    "close": "Close",
+    "reviewRequired": "The latest state was loaded. Close this dialog and review the available actions again.",
+    "collectMode": "The new cycle will collect an existing remote result instead of submitting new generation.",
+    "unknownReason": "Additional server conditions need to be checked.",
+    "failedHint": "Repeated failures are grouped into one job. Recovery admission is distinct from successful completion.",
+    "failureState": "Failure state",
+    "failureStates": {
+      "unresolved": "Unresolved",
+      "redriving": "Recovering",
+      "resolved": "Resolved history",
+      "abandoned": "Abandoned history",
+      "all": "All history"
+    },
+    "classification": "Failure classification",
+    "classifications": {
+      "terminal": "Confirmed failure",
+      "reconciliation": "Remote verification needed"
+    },
+    "errorCode": "Error code",
+    "failureCount": "{count} failure records",
+    "noFailures": "No matching failed jobs",
+    "failedEmptyHint": "Check the selected state and filters.",
+    "auditOutcomes": {
+      "accepted": "Accepted",
+      "succeeded": "Action completed",
+      "failed": "Action failed",
+      "rejected": "Rejected"
+    },
+    "operationReasons": {
+      "QUEUE_FINAL_VALIDATION_REQUIRED": "Final validation is required when submitting.",
+      "QUEUE_DLQ_NOT_OPEN": "This failure entry is no longer open.",
+      "QUEUE_JOB_NOT_FAILED": "The job is not currently failed.",
+      "QUEUE_PAUSED": "The queue is paused.",
+      "QUEUE_REMOTE_STOP_NOT_CONFIRMED": "Remote termination or reservation release is not confirmed.",
+      "QUEUE_JOB_CANCEL_REQUESTED": "Cancellation was requested.",
+      "QUEUE_GROUP_CLOSED": "The ordered group is closed.",
+      "QUEUE_REDRIVE_SOURCE_CHANGED": "The cleanup source state or revision changed.",
+      "QUEUE_REDRIVE_SOURCE_MISSING": "The source is missing or is no longer failed.",
+      "QUEUE_REDRIVE_OWNER_CHANGED": "The source owner scope changed.",
+      "QUEUE_REDRIVE_ASSET_PROTECTED": "The asset is in use or protected.",
+      "QUEUE_REDRIVE_INPUT_MISSING": "Required input assets or bindings are unavailable.",
+      "QUEUE_REDRIVE_TARGET_CHANGED": "The target node kind or configuration changed.",
+      "QUEUE_REDRIVE_NODE_ACTIVE": "Another execution is active on the node.",
+      "QUEUE_REDRIVE_MODEL_UNAVAILABLE": "The model is unavailable.",
+      "QUEUE_REDRIVE_CREDENTIAL_REVOKED": "The required credential or API key is unavailable.",
+      "QUEUE_REDRIVE_SNAPSHOT_INVALID": "The stored execution input cannot be validated.",
+      "QUEUE_REDRIVE_SNAPSHOT_MISSING": "Replayable execution input is missing.",
+      "QUEUE_REDRIVE_INPUT_LIMIT": "Inputs exceed the preview limit.",
+      "QUEUE_REDRIVE_OWNER_LIMIT": "The owner pending-work limit was reached.",
+      "QUEUE_REDRIVE_GLOBAL_LIMIT": "The global pending-work limit was reached.",
+      "QUEUE_REDRIVE_PROVIDER_LIMIT": "The model pending-work limit was reached.",
+      "QUEUE_RECONCILIATION_UNSUPPORTED": "Stored Modal image/video verification is not supported for this job.",
+      "QUEUE_RECONCILIATION_BUSY": "Remote verification is already in progress.",
+      "QUEUE_REMOTE_REFERENCE_MISSING": "No durable remote execution reference is available.",
+      "QUEUE_REMOTE_STILL_UNCONFIRMED": "Remote termination cannot yet be established.",
+      "QUEUE_VERSION_CONFLICT": "The failure entry state changed.",
+      "CAUSE_FIXED": "Cause fixed",
+      "RETRY_APPROVED": "Recovery reviewed",
+      "REMOTE_CHECK_REQUIRED": "Remote verification",
+      "OPERATOR_ABANDON": "Administrator abandonment",
+      "PROVIDER_UNAVAILABLE": "The external processing service is unavailable.",
+      "MEDIA_CLEANUP_FAILED": "The file could not be deleted from storage."
+    },
+    "timelineHint": "Compare actual attempt times and retained reservations. Bar length is elapsed time, not progress.",
+    "waitingInterval": "Established waiting interval",
+    "executionInterval": "Execution attempt",
+    "reservationInterval": "Retained reservation",
+    "recentMinutes": "Last {minutes} min",
+    "timelineLimit": "Defaults to 5 minutes, up to 24 hours, with 50 attempts per page.",
+    "rowsShown": "Showing {count} attempts",
+    "emptyTimeline": "No executions in this interval",
+    "timelineEmptyHint": "Choose another interval that overlaps execution or retained reservations.",
+    "timelineTable": "Execution attempt and reservation timeline",
+    "timelineRange": "Execution and reservations in range",
+    "equivalentTimes": "Exact times and execution information",
+    "ongoing": "Until now",
+    "clippedInterval": "Parts of this interval fall outside the selected range and are clipped in the chart.",
+    "reservationTimingHint": "Uncertain reflects the currently observed reservation state. Unrecorded state-transition and remote termination times are not inferred.",
+    "modelLimits": "Parallel limits by model",
+    "modelLimitsHint": "Generation requires both a shared slot and a model slot. Uncertain reservations also consume capacity.",
+    "modelLimitCount": "{reserved} reserved / {capacity} limit · {uncertain} uncertain",
+    "requestId": "Current request ID",
+    "sourceRequestId": "Original request ID",
+    "protectedCount": "{count} suspended",
+    "oldestWaiting": "Oldest waiting job",
+    "elapsedMinutes": "{minutes} min elapsed",
+    "waitingAgeHint": "Time since original admission, including blocked and delayed jobs.",
+    "redriveCount": "{count} recovery cycles",
+    "sinceFailure": "{minutes} min since failure",
+    "technicalDetails": "Technical details",
+    "queueDetails": "Protection, model limits and server details",
+    "poolUsage": "Running {active} · Uncertain {uncertain} · Available {available}",
+    "moreOccupants": "Show {count} more jobs",
+    "timeOfDay": "{label} time",
+    "invalidIdentifier": "The filter applies when a complete valid identifier is entered.",
+    "runningFor": "Running for {minutes} min",
+    "jobsPolling": "Current jobs refresh every 4 seconds.",
+    "navigation": "Monitoring navigation",
+    "toggleNavigation": "Monitoring menu",
+    "detailedInformation": "Detailed information",
+    "loadMoreHistory": "Load more history",
+    "historyEnd": "You have reached the end.",
+    "requestResult": "Request result",
+    "currentExecutionResult": "This is the current redrive execution. The original request ID is listed separately below.",
+    "resultMissing": "The linked request is missing or its detailed result is no longer retained.",
+    "resultError": "Could not load the request result. Check access and retention, or try again.",
+    "cleanup": {
+      "title": "Cleanup details",
+      "missing": "Cleanup record unavailable.",
+      "reason": "Reason",
+      "file": "File name",
+      "fileUnavailable": "No file name",
+      "assetId": "Asset ID",
+      "provider": "File storage",
+      "objectId": "Storage object ID",
+      "objectRedacted": "Hidden",
+      "mediaType": "Media type",
+      "mime": "File format",
+      "size": "File size",
+      "bytes": "{bytes} bytes",
+      "attempts": "Deletion attempts",
+      "graceUntil": "Upload grace ends",
+      "retryAt": "Next eligible execution",
+      "usageTitle": "Usage",
+      "states": {
+        "linked": "File protected",
+        "uploading": "Awaiting upload",
+        "pending": "Awaiting deletion",
+        "processing": "Deleting",
+        "completed": "Deleted",
+        "failed": "Deletion failed"
+      },
+      "reasons": {
+        "upload_session": "Upload started",
+        "upload_failed": "Upload failed",
+        "generation_input": "Generation input",
+        "generation_output": "Generation output",
+        "media_operation_output": "Editing output",
+        "asset_delete": "Asset deleted",
+        "history_delete": "History deleted",
+        "submission_failed": "Request failed",
+        "expired_upload": "Upload expired",
+        "unknown": "Unknown"
+      },
+      "usage": {
+        "graphs": "Spaces",
+        "operations": "Media operations",
+        "generations": "Generation requests",
+        "assistants": "Assistants",
+        "projectCovers": "Project covers"
+      },
+      "mediaTypes": {
+        "image": "Image",
+        "video": "Video",
+        "audio": "Audio"
+      },
+      "status": "Status"
+    },
+    "resourcesTitle": "Execution resources",
+    "autoRefreshOn": "Auto-refresh on",
+    "autoRefreshOff": "Auto-refresh off",
+    "remoteFinishUnknown": "End unconfirmed",
+    "currentAttemptElapsed": "Current attempt",
+    "cycleWaiting": "Before cycle start",
+    "resultPreview": "Result summary",
+    "resultPreviewHint": "View full request information in the General tab.",
+    "outputsCount": "{count} outputs",
+    "columns": {
+      "job": "Job",
+      "model": "Model / handler",
+      "admitted": "Cycle admitted",
+      "started": "Attempt started",
+      "beforeStart": "Before start",
+      "duration": "Execution time",
+      "attempts": "Attempts",
+      "failures": "Failures"
+    },
+    "cycleFirstStarted": "First cycle attempt",
+    "resultWaiting": "Running · awaiting results",
+    "failureAt": "Failed at",
+    "failureElapsed": "Since failure",
+    "redrives": "Recoveries"
   }
 }

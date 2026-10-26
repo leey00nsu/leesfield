@@ -20,7 +20,7 @@
 .movementDialog { width: min(800px, calc(100vw - 32px)); height: min(620px, calc(100dvh - 32px)); }
 .movementBody { min-height: 0; overflow: hidden; }
 .preview { position: relative; width: 370px; max-width: 100%; margin: 0 auto 12px; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 9px; background: var(--background); }
-.preview > img { width: 100%; height: 100%; object-fit: contain; }
+.preview > [data-preview-state] { width: 100%; height: 100%; object-fit: contain; }
 .previewStatus { position: absolute; inset: auto 0 0; padding: 8px 10px; background: color-mix(in srgb, var(--popover) 92%, transparent); color: var(--foreground); font-size: 11px; line-height: 1.5; text-align: center; }
 .wheels { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
 .wheels[aria-disabled="true"] { opacity: .45; }

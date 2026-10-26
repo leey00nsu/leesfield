@@ -1,5 +1,5 @@
 import type { ImageVariants } from "@/shared/media-assets/image-variants";
-export type GenerationHistoryType = "image" | "video" | "audio" | "all";
+export type GenerationHistoryType = "image" | "video" | "audio" | "assistant" | "all";
 export type GenerationHistorySort = "date_desc" | "date_asc";
 export type GenerationHistoryStatus =
   | "pending"
@@ -10,10 +10,13 @@ export type GenerationHistoryStatus =
   | "cancelled";
 
 export interface GenerationHistoryItem {
+  assistantSettings?: { outputMode: "text" | "list" | null };
   hidden?: boolean;
+  outputText?: string | null;
+  inputText?: string | null;
   imageVariants?: ImageVariants | null;
   id: string;
-  type: "image" | "video" | "audio";
+  type: "image" | "video" | "audio" | "assistant";
   origin?: "generation" | "edit";
   assetId?: string | null;
   graphId?: string | null;

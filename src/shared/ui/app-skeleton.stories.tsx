@@ -1,4 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { AppPreviewImage } from "@/shared/ui/app-preview-image";
+import { AppMediaPreviewLoading } from "@/shared/ui/app-media-preview-loading";
 import { AppSkeleton } from "@/shared/ui/app-skeleton";
 
 type AppSkeletonPreviewProps = {
@@ -43,3 +45,9 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Playground: Story = {};
+
+export const MediaPreviewStates: Story = { render: () => <div className="grid max-w-3xl grid-cols-3 gap-4">
+  <div><p>Loading</p><div className="relative aspect-square w-48 overflow-hidden rounded-xl"><AppMediaPreviewLoading /></div></div>
+  <div><p>Ready</p><AppPreviewImage src="/assets/cinema/previews/full.webp" alt="Preview example" className="aspect-square w-48 rounded-xl object-cover" /></div>
+  <div><p>Failed / retry</p><AppPreviewImage src="/missing-preview-example.png" alt="Unavailable example" retry className="aspect-square w-48 rounded-xl object-cover" /></div>
+</div> };

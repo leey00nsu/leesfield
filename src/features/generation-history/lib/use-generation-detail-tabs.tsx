@@ -1,4 +1,6 @@
 "use client";
+
+import { AppPreviewImage } from "@/shared/ui/app-preview-image";
 import { AppAudioPlayer, type AppAudioPlayerProps } from "@/shared/ui/app-audio-player";
 import { AppVideoPlayer } from "@/shared/ui/app-video-player";
 import { PromptPresetInputText } from "@/entities/prompt-preset/ui/generation-prompt-preset-chip";
@@ -80,17 +82,17 @@ export function useGenerationDetailTabs(record: GenerationHistoryItem | null, ou
   const tCinema = useTranslations("cinema");
   const tPresets = useTranslations("promptPresets");
   const tNodeKinds = useTranslations("nodeStudio.nodeKinds");
-  const cinemaHistory = useCinemaHistory(item.id, item.type, Boolean(record) && item.origin !== "edit");
+  const cinemaHistory = useCinemaHistory(item.id, item.type==="assistant"?"image":item.type, Boolean(record) && item.type!=="assistant" && item.origin !== "edit");
   const copy = useClipboardCopy();
   const tStatuses = useTranslations("history.statuses");
   const tTypes = useTranslations("history.types");
   const detailQuery = useGenerationHistoryDetail(
-    item.type,
+    item.type==="assistant"?"image":item.type,
     item.id,
-    Boolean(record),
+    Boolean(record)&&item.type!=="assistant",
     item.origin ?? "generation",
   );
-  const detail = detailQuery.data ?? null;
+  const detail = item.type === "assistant" ? null : detailQuery.data ?? null;
   const hydrated = hydrateHistoryItem(item, detail);
   const hydratedItem = output ? { ...hydrated, assetId: output.id, resultUrl: output.url, thumbnailUrl: output.url, imageVariants: output.imageVariants } : hydrated;
   const previewUrl = hydratedItem.resultUrl ?? hydratedItem.thumbnailUrl;
@@ -149,17 +151,19 @@ export function useGenerationDetailTabs(record: GenerationHistoryItem | null, ou
       value: tHistory(`origins.${hydratedItem.origin ?? "generation"}`),
     },
     { label: tHistory("detail.status"), value: tStatuses(hydratedItem.status) },
+    ...(item.type === "assistant" ? [{ label: tHistory("assistant.outputMode"), value: item.assistantSettings?.outputMode
+      ? tHistory("assistant.outputModes." + item.assistantSettings.outputMode) : "—" }] : []),
   ];
   const metadataRows = [
-    { label: tHistory("detail.playbackDuration"), value: output?.durationMs != null ? `${output.durationMs / 1000} s` : detail?.assets[0]?.durationSec != null ? `${detail.assets[0].durationSec} s` : "-" },
+    ...(item.type !== "assistant" ? [{ label: tHistory("detail.playbackDuration"), value: output?.durationMs != null ? `${output.durationMs / 1000} s` : detail?.assets[0]?.durationSec != null ? `${detail.assets[0].durationSec} s` : "-" }] : []),
     { label: tHistory("detail.requestId"), value: hydratedItem.id },
     { label: tHistory("detail.requestedAt"), value: formattedRequestedAt },
     { label: tHistory("detail.finishedAt"), value: finishedAtLabel },
     { label: tHistory("detail.duration"), value: formattedDuration },
-    {
+    ...(item.type !== "assistant" ? [{
       label: tHistory("detail.assetId"),
       value: formatFallback(hydratedItem.assetId),
-    },
+    }] : []),
     {
       label: tHistory("detail.graphId"),
       value: formatFallback(hydratedItem.graphId),
@@ -219,8 +223,7 @@ export function useGenerationDetailTabs(record: GenerationHistoryItem | null, ou
             src={url}
           />
         ) : (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <AppPreviewImage
             src={url}
             alt={label}
             loading="lazy"
@@ -255,7 +258,12 @@ export function useGenerationDetailTabs(record: GenerationHistoryItem | null, ou
 
   const appliedPreset = cinemaHistory.data?.promptPreset;
   const presetName = appliedPreset ? promptPresetDisplayName(appliedPreset, tPresets) : "";
-  const promptTab = item.origin === "edit" ? <AppPromptMessage>{tHistory("detail.promptNotUsed")}</AppPromptMessage> : (
+  const promptTab = item.type === "assistant" ? <div className="grid gap-5">
+    {[{label:tHistory("detail.fullPrompt"),text:item.prompt},{label:tHistory("assistant.inputText"),text:item.inputText}].map(({label,text})=><AppDetailSection key={label} className="space-y-3 p-4">
+      <div className="flex items-center justify-between gap-2"><h3 className="text-sm font-medium">{label}</h3><AppButton type="button" size="icon-sm" variant="ghost" aria-label={tActions("copy")+" · "+label} disabled={!text} onClick={()=>text&&void copy(text)}><Copy className="size-4"/></AppButton></div>
+      <AppExpandableText textValue={text??""} collapsedLines={4} showMoreLabel={tHistory("detail.showMore")} showLessLabel={tHistory("detail.showLess")} bodyClassName="whitespace-pre-wrap break-words text-sm leading-6">{text||"—"}</AppExpandableText>
+    </AppDetailSection>)}
+  </div> : item.origin === "edit" ? <AppPromptMessage>{tHistory("detail.promptNotUsed")}</AppPromptMessage> : (
     <div className="grid gap-5">
 
       {cinemaHistory.error && <AppPromptMessage>{tCinema("restoreFailed")}</AppPromptMessage>}
@@ -300,8 +308,8 @@ export function useGenerationDetailTabs(record: GenerationHistoryItem | null, ou
   const settingsTab = (
     <AppDetailSection className="p-4">
       {renderRows(settingsRows)}
-      {cinemaHistory.data?.cinema && <CinemaHistoryDetails snapshot={cinemaHistory.data.cinema} />}
-      <HistoryRequestSettings parameters={detail?.requestParameters} loading={detailQuery.isLoading} error={detailQuery.isError} />
+      {item.type !== "assistant" && cinemaHistory.data?.cinema && <CinemaHistoryDetails snapshot={cinemaHistory.data.cinema} />}
+      {item.type !== "assistant" && <HistoryRequestSettings parameters={detail?.requestParameters} loading={detailQuery.isLoading} error={detailQuery.isError} />}
     </AppDetailSection>
   );
 
@@ -314,7 +322,7 @@ export function useGenerationDetailTabs(record: GenerationHistoryItem | null, ou
   const sourceRows = [
     { label: tHistory("detail.origin"), value: output?.origin === "upload" ? tHistory("origins.upload") : tHistory(`origins.${item.origin ?? (output?.origin === "media_operation" ? "edit" : "generation")}`) },
     { label: tHistory(record ? "detail.requestedAt" : "detail.recordedAt"), value: formatDateTime(record ? hydratedItem.createdAt : output?.createdAt) },
-    ...(record ? [{ label: tHistory("detail.sourceRecord"), value: item.operation?.id ?? item.id }, { label: tHistory("detail.graphId"), value: formatFallback(item.graphId) }, { label: tHistory("detail.sourceAssets"), value: item.sourceAssetIds?.join(", ") || "-" }] : []),
+    ...(record ? [{ label: tHistory("detail.sourceRecord"), value: item.operation?.id ?? item.id }, { label: tHistory("detail.graphId"), value: formatFallback(item.graphId) }, ...(item.type==="assistant"?[{label:tHistory("detail.graphNodeId"),value:formatFallback(item.graphNodeId)}]:[]), { label: tHistory("detail.sourceAssets"), value: item.sourceAssetIds?.join(", ") || "-" }] : []),
   ];
   const provenance = <AppDetailSection className="p-4">{renderRows(sourceRows)}</AppDetailSection>;
   const renderPromptSources = (sources: PromptSource[]): import("react").ReactNode => <ul className="grid gap-2">
@@ -325,7 +333,7 @@ export function useGenerationDetailTabs(record: GenerationHistoryItem | null, ou
       {source.sources?.length ? <div className="mt-2 border-l border-white/10 pl-3">{renderPromptSources(source.sources)}</div> : null}
     </li>)}
   </ul>;
-  const historyTab = (
+  const historyTab = item.type === "assistant" ? <div className="grid gap-3">{provenance}</div> : (
     <div className="grid gap-3">
       {provenance}
       {detail?.promptProvenance?.sources.length ? <AppDetailSection className="p-4">
