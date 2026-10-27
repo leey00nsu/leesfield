@@ -14,7 +14,7 @@
     "security:production": "pnpm audit --prod --audit-level high",
     "pretypecheck": "pnpm db:generate",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --maxWorkers=4",
+    "test": "vitest run",
     "test:production-integration": "node scripts/production/test-production-integration.mjs",
     "verify": "node scripts/verification/run.mjs",
     "verify:plan": "node scripts/verification/run.mjs --plan",
@@ -37,7 +37,13 @@
     "gen:admin-password-hash": "node scripts/generate-admin-password-hash.mjs",
     "license:check": "node scripts/security/verify-licenses.mjs",
     "vulnerability:check": "pnpm security:production",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test:storage-contract:isolated": "node scripts/spaces/run-e2e.mjs --storage-contract",
+    "verify:quick": "node scripts/verification/quick.mjs",
+    "verify:release": "node scripts/verification/run.mjs --release",
+    "test:browser": "vitest run --config vitest.browser.config.ts",
+    "e2e:spaces:production": "node scripts/spaces/run-production-smoke.mjs",
+    "e2e:spaces:core": "node scripts/spaces/run-e2e.mjs --core"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^8.4.0",
@@ -103,6 +109,7 @@
     "@types/pg": "^8.16.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/browser-playwright": "4.0.16",
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.3.8",

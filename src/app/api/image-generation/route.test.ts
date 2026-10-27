@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { imageGenerationDefaults } from "@/features/image-generation/model/image-generation-schema";
 import { POST } from "@/app/api/image-generation/route";
 

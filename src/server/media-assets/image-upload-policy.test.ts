@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import type { FileResponse } from "leemage-sdk";
 import { imageUrlsFor } from "@/shared/media-assets/image-variants";

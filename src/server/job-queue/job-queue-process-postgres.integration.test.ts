@@ -62,12 +62,19 @@ describe.skipIf(!postgresIntegrationEnabled)("queue OS-process crash and shutdow
       const first = start();
       await expect.poll(async () => { first.assertRunning(); return (await trace()).filter(e => e.event === "start").length; }, { timeout: 15_000 }).toBe(4);
       expect(await prisma.queueReservation.count({ where: { resourceKey: "generation", releasedAt: null } })).toBe(4);
-      const independent = await register("assistant");
       await bootstrap(); // A redeploy can start while another server holds live leases.
       const second = start();
+      await expect.poll(async () => {
+        second.assertRunning();
+        return (await trace()).some(e => e.pid === second.child.pid && e.event === "ready");
+      }, { timeout: 15_000 }).toBe(true);
+      // Both live runners may claim assistant work. Kill the first before
+      // enqueueing so the second PID is a deterministic ownership assertion.
+      first.child.kill("SIGKILL"); await first.closed;
+      expect(await prisma.queueReservation.count({ where: { resourceKey: "generation", releasedAt: null } })).toBe(4);
+      const independent = await register("assistant");
       await expect.poll(async () => (await prisma.queueJob.findUniqueOrThrow({ where: { id: independent.id } })).status, { timeout: 15_000 }).toBe("succeeded");
       expect((await trace()).find(e => e.jobId === independent.id && e.event === "start")?.pid).toBe(second.child.pid);
-      first.child.kill("SIGKILL"); await first.closed;
       await prisma.queueAttempt.updateMany({ where: { job: { ownerScopeDigest: digest, kind: "generate_image" }, finishedAt: null },
         data: { leaseUntil: new Date(Date.now() - 1) } });
       await expect.poll(async () => (await prisma.queueJob.findUniqueOrThrow({ where: { id: head.id } })).status, { timeout: 5000 }).toBe("reconciliation_required");

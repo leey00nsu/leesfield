@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from "vitest";
 import { getSpaceCapabilities, getSpaceModelInput } from "./spaces-discovery";
 import { mappedModel } from "./test-fixtures";

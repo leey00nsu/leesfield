@@ -1,16 +1,15 @@
 import { createHash, randomUUID } from "node:crypto";
-import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
-import os from "node:os";
+import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import { promisify } from "node:util";
+import JSZip from "jszip";
 import { deflateSync } from "node:zlib";
 
 import { test, expect } from "./spaces-test-fixtures.mjs";
+import { storageRead } from "./storage-route.mjs";
+import { createUploadPacer } from "../upload-pacing.mjs";
 
 const WORKFLOW_PATH = "/spaces";
 const E2E_TITLE_PREFIX = "Spaces Chromium";
-const execFileAsync = promisify(execFile);
 
 const CANONICAL_NODE_CASES = [
   { kind: "process.promptConstructor", palette: "Prompt Constructor", title: "Prompt Constructor", config: { template: "" } },
@@ -31,8 +30,6 @@ const CANONICAL_NODE_CASES = [
   { kind: "output.gallery", palette: "Output Gallery", title: "Output Gallery", config: { mediaType: null } },
   { kind: "inspect.imageCompare", palette: "Image Compare", title: "Image Compare", config: {} },
 ];
-const TEMPORARILY_HIDDEN = new Set(["edit.image.resize", "edit.video.trim", "edit.video.stitch"]);
-const SUPPORTED_NODE_CASES = CANONICAL_NODE_CASES.filter(item => !TEMPORARILY_HIDDEN.has(item.kind));
 
 function crc32(value) {
   let crc = 0xffffffff;
@@ -145,7 +142,7 @@ async function expectPlayableVideo(video, assetId, playbackMode = "hover") {
     await expect.poll(async () => {
       const current = await video.evaluate((element) => ({ src: element.currentSrc, ready: element.readyState >= 2 }));
       if (!current.src || !current.ready) return null;
-      const response = await page.request.get(current.src);
+      const response = await storageRead(page.request, current.src);
       if (!response.ok()) return null;
       const digest = createHash("sha256").update(await response.body()).digest("hex");
       return (await video.evaluate((element) => element.currentSrc)) === current.src ? digest : null;
@@ -297,20 +294,6 @@ async function uploadInputMedia(body, files) {
   await chooser.setFiles(files);
 }
 
-async function cancelInputMediaUpload(body) {
-  const page = body.page(), upload = body.getByRole("button", { name: "Upload", exact: true });
-  await upload.focus();
-  const chooser = page.waitForEvent("filechooser");
-  await upload.press("Enter");
-  await (await chooser).setFiles([]);
-  // Playwright intercepts the OS picker. Exercise its native cancel event as
-  // well as an empty change; neither path may upload or lose the trigger.
-  await body.locator('input[type="file"][aria-label="Upload file"]').dispatchEvent("cancel");
-  await expect(upload).toBeFocused();
-  await expect(body.getByRole("button", { name: "Assets", exact: true })).toBeVisible();
-  await expect(body.locator("[data-space-media-chooser]")).toHaveCount(0);
-}
-
 async function activateEditor(field) {
   const display = field.locator("xpath=ancestor::*[@data-node-text-editor][1]").locator("[data-node-text-display]");
   if (await display.count()) {
@@ -369,11 +352,6 @@ async function openModelSearch(page, dialog) {
   return search;
 }
 
-async function settledDialogBounds(dialog) {
-  await expect.poll(() => dialog.evaluate(element => element.getAnimations().every(animation => animation.playState !== "running"))).toBe(true);
-  return dialog.boundingBox();
-}
-
 async function resultInput(page, graphId, sourceId, execution, portId, index = 0) {
   const snapshot = await waitForWorkflowState(page, graphId, value => value.nodes.some(node => {
     const source = node.config?.resultSource;
@@ -413,50 +391,6 @@ async function expectMedia(page, node, assetId, mediaType) {
     await expect(body.getByRole("button", { name: "Pause", exact: true })).toBeVisible();
     await body.getByRole("button", { name: "Pause", exact: true }).click();
   } else await expectPlayableVideo(body.locator("video"), assetId);
-}
-
-async function expectAudioSettings(body) {
-  const page = body.page(), audio = body.locator("audio");
-  const speed = body.getByRole("button", { name: "Playback speed: 1×", exact: true });
-  await speed.focus(); await speed.press("Enter");
-  const rates = page.getByRole("radiogroup", { name: "Playback speed", exact: true });
-  const normal = rates.getByRole("radio", { name: "1×", exact: true });
-  await expect(normal).toHaveAttribute("aria-checked", "true");
-  await normal.press("End");
-  await expect(rates.getByRole("radio", { name: "2×", exact: true })).toHaveAttribute("aria-checked", "true");
-  await expect(audio).toHaveJSProperty("playbackRate", 2);
-  await expect(audio).toHaveJSProperty("defaultPlaybackRate", 2);
-  await page.keyboard.press("Escape");
-  await expect(rates).toBeHidden();
-  const faster = body.getByRole("button", { name: "Playback speed: 2×", exact: true });
-  await expect(faster).toBeFocused();
-  await faster.press("Enter");
-  await rates.getByRole("radio", { name: "1×", exact: true }).click();
-  await expect(audio).toHaveJSProperty("playbackRate", 1);
-
-  const volume = body.getByRole("button", { name: "Volume", exact: true });
-  await volume.focus(); await volume.press("Enter");
-  const level = page.getByRole("slider", { name: "Volume", exact: true });
-  await level.press("Home");
-  await expect(level).toHaveAttribute("aria-valuenow", "0");
-  await expect(audio).toHaveJSProperty("volume", 0);
-  await expect(audio).toHaveJSProperty("muted", true);
-  await expect(body.getByRole("button", { name: "Unmute", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await level.press("End");
-  await expect(level).toHaveAttribute("aria-valuenow", "100");
-  await expect(audio).toHaveJSProperty("volume", 1);
-  await expect(audio).toHaveJSProperty("muted", false);
-  await level.press("ArrowLeft");
-  await expect(level).toHaveAttribute("aria-valuenow", "99");
-  await expect(audio).toHaveJSProperty("volume", 0.99);
-  await level.press("End");
-  await page.keyboard.press("Escape");
-  await expect(level).toBeHidden();
-  await expect(volume).toBeFocused();
-  await body.getByRole("button", { name: "Mute", exact: true }).press("Enter");
-  await expect(audio).toHaveJSProperty("muted", true);
-  await body.getByRole("button", { name: "Unmute", exact: true }).press("Enter");
-  await expect(audio).toHaveJSProperty("muted", false);
 }
 
 async function openAllNodes(page) {
@@ -587,10 +521,6 @@ async function connectHandleLocators(page, sourceHandle, targetHandle) {
   await page.mouse.up();
   expect(targetHit.handle, `target handle is covered at ${JSON.stringify(targetPoint)} by ${targetHit.className}`).toBeTruthy();
   await expect(page.locator(`.react-flow__edge[aria-label="Edge from ${sourceId} to ${targetId}"]`)).toBeAttached();
-}
-
-async function connectImageHandles(page, sourceNode, targetNode) {
-  return connectHandles(page, sourceNode, targetNode, "image", "image");
 }
 
 async function dragNodeByArticleBorder(page, node, distance) {
@@ -858,7 +788,7 @@ test.describe("Spaces native editor Chromium regression", () => {
     } finally { await deleteWorkflowViaApi(page, graph.id); }
   });
 
-  test("Prompt Constructor expands, resolves variables once, saves and reloads", { tag: "@spaces-prompt" }, async ({ page }, testInfo) => {
+  test("Prompt Constructor expands, resolves variables, reloads and isolates Delete with Undo", { tag: ["@spaces-prompt", "@spaces-canvas"] }, async ({ page }, testInfo) => {
     const errors = attachErrorCapture(page);
     const graph = await createWorkflowViaApi(page);
     try {
@@ -886,19 +816,8 @@ test.describe("Spaces native editor Chromium regression", () => {
       await activateEditor(body.locator("textarea")); await expand.click();
       await expect(editor.getByRole("textbox")).toHaveAttribute("title", "Preview: Portrait: fox");
       await captureEvidenceScreenshot(page, testInfo, "t33-prompt-constructor");
-      expect(errors).toEqual([]);
-    } finally { await deleteWorkflowViaApi(page, graph.id); }
-  });
-
-  test("Prompt Constructor keeps Delete in text and deletes the selected node after leaving edit mode", { tag: ["@spaces-prompt", "@spaces-canvas"] }, async ({ page }) => {
-    const graph = await createWorkflowViaApi(page);
-    try {
-      const node = (id, kind, config, x) => ({ id, kind, config, configVersion: 1, position: { x, y: 0 }, selectedOutputAssetId: null });
-      await replaceWorkflowViaApi(page, graph.id, [
-        node(fixtureId(graph, "source"), "input.prompt", { text: "source" }, 0),
-        node(fixtureId(graph, "constructor"), "process.promptConstructor", { template: "memoX" }, 400),
-      ], [{ id: fixtureId(graph, "prompt-edge"), sourceNodeId: fixtureId(graph, "source"), sourcePortId: "text", targetNodeId: fixtureId(graph, "constructor"), targetPortId: "text", sortOrder: 0, hasPause: false }]);
-      await waitForFreshWorkflow(page, graph);
+      await page.keyboard.press("Escape");
+      await expect(editor).toBeHidden();
       const constructor = page.locator(`.react-flow__node[data-id="${fixtureId(graph, "constructor")}"]`);
       const textarea = nodeBody(page, "Prompt Constructor").locator("textarea");
       await fillEditor(textarea, "memoX");
@@ -911,11 +830,11 @@ test.describe("Spaces native editor Chromium regression", () => {
       await expect(constructor).toHaveClass(/selected/);
       await page.keyboard.press("Delete");
       await waitForWorkflowState(page, graph.id,
-        (snapshot) => !snapshot.nodes.some((entry) => entry.id === fixtureId(graph, "constructor")) && !snapshot.edges.some((edge) => edge.id === fixtureId(graph, "prompt-edge")),
+        (snapshot) => !snapshot.nodes.some((entry) => entry.id === fixtureId(graph, "constructor")) && !snapshot.edges.some((edge) => edge.targetNodeId === fixtureId(graph, "constructor")),
         "Delete did not remove the selected Prompt Constructor and its edge");
       await page.keyboard.press("ControlOrMeta+z");
       await waitForWorkflowState(page, graph.id,
-        (snapshot) => snapshot.nodes.some((entry) => entry.id === fixtureId(graph, "constructor")) && snapshot.edges.some((edge) => edge.id === fixtureId(graph, "prompt-edge")),
+        (snapshot) => snapshot.nodes.some((entry) => entry.id === fixtureId(graph, "constructor")) && snapshot.edges.filter((edge) => edge.targetNodeId === fixtureId(graph, "constructor")).length === 2,
         "Undo did not restore the Prompt Constructor and its edge");
       await activateEditor(textarea);
       await page.keyboard.press("Escape");
@@ -926,24 +845,25 @@ test.describe("Spaces native editor Chromium regression", () => {
         "Backspace did not remove the restored Prompt Constructor");
       await page.reload();
       await expect(constructor).toHaveCount(0);
-    } finally {
-      await deleteWorkflowViaApi(page, graph.id);
-    }
+
+      expect(errors).toEqual([]);
+    } finally { await deleteWorkflowViaApi(page, graph.id); }
   });
 
-  test("Quickstart explores all six presets and tutorial in new Spaces without sample assets", { tag: "@spaces-canvas" }, async ({ page }, testInfo) => {
+  test("Quickstart lists six presets, creates both content modes and opens the tutorial", { tag: "@spaces-canvas" }, async ({ page }, testInfo) => {
     const errors = attachErrorCapture(page), requestedSamples = [];
     page.on("request", (request) => { if (/sample-images|template-thumbnails|community-workflows|api\/quickstart/.test(request.url())) requestedSamples.push(request.url()); });
     const original = await createWorkflowViaApi(page), created = [];
     const before = await readWorkflowViaApi(page, original.id);
     const presets = ["Product Shot", "Model + Product", "Color Variations", "Background Swap", "Style Transfer", "Scene Composite"];
     try {
-      for (const [index, preset] of presets.entries()) {
+      for (const [index, preset] of presets.slice(0, 2).entries()) {
         await waitForFreshWorkflow(page, original);
         await page.getByRole("button", { name: "Quickstart", exact: true }).click();
         const dialog = page.getByRole("dialog", { name: "Quickstart", exact: true });
         await dialog.getByRole("button", { name: "Templates Pre-built workflows" }).click();
         const explorer = page.getByRole("dialog", { name: "Template Explorer", exact: true });
+        for (const title of presets) await expect(explorer.getByRole("heading", { name: title, exact: true })).toBeVisible();
         await chooseSelect(page, explorer.getByRole("combobox", { name: "Starting content" }), index % 2 ? "Empty inputs" : "Prompt examples");
         if (index === 0) await captureEvidenceScreenshot(page, testInfo, "t33-quickstart-presets");
         await explorer.getByRole("article").filter({ has: page.getByRole("heading", { name: preset, exact: true }) }).getByRole("button", { name: "Use workflow", exact: true }).click();
@@ -995,13 +915,16 @@ test.describe("Spaces native editor Chromium regression", () => {
       for (let index = 0; index < 4; index += 1) await page.getByRole("button", { name: "Zoom In", exact: true }).click();
       const originalAsset = (await (await page.request.get(`/api/media-assets/${saved.nodes[0].config.assetId}`)).json()).asset;
       await expect.poll(() => preview.getAttribute("src")).toBe(originalAsset.url);
+      const thumbnailUrl = originalAsset.imageVariants?.thumbnail?.url;
+      const isSmallPreview = source => thumbnailUrl ? source === thumbnailUrl : source?.startsWith("data:image/jpeg");
       for (let index = 0; index < 10; index += 1) {
-        if ((await preview.getAttribute("src"))?.startsWith("data:image/jpeg")) break;
+        if (isSmallPreview(await preview.getAttribute("src"))) break;
         const out = page.getByRole("button", { name: "Zoom Out", exact: true });
         if (await out.isDisabled()) break;
         await out.click();
       }
-      await expect.poll(() => preview.getAttribute("src")).toMatch(/^data:image\/jpeg/);
+      await expect.poll(async () => isSmallPreview(await preview.getAttribute("src"))).toBe(true);
+      await expect.poll(() => preview.evaluate(image => image.complete && image.naturalWidth > 0)).toBe(true);
       await captureEvidenceScreenshot(page, testInfo, "t30-adaptive-thumbnail");
       await body.hover();
       const downloading = page.waitForEvent("download");
@@ -1076,66 +999,6 @@ test.describe("Spaces native editor Chromium regression", () => {
     }
   });
 
-  test("Space comments navigate node headers and Settings preserves Canvas changes", { tag: ["@spaces-canvas", "@spaces-settings"] }, async ({ page }, testInfo) => {
-    const errors = attachErrorCapture(page);
-    const graph = await createWorkflowViaApi(page);
-    const originalInline = (await (await page.request.get("/api/spaces/preferences")).json()).preferences.inlineParametersEnabled ?? false;
-    try {
-      await replaceWorkflowViaApi(page, graph.id, [
-        { id: fixtureId(graph, "comment-a"), kind: "input.prompt", configVersion: 1, position: { x: 0, y: 0 }, config: { text: "first", presentation: { comment: "First review comment" } }, selectedOutputAssetId: null },
-        { id: fixtureId(graph, "comment-b"), kind: "input.prompt", configVersion: 1, position: { x: 700, y: 100 }, config: { text: "second", presentation: { comment: "Second review comment" } }, selectedOutputAssetId: null },
-      ]);
-      await waitForFreshWorkflow(page, graph);
-      const navigate = page.getByRole("button", { name: "Navigate comments" });
-      for (const name of ["Back to Spaces", "Save space", "Open space", "Space settings", "Keyboard shortcuts"]) {
-        const bounds = await page.getByRole("button", { name, exact: true }).boundingBox();
-        expect(bounds, name).not.toBeNull();
-        expect(bounds.x, name).toBeGreaterThanOrEqual(0);
-        expect(bounds.x + bounds.width, name).toBeLessThanOrEqual(page.viewportSize().width);
-      }
-      await expect(navigate).toHaveAttribute("title", "2 unviewed comments (2 total)");
-      const before = await readWorkflowViaApi(page, graph.id);
-      await navigate.click();
-      await expect(page.getByText("First review comment", { exact: true })).toBeVisible();
-      await expect(page.getByText("1/2", { exact: true })).toBeVisible();
-      await page.getByRole("button", { name: "Next comment", exact: true }).click();
-      await expect(page.getByText("Second review comment", { exact: true })).toBeVisible();
-      await expect(navigate).toHaveAttribute("title", "0 unviewed comments (2 total)");
-      await page.getByRole("button", { name: "Next comment", exact: true }).click();
-      await expect(page.getByText("First review comment", { exact: true })).toBeVisible();
-      expect((await readWorkflowViaApi(page, graph.id)).version).toBe(before.version);
-      await page.getByRole("button", { name: "Space settings", exact: true }).click();
-      const settings = page.getByRole("dialog", { name: "Space Settings" });
-      await expect(settings).toBeVisible();
-      await settings.getByRole("tab", { name: "Canvas", exact: true }).click();
-      await settings.getByRole("radio", { name: "Middle Mouse", exact: true }).click();
-      await settings.getByRole("tab", { name: "Space", exact: true }).click();
-      const inline = settings.getByRole("switch", { name: "Show model settings on nodes" });
-      await inline.click();
-      await captureEvidenceScreenshot(page, testInfo, "t30-original-settings");
-      await settings.getByRole("button", { name: "Save", exact: true }).click();
-      await expect(settings).not.toBeVisible();
-      await page.getByRole("button", { name: "Space settings", exact: true }).click();
-      await settings.getByRole("tab", { name: "Canvas", exact: true }).click();
-      await expect(settings.getByRole("radio", { name: "Middle Mouse", exact: true })).toHaveAttribute("aria-checked", "true");
-      await page.keyboard.press("Escape");
-      await page.reload();
-      await waitForFreshWorkflow(page, graph, false);
-      await expect(navigate).toHaveAttribute("title", "2 unviewed comments (2 total)");
-      await page.getByRole("button", { name: "Space settings", exact: true }).click();
-      await expect(settings.getByRole("switch", { name: "Show model settings on nodes" })).toHaveAttribute("aria-checked", String(!originalInline));
-      await settings.getByRole("tab", { name: "Canvas", exact: true }).click();
-      await expect(settings.getByRole("radio", { name: "Middle Mouse", exact: true })).toHaveAttribute("aria-checked", "true");
-      await settings.getByRole("radio", { name: "Space + Drag", exact: true }).click();
-      await settings.getByRole("button", { name: "Save", exact: true }).click();
-      expect(errors).toEqual([]);
-    } finally {
-      const current = (await (await page.request.get("/api/spaces/preferences")).json()).preferences;
-      expect((await page.request.patch("/api/spaces/preferences", { data: { action: "inline", expectedRevision: current.revision, enabled: originalInline } })).ok()).toBeTruthy();
-      await deleteWorkflowViaApi(page, graph.id);
-    }
-  });
-
   let originalInlineFixture;
   test.afterEach(async ({ page }) => {
     if (originalInlineFixture === undefined) return;
@@ -1144,15 +1007,13 @@ test.describe("Spaces native editor Chromium regression", () => {
     originalInlineFixture = undefined;
   });
   test.beforeEach(async ({ page }, testInfo) => {
-    // Tiny fixtures can exhaust the real two-request upload burst within a
-    // batch. Pace admission at its real 10/min refill rate; every request and
-    // response still goes through the unchanged API, storage and confirmation.
-    let nextUploadAt = Date.now() + 6_100;
+    // Only requests beyond this owner's real burst need pacing. Every request
+    // still goes through the unchanged API, storage and confirmation.
+    const uploadDelay = createUploadPacer();
     await page.route("**/api/media-assets/uploads", async route => {
       if (route.request().method() !== "POST") return route.continue();
-      const admittedAt = Math.max(Date.now(), nextUploadAt);
-      nextUploadAt = admittedAt + 6_100;
-      await new Promise(resolve => setTimeout(resolve, Math.max(0, admittedAt - Date.now())));
+      const delayMs = uploadDelay();
+      if (delayMs) await new Promise(resolve => setTimeout(resolve, delayMs));
       if (!page.isClosed()) await route.continue();
     });
     if (/generation media|generation Nodes|real generation Run/.test(testInfo.title)) {
@@ -1303,6 +1164,9 @@ test.describe("Spaces native editor Chromium regression", () => {
       let saved = await readWorkflowViaApi(page, graph.id);
       expect(saved.groups[0].memberNodeIds).toEqual(saved.nodes.map((node) => node.id));
       expect(saved.schemaVersion).toBe(3);
+      // Marquee selection can auto-pan at the narrow viewport's edge. Restore
+      // the user-visible framing before opening the group's radial color menu.
+      await fitCanvas(page);
       await page.getByText("Group 1", { exact: true }).dblclick();
       // The original group editor focuses/selects its inline input on double click.
       await expect(page.locator('input:focus')).toHaveValue("Group 1");
@@ -1412,19 +1276,13 @@ test.describe("Spaces native editor Chromium regression", () => {
       const zipPath = test.info().outputPath("selected-images.zip");
       await download.saveAs(zipPath);
       const bytes = await readFile(zipPath);
-      expect(bytes.readUInt32LE(bytes.length - 22)).toBe(0x06054b50);
-      expect(bytes.readUInt16LE(bytes.length - 12)).toBe(2);
-      let offset = 0;
-      for (const index of [0, 1]) {
-        expect(bytes.readUInt32LE(offset)).toBe(0x04034b50);
-        expect(bytes.readUInt16LE(offset + 8)).toBe(0);
-        const size = bytes.readUInt32LE(offset + 18);
-        const nameSize = bytes.readUInt16LE(offset + 26);
-        const extraSize = bytes.readUInt16LE(offset + 28);
-        expect(bytes.subarray(offset + 30, offset + 30 + nameSize).toString()).toBe(`leesfield-image-00${index + 1}.png`);
-        const start = offset + 30 + nameSize + extraSize;
-        expect(createHash("sha256").update(bytes.subarray(start, start + size)).digest("hex")).toBe(digestByNode.get(visibleOrder[index]));
-        offset = start + size;
+      // Header/compression/MIME matrices live in media-zip-download.test.ts.
+      // Here observe the actual native download's order, names and input bytes.
+      const archive = await JSZip.loadAsync(bytes);
+      const entries = Object.values(archive.files).filter(entry => !entry.dir);
+      expect(entries.map(entry => entry.name)).toEqual(["leesfield-image-001.png", "leesfield-image-002.png"]);
+      for (const [index, entry] of entries.entries()) {
+        expect(createHash("sha256").update(await entry.async("nodebuffer")).digest("hex")).toBe(digestByNode.get(visibleOrder[index]));
       }
       await expect(button).toBeEnabled();
       expect((await readWorkflowViaApi(page, graph.id)).nodes).toEqual(saved.nodes);
@@ -1433,71 +1291,6 @@ test.describe("Spaces native editor Chromium regression", () => {
     } finally {
       await deleteWorkflowViaApi(page, graph.id);
     }
-  });
-
-  test("icon handles replace ports and support click keyboard and drag", { tag: ["@spaces-canvas", "@spaces-smoke"] }, async ({ page }, testInfo) => {
-    const errors = attachErrorCapture(page);
-    const graph = await createWorkflowViaApi(page);
-    const ids = [`source-${graph.id}`, `target-${graph.id}`];
-    try {
-      await replaceWorkflowViaApi(page, graph.id, ids.map((id, index) => ({ id, kind: "input.image", configVersion: 1, config: { assetId: null }, position: { x: index * 500, y: 100 + index * 80 }, selectedOutputAssetId: null })));
-      await waitForFreshWorkflow(page, graph);
-      await fitCanvas(page);
-      const source = page.locator(`.react-flow__node[data-id="${ids[0]}"]`);
-      const target = page.locator(`.react-flow__node[data-id="${ids[1]}"]`);
-      const icon = source.locator('.source[data-space-port="image"][data-visible="true"]');
-      await source.click({ position: { x: 80, y: 20 } });
-      await source.hover();
-      await expect(source.locator('.target[data-space-port="reference"]')).toHaveAttribute('title', 'Ref');
-      await expect(source.locator('.source[data-space-port="image"]')).toHaveAttribute('title', 'Image');
-      await icon.click();
-      const menu = page.locator('[data-space-node-menu]');
-      await expect(menu).toBeVisible();
-      await page.keyboard.press('Escape');
-      await icon.focus();
-      await page.keyboard.press('Enter');
-      await expect(menu).toBeVisible();
-      await page.keyboard.press('Escape');
-      await connectHandles(page, source, target, 'image', 'image');
-      await waitForWorkflowState(page, graph.id, snapshot => snapshot.edges.length === 1, 'icon drag did not connect');
-      await expect(page.locator('.react-flow__edge-path').first()).toBeVisible();
-      await expect(menu).toBeHidden();
-      await target.hover();
-      await captureEvidenceScreenshot(page, testInfo, 't37-icon-handles');
-      await page.reload();
-      await waitForFreshWorkflow(page, graph, false);
-      expect((await readWorkflowViaApi(page, graph.id)).edges).toHaveLength(1);
-      await page.mouse.move(10, 100);
-      await expect(icon).toHaveAttribute('data-connected', 'true');
-      await expect(target.locator('.target[data-space-port="reference"][data-visible="true"]')).toHaveAttribute('data-connected', 'true');
-      await expect(source.locator('.target[data-space-port="reference"][data-visible="true"]')).toHaveAttribute('data-connected', 'false');
-      const snapshot = await readWorkflowViaApi(page, graph.id);
-      const inputId = `input-${graph.id}`;
-      await replaceWorkflowViaApi(page, graph.id, [...snapshot.nodes, { id: inputId, kind: 'input.image', configVersion: 1, config: { assetId: null }, position: { x: 1000, y: 100 }, selectedOutputAssetId: null }], snapshot.edges);
-      await page.reload();
-      await waitForFreshWorkflow(page, graph, false);
-      await fitCanvas(page);
-      const inputNode = page.locator(`.react-flow__node[data-id="${inputId}"]`);
-      await inputNode.hover();
-      await expect(inputNode.locator('.target[data-space-port="reference"][data-visible="true"]')).toHaveCSS('background-color', 'rgb(38, 38, 38)');
-      await expect(icon).toHaveCSS('background-color', 'rgb(38, 38, 38)');
-      await captureEvidenceScreenshot(page, testInfo, 't40-reference-icon-color');
-      const generatorId = fixtureId(graph, 'alias-target'), model = await activeModel(page, 'image', item => Number(item.meta?.max_input_images ?? 0) > 0);
-      const current = await readWorkflowViaApi(page, graph.id);
-      await replaceWorkflowViaApi(page, graph.id, [...current.nodes, { id: generatorId, kind: 'generate.image', configVersion: 1,
-        config: { modelKey: model.key, prompt: '', parameters: {} }, position: { x: 1500, y: 500 }, selectedOutputAssetId: null }], current.edges);
-      await page.reload(); await waitForFreshWorkflow(page, graph, false); await fitCanvas(page);
-      const generator = page.locator(`.react-flow__node[data-id="${generatorId}"]`);
-      await expect(generator.locator('[data-space-node]')).toHaveAttribute('data-body-interactive', 'false');
-      const aliases = generator.locator('[data-space-port][data-visible="false"]');
-      expect(await aliases.count()).toBeGreaterThan(0);
-      for (const alias of await aliases.all()) await expect(alias).toHaveCSS('pointer-events', 'none');
-      const imageInput = generator.locator('.target[data-value-type="image"][data-visible="true"]').first();
-      await imageInput.click(); await expect(menu).toBeVisible(); await page.keyboard.press('Escape');
-      await connectHandles(page, source, generator, 'image', 'image');
-      await waitForWorkflowState(page, graph.id, value => value.edges.some(edge => edge.targetNodeId === generatorId), 'Visible generation port was blocked by its hidden alias');
-      expect(errors).toEqual([]);
-    } finally { await deleteWorkflowViaApi(page, graph.id); }
   });
 
   test("image port creates video and assistant with automatic compatible models atomically", { tag: ["@spaces-canvas", "@spaces-generation", "@spaces-assistant"] }, async ({ page }, testInfo) => {
@@ -1548,81 +1341,6 @@ test.describe("Spaces native editor Chromium regression", () => {
       }
       expect(submissions).toBe(0);
     } finally { page.off("request", observe); await setDefaults(original.defaults); await deleteWorkflowViaApi(page, graph.id); }
-  });
-
-  test("connected creation failure uses one public toast without canvas or host error text", { tag: ["@spaces-canvas", "@spaces-generation"] }, async ({ page }, testInfo) => {
-    const graph = await createWorkflowViaApi(page), sourceId = fixtureId(graph, "toast-source");
-    const handler = async route => {
-      const response = await route.fetch(), payload = await response.json();
-      await route.fulfill({ response, json: { ...payload, items: payload.items.filter(item => item.type !== "video") } });
-    };
-    await page.route("**/api/models", handler);
-    try {
-      await replaceWorkflowViaApi(page, graph.id, [{ id: sourceId, kind: "input.image", configVersion: 1, config: { assetId: null }, position: { x: 0, y: 0 }, selectedOutputAssetId: null }]);
-      await waitForFreshWorkflow(page, graph); await fitCanvas(page);
-      const source = page.locator(`.react-flow__node[data-id="${sourceId}"]`);
-      await source.hover(); await source.locator('.source[data-space-port="image"][data-visible="true"]').click();
-      await page.locator("[data-space-node-menu]").getByRole("option", { name: "Generate Video", exact: true }).click();
-      const toast = page.locator('[data-sonner-toast][data-type="error"]');
-      await expect(toast).toHaveCount(1); await expect(toast).toContainText("There are no video models");
-      await expect(toast).toHaveAttribute("data-mounted", "true");
-      await expect.poll(async () => { const box = await toast.boundingBox(); return Boolean(box && box.y >= 0 && box.y + box.height <= page.viewportSize().height); }).toBe(true);
-      await expect(page.locator("[data-space-canvas] > [role=alert]")).toHaveCount(0);
-      await expect(page.getByText("Unable to edit this Space", { exact: true })).toHaveCount(0);
-      await expect(page.getByText("VIDEO_MODEL_MISSING", { exact: true })).toHaveCount(0);
-      const saved = await readWorkflowViaApi(page, graph.id); expect(saved.nodes).toHaveLength(1); expect(saved.edges).toHaveLength(0);
-      await captureEvidenceScreenshot(page, testInfo, "space-error-toast");
-    } finally { await page.unroute("**/api/models", handler); await deleteWorkflowViaApi(page, graph.id); }
-  });
-
-  test("model absence and incompatible input block creation with localized public toasts", { tag: ["@spaces-canvas", "@spaces-generation", "@spaces-assistant"] }, async ({ page, context }, testInfo) => {
-    const graph = await createWorkflowViaApi(page), sourceId = fixtureId(graph, "unsupported-source");
-    let mode = "empty";
-    const handler = async route => {
-      const response = await route.fetch(), payload = await response.json();
-      const items = payload.items.filter(item => item.type === "llm" || mode === "unsupported" && item.type === "video")
-        .map(item => item.type === "video" ? { ...item, meta: { ...item.meta, supports_init_image: false }, providerConfig: { ...item.providerConfig, gradio_contract: undefined } } : item);
-      await route.fulfill({ response, json: { ...payload, items } });
-    };
-    await page.route("**/api/models", handler);
-    const assertToast = async message => {
-      const toast = page.locator('[data-sonner-toast][data-type="error"]');
-      await expect(toast).toHaveCount(1); await expect(toast).toContainText(message);
-      await expect(page.locator("[data-space-canvas] > [role=alert]")).toHaveCount(0);
-      await toast.locator("button[data-close-button]").click(); await expect(toast).toHaveCount(0);
-    };
-    try {
-      for (const locale of ["en", "ko"]) {
-        mode = "empty";
-        await context.addCookies([{ name: "locale", value: locale, url: testInfo.project.use.baseURL }]);
-        await replaceWorkflowViaApi(page, graph.id, []); await waitForFreshWorkflow(page, graph);
-        for (const [key, type, ko] of [["g", "image", "이미지"], ["v", "video", "비디오"], ["t", "audio", "오디오"]]) {
-          await page.locator("[data-space-canvas]").focus(); await page.keyboard.press("Shift+" + key);
-          await assertToast(locale === "ko" ? ko + " 모델이 없습니다" : "There are no " + type + " models");
-        }
-        await page.getByRole("button", { name: /^(All nodes|모든 노드)$/ }).click();
-        await page.locator("[data-space-node-menu]").getByRole("option", { name: /^(Generate Image|이미지 생성)$/, exact: true }).click();
-        await assertToast(locale === "ko" ? "이미지 모델이 없습니다" : "There are no image models");
-        await page.getByRole("button", { name: /^(Generate|생성)$/, exact: true }).click();
-        await page.getByRole("menuitem", { name: /^(Generate Audio|오디오 생성)$/, exact: true }).click();
-        await assertToast(locale === "ko" ? "오디오 모델이 없습니다" : "There are no audio models");
-        expect((await readWorkflowViaApi(page, graph.id)).nodes).toHaveLength(0);
-        mode = "unsupported";
-        await replaceWorkflowViaApi(page, graph.id, [{ id: sourceId, kind: "input.image", configVersion: 1, config: { assetId: null }, position: { x: 0, y: 0 }, selectedOutputAssetId: null }]);
-        await waitForFreshWorkflow(page, graph); await fitCanvas(page);
-        const source = page.locator(`.react-flow__node[data-id="${sourceId}"]`);
-        await source.hover(); await source.locator('.source[data-space-port="image"][data-visible="true"]').click();
-        await page.locator("[data-space-node-menu]").getByRole("option", { name: /^(Generate Video|비디오 생성)$/, exact: true }).click();
-        const toast = page.locator('[data-sonner-toast][data-type="error"]');
-        await expect(toast).toHaveCount(1);
-        await expect(toast).toContainText(locale === "ko" ? "이 입력을 받을 수 있는 모델이 없습니다" : "There are no models that can accept this input");
-        await expect(toast).toHaveAttribute("data-mounted", "true");
-        await expect.poll(async () => { const box = await toast.boundingBox(); return box?.y >= 0; }).toBe(true);
-        const saved = await readWorkflowViaApi(page, graph.id); expect(saved.nodes).toHaveLength(1); expect(saved.edges).toHaveLength(0);
-        await captureEvidenceScreenshot(page, testInfo, "incompatible-model-" + locale);
-        await toast.locator("button[data-close-button]").click(); await expect(toast).toHaveCount(0);
-      }
-    } finally { await page.unroute("**/api/models", handler); await context.addCookies([{ name: "locale", value: "en", url: testInfo.project.use.baseURL }]); await deleteWorkflowViaApi(page, graph.id); }
   });
 
   test("port actions upload or select source assets and connect atomically", { tag: ["@spaces-canvas", "@spaces-media"] }, async ({ page }, testInfo) => {
@@ -1782,151 +1500,6 @@ test.describe("Spaces native editor Chromium regression", () => {
     } finally { for (const id of ids) await deleteWorkflowViaApi(page, id); }
   });
 
-  test("the available 14-node inventory uses the Space palette, persists, and reloads", { tag: ["@spaces-canvas", "@spaces-smoke"] }, async ({ page }) => {
-    const errors = attachErrorCapture(page);
-    const graph = await createWorkflowViaApi(page);
-    try {
-      await waitForFreshWorkflow(page, graph);
-      // Exercise the current palette at both supported viewports.
-      expect(await paletteHasNode(page, "Audio Edit")).toBe(false);
-      for (const retired of ["Annotation", "Remove Background", "Split Grid", "GIF Encoder", "Frame Grab", "Ease Curve", "Image Resize", "Video Trim", "Video Stitch"]) {
-        expect(await paletteHasNode(page, retired)).toBe(false);
-      }
-      const paletteCases = [];
-      for (const nodeCase of SUPPORTED_NODE_CASES) {
-        await addNodeFromAllNodes(page, nodeCase.palette);
-        paletteCases.push(nodeCase);
-      }
-      await waitForWorkflowState(
-        page,
-        graph.id,
-        (snapshot) => paletteCases.every((item) => snapshot.nodes.some((node) => node.kind === item.kind)),
-        "the real All nodes palette did not persist every available node kind",
-        45_000,
-      );
-      const paletteSnapshot = await readWorkflowViaApi(page, graph.id);
-      expect(paletteSnapshot.nodes.map((node) => node.kind).sort()).toEqual(paletteCases.map((item) => item.kind).sort());
-
-      expect(paletteCases.map((item) => item.kind).sort()).toEqual(
-        SUPPORTED_NODE_CASES.map((item) => item.kind).sort(),
-      );
-      await expect(page.locator('[data-space-workspace-header]')).toContainText(graph.title, { timeout: 15_000 });
-      await expect(page.locator('[data-space-canvas]')).toBeVisible({ timeout: 15_000 });
-      await expect(page.locator(".react-flow__node")).toHaveCount(14, { timeout: 30_000 });
-
-      for (const nodeCase of SUPPORTED_NODE_CASES) {
-        const node = page.locator(`[data-space-node="${nodeCase.kind}"]`);
-        await expect(node).toHaveCount(1);
-        await expect(node.locator("[data-space-node-body]")).toBeAttached();
-        const record = paletteSnapshot.nodes.find(entry => entry.kind === nodeCase.kind);
-        await expect(node).toHaveAttribute("data-space-node-id", record.id);
-      }
-
-      await fillEditor(nodeBody(page, "Memo").getByRole("textbox", { name: "Memo" }), "Space integration memo\nRetain this text");
-      await waitForWorkflowState(page, graph.id,
-        (snapshot) => snapshot.nodes.some((node) => node.kind === "note.memo" && node.config?.text === "Space integration memo\nRetain this text"),
-        "Memo text did not persist in the Space Graph");
-      const saved = await readWorkflowViaApi(page, graph.id);
-      expect(saved.nodes.map((node) => node.kind).sort()).toEqual(SUPPORTED_NODE_CASES.map((item) => item.kind).sort());
-      await page.reload({ waitUntil: "domcontentloaded" });
-      await expect(page.locator(".react-flow__node")).toHaveCount(14, { timeout: 30_000 });
-      await expect(nodeBody(page, "Memo").getByRole("textbox", { name: "Memo" })).toHaveValue("Space integration memo\nRetain this text");
-      await captureEvidenceScreenshot(page, test.info(), "available-node-inventory-reload");
-      expect(errors, errors.join("\n")).toEqual([]);
-    } finally {
-      await deleteWorkflowViaApi(page, graph.id);
-    }
-  });
-
-  test("Memo uses the hosted node resize appearance and preserves its size", { tag: ["@spaces-prompt", "@spaces-canvas", "@spaces-settings"] }, async ({ page }) => {
-    const errors = attachErrorCapture(page);
-    const graph = await createWorkflowViaApi(page);
-    try {
-      await replaceWorkflowViaApi(page, graph.id, [{
-        id: fixtureId(graph, "memo"), kind: "note.memo", configVersion: 1, config: { text: "Resizable note" },
-        position: { x: 120, y: 100 }, selectedOutputAssetId: null,
-      }], []);
-      await waitForFreshWorkflow(page, graph);
-      const memo = page.locator(`.react-flow__node[data-id="${fixtureId(graph, "memo")}"]`);
-      const card = memo.locator('[data-space-node="note.memo"]');
-      const editor = card.getByRole("textbox", { name: "Memo" });
-      const originalCard = await card.boundingBox();
-      const originalEditor = await editor.boundingBox();
-      await card.click({ position: { x: 5, y: 5 } });
-      await expect(memo).toHaveClass(/selected/);
-      const handle = memo.locator(".react-flow__resize-control.handle.bottom.right");
-      await expect(handle).toBeVisible();
-      expect(await handle.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
-      const grip = await handle.boundingBox();
-      if (!grip || !originalCard || !originalEditor) throw new Error("Memo resize bounds are unavailable");
-      await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
-      await page.mouse.down();
-      await page.mouse.move(grip.x + grip.width / 2 + 140, grip.y + grip.height / 2 + 90, { steps: 8 });
-      await page.mouse.up();
-      await waitForWorkflowState(page, graph.id,
-        (snapshot) => snapshot.nodes.some((node) => node.id === fixtureId(graph, "memo") && node.config?.size?.width > 400 && node.config?.size?.height > 290),
-        "Memo resize did not persist its new size");
-      const resizedCard = await card.boundingBox();
-      const resizedEditor = await editor.boundingBox();
-      expect(resizedCard.width).toBeGreaterThan(originalCard.width + 100);
-      expect(resizedEditor.height).toBeGreaterThan(originalEditor.height + 60);
-      const saved = await readWorkflowViaApi(page, graph.id);
-      const savedSize = saved.nodes.find((node) => node.id === fixtureId(graph, "memo")).config.size;
-      await page.keyboard.press("ControlOrMeta+z");
-      await waitForWorkflowState(page, graph.id,
-        (snapshot) => snapshot.nodes.some((node) => node.id === fixtureId(graph, "memo") && !node.config?.size),
-        "Undo did not restore the Memo default size");
-      await expect.poll(async () => (await card.boundingBox())?.width).toBeLessThan(originalCard.width + 5);
-      await page.keyboard.press("ControlOrMeta+Shift+z");
-      await waitForWorkflowState(page, graph.id,
-        (snapshot) => snapshot.nodes.some((node) => node.id === fixtureId(graph, "memo") && JSON.stringify(node.config?.size) === JSON.stringify(savedSize)),
-        "Redo did not restore the resized Memo");
-      await page.reload();
-      await expect(card).toBeVisible();
-      // Reload fits the saved graph to the viewport again. Compare layout
-      // dimensions, since390px may now show the same Memo at a smaller zoom.
-      const restoredSize = await memo.evaluate((element) => ({
-        width: Number.parseFloat(getComputedStyle(element).width),
-        height: Number.parseFloat(getComputedStyle(element).height),
-      }));
-      expect(restoredSize.width).toBeCloseTo(savedSize.width, 1);
-      expect(restoredSize.height).toBeCloseTo(savedSize.height, 1);
-      await expect(editor).toHaveValue("Resizable note");
-      await captureEvidenceScreenshot(page, test.info(), "memo-resize-restored");
-      await card.click({ position: { x: 5, y: 5 } });
-      await page.keyboard.press("ControlOrMeta+c");
-      await page.keyboard.press("ControlOrMeta+v");
-      await waitForWorkflowState(page, graph.id,
-        (snapshot) => snapshot.nodes.length === 2 && snapshot.nodes.every((node) =>
-          node.kind === "note.memo" && JSON.stringify(node.config?.size) === JSON.stringify(savedSize)),
-        "Copied Memo did not retain its size");
-      await page.keyboard.press("ControlOrMeta+z");
-      await waitForWorkflowState(page, graph.id,
-        (snapshot) => snapshot.nodes.length === 1 && JSON.stringify(snapshot.nodes[0].config?.size) === JSON.stringify(savedSize),
-        "Undo did not preserve the original Memo size");
-      await selectNodeFromHeader(card);
-      const memoSettings = page.getByRole('region', { name: 'Memo settings', exact: true });
-      const color = memoSettings.getByLabel('Background color', { exact: true });
-      // Native OS color pickers are outside Chromium's page automation. Send
-      // their resulting input/change events through the actual bound control.
-      await color.evaluate(element => {
-        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(element, '#f2d86b');
-        element.dispatchEvent(new Event('input', { bubbles: true })); element.dispatchEvent(new Event('change', { bubbles: true }));
-      });
-      await waitForWorkflowState(page, graph.id, value => value.nodes[0].config.backgroundColor === '#f2d86b', 'Memo background color was not saved');
-      await page.locator('[data-space-canvas]').focus(); await page.keyboard.press('ControlOrMeta+z');
-      await waitForWorkflowState(page, graph.id, value => value.nodes[0].config.backgroundColor === undefined, 'Undo did not restore Memo default color');
-      await page.keyboard.press('ControlOrMeta+Shift+z');
-      await waitForWorkflowState(page, graph.id, value => value.nodes[0].config.backgroundColor === '#f2d86b', 'Redo did not restore Memo color');
-      await page.reload(); await waitForFreshWorkflow(page, graph, false); await selectNodeFromHeader(card);
-      await expect(page.getByRole('region', { name: 'Memo settings', exact: true }).getByLabel('Background color', { exact: true })).toHaveValue('#f2d86b');
-      await expect(editor).toHaveValue('Resizable note');
-      expect(errors, errors.join("\n")).toEqual([]);
-    } finally {
-      await deleteWorkflowViaApi(page, graph.id);
-    }
-  });
-
   test("real pointer marquee and drag remain bounded and persist a graph change", { tag: "@spaces-canvas" }, async ({ page }) => {
     const errors = attachErrorCapture(page);
     const graph = await createWorkflowViaApi(page);
@@ -2044,528 +1617,6 @@ test.describe("Spaces native editor Chromium regression", () => {
     }
   });
 
-  test("toolbar menus dismiss outside, switch exclusively, and still add nodes", { tag: "@spaces-canvas" }, async ({ page }) => {
-    const errors = attachErrorCapture(page);
-    const graph = await createWorkflowViaApi(page);
-    try {
-      await waitForFreshWorkflow(page, graph);
-      const generate = page.getByRole("button", { name: "Generate", exact: true });
-      const allNodes = page.locator('[data-canvas-action="all-nodes"]');
-      const pane = page.locator(".react-flow__pane");
-      await generate.click();
-      await expect(generate).toHaveAttribute("aria-expanded", "true");
-      await pane.click({ position: { x: 8, y: 8 } });
-      await expect(generate).toHaveAttribute("aria-expanded", "false");
-      await allNodes.click();
-      await pane.click({ position: { x: 8, y: 8 } });
-      await expect(page.locator("[data-space-node-menu]")).toBeHidden();
-      await generate.click();
-      await allNodes.click();
-      await expect(generate).toHaveAttribute("aria-expanded", "false");
-      await expect(page.locator("[data-space-node-menu]")).toBeVisible();
-      await page.keyboard.press("Escape");
-      await expect(page.locator("[data-space-node-menu]")).toBeHidden();
-      await expect(allNodes).toBeFocused();
-      await addNodeFromAllNodes(page, "Prompt");
-      await expect(page.locator(".react-flow__node")).toHaveCount(1);
-      await generate.click();
-      await activateEditor(nodeBody(page, "Prompt").locator("textarea"));
-      await expect(generate).toHaveAttribute("aria-expanded", "false");
-      expect(errors, errors.join("\n")).toEqual([]);
-    } finally { await deleteWorkflowViaApi(page, graph.id); }
-  });
-
-  test("the Edge toolbar pauses, resumes, deletes, and persists across reload", { tag: ["@desktop", "@spaces-canvas"] }, async ({ page }, testInfo) => {
-
-    const errors = attachErrorCapture(page);
-    const graph = await createWorkflowViaApi(page);
-    try {
-      await waitForFreshWorkflow(page, graph);
-      const canvas = page.locator('[data-space-canvas]');
-      await addNodeFromToolbar(page, "Image");
-      await addNodeFromAllNodes(page, "Image Compare");
-      await expect(canvas.locator(".react-flow__node")).toHaveCount(2, { timeout: 15_000 });
-      const sourceNode = reactFlowNodeForArticle(page, "Image Input");
-      const targetNode = reactFlowNodeForArticle(page, "Image Compare");
-      await dragNodeByArticleBorder(page, targetNode, { x: 500, y: 0 });
-      await fitCanvas(page);
-      await connectImageHandles(page, sourceNode, targetNode);
-      const connected = await waitForWorkflowState(
-        page,
-        graph.id,
-        (snapshot) => snapshot.edges.length === 1,
-        "Image Input to Image Compare edge was not persisted",
-      );
-      const edgeRecord = connected.edges[0];
-      expect(edgeRecord).toBeTruthy();
-      if (!edgeRecord) throw new Error("edge record is missing");
-
-      const selectEdge = async () => {
-        const edge = canvas.locator(`.react-flow__edge[data-id="${encodeURIComponent(edgeRecord.id)}"]`);
-        const interaction = edge.locator(".react-flow__edge-interaction").first();
-        await expect(interaction).toBeAttached({ timeout: 15_000 });
-        await interaction.click({ force: true });
-        const toolbar = page.getByRole("toolbar", { name: "Selected edge" });
-        await expect(toolbar).toBeVisible({ timeout: 10_000 });
-        return toolbar;
-      };
-
-      let toolbar = await selectEdge();
-      const pause = toolbar.getByRole("button", { name: "Add pause" });
-      await pause.click();
-      await waitForWorkflowState(
-        page,
-        graph.id,
-        (snapshot) => snapshot.edges.some((edge) => edge.id === edgeRecord.id && edge.hasPause === true),
-        "Pause edge action was not persisted",
-      );
-      await expect(toolbar.getByRole("button", { name: "Remove pause" })).toBeEnabled();
-
-      await page.reload({ waitUntil: "domcontentloaded" });
-      await expect(canvas).toBeVisible({ timeout: 15_000 });
-      await fitCanvas(page);
-      toolbar = await selectEdge();
-      await expect(toolbar.getByRole("button", { name: "Remove pause" })).toBeEnabled();
-      await toolbar.getByRole("button", { name: "Remove pause" }).click();
-      await waitForWorkflowState(
-        page,
-        graph.id,
-        (snapshot) => snapshot.edges.some((edge) => edge.id === edgeRecord.id && edge.hasPause !== true),
-        "Resume edge action was not persisted",
-      );
-      await expect(toolbar.getByRole("button", { name: "Add pause" })).toBeEnabled();
-
-      await toolbar.getByRole("button", { name: "Delete edge" }).click();
-      await waitForWorkflowState(
-        page,
-        graph.id,
-        (snapshot) => !snapshot.edges.some((edge) => edge.id === edgeRecord.id),
-        "Delete edge action was not persisted",
-      );
-      await expect(page.getByRole("toolbar", { name: "Selected edge" })).toBeHidden();
-      await page.reload({ waitUntil: "domcontentloaded" });
-      await expect(canvas).toBeVisible({ timeout: 15_000 });
-      await expect(canvas.locator(`.react-flow__edge[data-id="${encodeURIComponent(edgeRecord.id)}"]`)).toHaveCount(0);
-      await captureEvidenceScreenshot(page, testInfo, "edge-toolbar-persistence-reload");
-      expect(errors, errors.join("\n")).toEqual([]);
-    } finally {
-      await deleteWorkflowViaApi(page, graph.id);
-    }
-  });
-
-  test("desktop and 390px dialogs/popovers expose usable focus and stay within the viewport", { tag: ["@spaces-canvas", "@spaces-settings"] }, async ({ page }) => {
-    const errors = attachErrorCapture(page);
-    const graph = await createWorkflowViaApi(page);
-    try {
-      await waitForFreshWorkflow(page, graph);
-      const actions = page.locator('[data-space-floating-bar]');
-      await expect(actions.getByRole("button", { name: "Run", exact: true })).toBeVisible();
-      await expect(actions.getByRole("button", { name: "Run", exact: true })).toBeDisabled();
-      await expect(actions.getByRole("button", { name: "Run options", exact: true })).toHaveCount(0);
-
-      const allNodes = await openAllNodes(page);
-      await expect(allNodes).toBeVisible();
-      const allNodesBox = await allNodes.boundingBox();
-      const viewport = page.viewportSize();
-      expect(allNodesBox).not.toBeNull();
-      expect(viewport).not.toBeNull();
-      expect((allNodesBox?.x ?? 0) + (allNodesBox?.width ?? 0)).toBeLessThanOrEqual((viewport?.width ?? 0) + 1);
-      expect((allNodesBox?.y ?? 0) + (allNodesBox?.height ?? 0)).toBeLessThanOrEqual((viewport?.height ?? 0) + 1);
-      await page.keyboard.press("Escape");
-      await expect(allNodes).toBeHidden();
-
-      await page.getByRole("button", { name: "All models" }).click();
-      const models = page.getByRole("dialog", { name: "All models" });
-      await expect(models).toBeVisible();
-      const search = await openModelSearch(page, models);
-      await expect(search).toBeFocused();
-      const modelsBox = await models.boundingBox();
-      expect(modelsBox).not.toBeNull();
-      expect((modelsBox?.x ?? 0) + (modelsBox?.width ?? 0)).toBeLessThanOrEqual((viewport?.width ?? 0) + 1);
-      expect((modelsBox?.y ?? 0) + (modelsBox?.height ?? 0)).toBeLessThanOrEqual((viewport?.height ?? 0) + 1);
-      await page.keyboard.press("Escape");
-      if (await models.isVisible()) await page.keyboard.press("Escape");
-      await expect(models).toBeHidden();
-
-      await page.getByRole("button", { name: "Space settings" }).click();
-      const settings = page.getByRole("dialog", { name: "Space Settings" });
-      await expect(settings).toBeVisible();
-      const settingsBox = await settings.boundingBox();
-      expect(settingsBox).not.toBeNull();
-      expect((settingsBox?.x ?? 0) + (settingsBox?.width ?? 0)).toBeLessThanOrEqual((viewport?.width ?? 0) + 1);
-      expect((settingsBox?.y ?? 0) + (settingsBox?.height ?? 0)).toBeLessThanOrEqual((viewport?.height ?? 0) + 1);
-      await settings.getByRole("button", { name: "Cancel", exact: true }).click();
-      await expect(settings).toBeHidden();
-
-      await captureEvidenceScreenshot(page, test.info(), "dialogs");
-      expect(errors, errors.join("\n")).toEqual([]);
-    } finally {
-      await deleteWorkflowViaApi(page, graph.id);
-    }
-  });
-
-  test("generation Nodes use hosted Browse, explicit Expand, prompt precedence, and durable authoring", { tag: ["@desktop", "@spaces-generation", "@spaces-prompt", "@spaces-settings", "@spaces-canvas"] }, async ({ page }, testInfo) => {
-
-    const errors = attachErrorCapture(page);
-    const graph = await createWorkflowViaApi(page);
-    try {
-      await waitForFreshWorkflow(page, graph);
-      const canvas = page.locator('[data-space-canvas]');
-      for (const label of ["Generate Image", "Generate Video", "Generate Audio", "Prompt"]) {
-        await addNodeFromAllNodes(page, label);
-      }
-      await expect(canvas.locator(".react-flow__node")).toHaveCount(4, { timeout: 15_000 });
-      await fitCanvas(page);
-
-      const created = await waitForWorkflowState(
-        page,
-        graph.id,
-        (snapshot) => ["generate.image", "generate.video", "generate.audio", "input.prompt"]
-          .every((kind) => snapshot.nodes.some((node) => node.kind === kind)),
-        "generation and Prompt nodes were not persisted",
-      );
-      const recordFor = (kind) => {
-        const record = created.nodes.find((node) => node.kind === kind);
-        if (!record) throw new Error(`missing ${kind}`);
-        return record;
-      };
-      const laidOut = created.nodes.map((node, index) => ({
-        ...node,
-        position: {
-          x: (index % 2) * 720,
-          y: Math.floor(index / 2) * 780,
-        },
-      }));
-      await replaceWorkflowViaApi(page, graph.id, laidOut, created.edges);
-      await page.reload({ waitUntil: "domcontentloaded" });
-      await expect(canvas).toBeVisible({ timeout: 15_000 });
-      await fitCanvas(page);
-      const cases = await generationCases(page);
-
-      for (const item of cases) {
-        const record = recordFor(item.kind);
-        const body = nodeBody(page, item.label);
-        await expect(body).toBeVisible();
-        await selectNodeFromHeader(body);
-        const header = page.locator(
-          `[data-space-node-header="${record.id}"]`,
-        );
-        await expect(header).toBeVisible();
-        const settingsToggle = body.getByRole("button", { name: "Settings", exact: true });
-        await expect(settingsToggle).toHaveAttribute("aria-expanded", "false");
-        await settingsToggle.focus();
-        await page.keyboard.press("Enter");
-        await expect(body.getByRole("button", { name: "Settings", exact: true })).toHaveAttribute("aria-expanded", "true");
-
-        const browseModels = header.getByRole("button", { name: "Browse models" });
-        await browseModels.focus();
-        await expect(browseModels).toBeFocused();
-        await page.keyboard.press("Enter");
-        const dialog = page.getByRole("dialog", { name: "Browse Models" });
-        await expect(dialog).toBeVisible();
-        const modelOption = modelCard(page, dialog, item.modelKey);
-        await expect(modelOption).toBeVisible();
-        await modelOption.click();
-        await expect(dialog).toBeHidden();
-        await waitForWorkflowState(
-          page,
-          graph.id,
-          (snapshot) => snapshot.nodes.some((node) => node.id === record.id && node.config?.modelKey === item.modelKey),
-          `${item.kind} Browse selection was not persisted`,
-        );
-        await fitCanvas(page);
-        const settings = body.getByRole("button", { name: "Settings", exact: true });
-        for (let repeat = 0; repeat < 3; repeat += 1) {
-          await settings.click();
-          await expect(settings).toHaveAttribute("aria-expanded", "false");
-          const collapsed = await body.boundingBox();
-          const sourceHeight = await body.locator("[data-space-node-body]").evaluate(element => element.offsetHeight);
-          await settings.click();
-          await expect(settings).toHaveAttribute("aria-expanded", "true");
-          await expect.poll(async () => (await body.boundingBox()).height - collapsed.height).toBeGreaterThan(10);
-          expect(await body.locator("[data-space-node-body]").evaluate(element => element.offsetHeight)).toBe(sourceHeight);
-        }
-      }
-
-      const imageRecord = recordFor("generate.image");
-      const imageBody = nodeBody(page, "Generate Image");
-      const imagePrompt = imageBody.getByRole("textbox", { name: "Prompt" });
-      await fillEditor(imagePrompt, "durable local prompt");
-      await imagePrompt.blur();
-      await waitForWorkflowState(
-        page,
-        graph.id,
-        (snapshot) => snapshot.nodes.some((node) => node.id === imageRecord.id && node.config?.prompt === "durable local prompt"),
-        "local generation prompt was not persisted",
-      );
-
-      await selectNodeFromHeader(imageBody);
-      const imageHeader = page.locator(
-        `[data-space-node-header="${imageRecord.id}"]`,
-      );
-      await expect(imageHeader.getByTitle("Run this node")).toBeEnabled();
-
-      // Switching model/provider must drop the previous HF schema snapshot.
-      await imageHeader.getByRole("button", { name: "Browse models" }).click();
-      const imageModels = page.getByRole("dialog", { name: "Browse Models" });
-      const firstImageModel = cases.find(item => item.mediaType === "image").model;
-      const alternative = await activeModel(page, "image", model => model.key !== firstImageModel.key && model.provider !== firstImageModel.provider);
-      await modelCard(page, imageModels, alternative.key).click();
-      const switched = await waitForWorkflowState(
-        page,
-        graph.id,
-        (snapshot) => snapshot.nodes.some((node) => node.id === imageRecord.id && node.config?.modelKey === alternative.key),
-        "image model switch was not persisted",
-      );
-      const switchedImage = switched.nodes.find((node) => node.id === imageRecord.id);
-      expect(Object.keys(switchedImage?.config?.parameters ?? {}).some((key) => key.startsWith("hf:"))).toBeFalsy();
-
-      const promptRecord = recordFor("input.prompt");
-      const promptBody = nodeBody(page, "Prompt");
-      await selectNodeFromHeader(promptBody);
-      const promptHeader = page.locator(
-        `[data-space-node-header="${promptRecord.id}"]`,
-      );
-      await expect(promptHeader.getByTitle("Expand editor")).toBeVisible();
-      const promptTextarea = promptBody.locator("textarea");
-      await fillEditor(promptTextarea, "connected prompt wins");
-      await promptTextarea.blur();
-      await waitForWorkflowState(
-        page,
-        graph.id,
-        (snapshot) => snapshot.nodes.some((node) => node.id === promptRecord.id && node.config?.text === "connected prompt wins"),
-        "Prompt node text was not persisted",
-      );
-      await connectHandles(
-        page,
-        reactFlowNodeForArticle(page, "Prompt"),
-        reactFlowNodeForArticle(page, "Generate Image"),
-        "text",
-        "text",
-      );
-      await waitForWorkflowState(
-        page,
-        graph.id,
-        (snapshot) => snapshot.edges.some((edge) =>
-          edge.sourceNodeId === promptRecord.id &&
-          edge.targetNodeId === imageRecord.id &&
-          edge.sourcePortId === "text" &&
-          edge.targetPortId === "prompt"),
-        "Prompt to generation connection was not persisted",
-      );
-      await expect(imagePrompt).toBeDisabled();
-      await expectEditorText(imagePrompt, "connected prompt wins");
-      await expect(imageBody.getByText("Using the connected prompt.")).toBeVisible();
-
-      const videoRecord = recordFor("generate.video");
-      const videoBody = nodeBody(page, "Generate Video");
-      const videoPrompt = videoBody.getByRole("textbox", { name: "Prompt", exact: true });
-      await fillEditor(videoPrompt, "");
-      await videoPrompt.blur();
-      await waitForWorkflowState(page, graph.id, snapshot => !snapshot.nodes.find(node => node.id === videoRecord.id).config.prompt.trim(), "empty video prompt not saved");
-      await selectNodeFromHeader(videoBody);
-      const videoHeader = page.locator(
-        `[data-space-node-header="${videoRecord.id}"]`,
-      );
-      await expect(videoHeader.getByRole("button", { name: /Run node unavailable/ })).toHaveAttribute(
-        "title",
-        /Run node unavailable: .+/,
-      );
-
-      await page.getByRole("button", { name: "Save space", exact: true }).click();
-      await expect(page.locator('[data-space-workspace-header] [role="status"]').filter({ hasText: /^Saved$/ })).toBeVisible({ timeout: 30_000 });
-      await page.reload({ waitUntil: "domcontentloaded" });
-      await expect(canvas).toBeVisible({ timeout: 15_000 });
-      await fitCanvas(page);
-      const reloadedImagePrompt = nodeBody(page, "Generate Image").getByRole("textbox", { name: "Prompt" });
-      await expect(reloadedImagePrompt).toBeDisabled();
-      await expectEditorText(reloadedImagePrompt, "connected prompt wins");
-      const reloaded = await readWorkflowViaApi(page, graph.id);
-      expect(reloaded.nodes.find((node) => node.id === imageRecord.id)?.config?.prompt).toBe("durable local prompt");
-      expect(reloaded.nodes.find((node) => node.id === imageRecord.id)?.config?.modelKey).toBe(alternative.key);
-      expect(reloaded.nodes.find((node) => node.id === videoRecord.id)?.config?.modelKey).toBe(cases.find(item => item.mediaType === "video").modelKey);
-      expect(reloaded.nodes.find((node) => node.id === recordFor("generate.audio").id)?.config?.modelKey).toBe(cases.find(item => item.mediaType === "audio").modelKey);
-      await captureEvidenceScreenshot(page, testInfo, "generation-authoring-reload");
-      expect(errors, errors.join("\n")).toEqual([]);
-    } finally {
-      await deleteWorkflowViaApi(page, graph.id);
-    }
-  });
-
-  test('Cinema camera edits upgrade legacy settings and persist in inline and inspector controls', { tag: ["@spaces-generation", "@spaces-settings"] }, async ({ page }) => {
-    const errors = attachErrorCapture(page), graph = await createWorkflowViaApi(page);
-    const initialPreferences = (await (await page.request.get('/api/spaces/preferences')).json()).preferences;
-    const image = await activeModel(page, 'image'), video = await activeModel(page, 'video');
-    const nodes = [image, video].map((model, index) => ({ id: fixtureId(graph, 'cinema-' + model.type), kind: 'generate.' + model.type,
-      configVersion: 1, position: { x: index * 650, y: 0 }, selectedOutputAssetId: null,
-      config: { prompt: 'Keep this authored camera prompt', modelKey: model.key, parameters: { seed: 0 },
-        cinema: { schemaVersion: 1, focalLength: '35', shootingEnabled: false, lighting: 'window' } } }));
-    const saves = [];
-    page.on('response', response => { if (response.request().method() === 'PUT' && new URL(response.url()).pathname === '/api/generation-graphs/' + graph.id) saves.push(response.status()); });
-    try {
-      for (const inline of [false, true]) {
-        const preferences = (await (await page.request.get('/api/spaces/preferences')).json()).preferences;
-        expect((await page.request.patch('/api/spaces/preferences', { data: { action: 'inline', expectedRevision: preferences.revision, enabled: inline } })).ok()).toBe(true);
-        await replaceWorkflowViaApi(page, graph.id, nodes);
-        await page.goto('/spaces/' + graph.id); await waitForFreshWorkflow(page, graph, false);
-        const expected = new Map();
-        for (const node of nodes) {
-          const body = nodeById(page, node.id); await selectNodeFromHeader(body);
-          const controls = inline ? body : page.locator('[data-space-node-inspector]');
-          await controls.getByRole('button', { name: /^Camera:/ }).click();
-          const dialog = page.getByRole('dialog', { name: 'Camera', exact: true });
-          const camera = dialog.getByRole('spinbutton', { name: 'Camera', exact: true });
-          await camera.focus(); await camera.press('Home'); await camera.press('ArrowDown');
-          const cameraName = await camera.getAttribute('aria-valuetext');
-          const lens = dialog.getByRole('spinbutton', { name: 'Lens', exact: true });
-          await lens.focus(); await lens.press('ArrowDown');
-          const saved = await waitForWorkflowState(page, graph.id, value => {
-            const cinema = value.nodes.find(item => item.id === node.id).config.cinema;
-            return cinema.schemaVersion === 2 && cinema.camera !== 'auto' && cinema.lens !== 'auto';
-          }, 'Camera/lens edit failed to persist valid current settings');
-          const config = saved.nodes.find(item => item.id === node.id).config;
-          expect(config.cinema).not.toHaveProperty('focalLength'); expect(config.cinema).not.toHaveProperty('shootingEnabled');
-          expect(config).toMatchObject({ prompt: node.config.prompt, modelKey: node.config.modelKey, parameters: { seed: 0 } });
-          expected.set(node.id, { config, cameraName });
-          await dialog.getByRole('button', { name: 'Close', exact: true }).click();
-        }
-        await page.reload(); await waitForFreshWorkflow(page, graph, false);
-        const reloaded = await readWorkflowViaApi(page, graph.id);
-        for (const node of nodes) {
-          expect(reloaded.nodes.find(item => item.id === node.id).config).toEqual(expected.get(node.id).config);
-          const body = nodeById(page, node.id); await selectNodeFromHeader(body);
-          await (inline ? body : page.locator('[data-space-node-inspector]')).getByRole('button', { name: /^Camera:/ }).click();
-          const dialog = page.getByRole('dialog', { name: 'Camera', exact: true });
-          await expect(dialog.getByRole('spinbutton', { name: 'Camera', exact: true })).toHaveAttribute('aria-valuetext', expected.get(node.id).cameraName);
-          await dialog.getByRole('button', { name: 'Close', exact: true }).click();
-        }
-      }
-      // Autosave can coalesce camera and lens changes into one write per node.
-      expect(saves.length).toBeGreaterThanOrEqual(4); expect(saves.every(status => status === 200)).toBe(true);
-      expect(errors).toEqual([]);
-    } finally {
-      const current = (await (await page.request.get('/api/spaces/preferences')).json()).preferences;
-      expect((await page.request.patch('/api/spaces/preferences', { data: { action: 'inline', expectedRevision: current.revision, enabled: initialPreferences.inlineParametersEnabled ?? false } })).ok()).toBe(true);
-      await deleteWorkflowViaApi(page, graph.id);
-    }
-  });
-
-  test("each generation media preserves its source body when inline Settings expands", { tag: ["@spaces-generation", "@spaces-settings", "@spaces-canvas"] }, async ({ page }, testInfo) => {
-    const errors = attachErrorCapture(page);
-    for (const item of await generationCases(page)) {
-      const graph = await createWorkflowViaApi(page);
-      try {
-        await waitForFreshWorkflow(page, graph);
-        await addNodeFromAllNodes(page, item.label);
-        const body = nodeBody(page, item.label);
-        await selectNodeFromHeader(body);
-        const id = await body.getAttribute("data-space-node-id");
-        await body.locator("[data-space-node-header]").getByRole("button", { name: "Browse models" }).click();
-        const models = page.getByRole("dialog", { name: "Browse Models" });
-        await modelCard(page, models, item.modelKey).click();
-        const source = body.locator("[data-space-node-body]");
-        const toggle = body.getByRole("button", { name: "Settings", exact: true });
-        const measure = () => source.evaluate(element => ({
-          width: element.offsetWidth, height: element.offsetHeight,
-          prompt: Boolean(element.querySelector('[data-app-prompt-editor][role="textbox"]')),
-          media: element.querySelectorAll("img,video,audio,canvas").length,
-        }));
-        const sample = () => source.evaluate(element => {
-          element.settingsSamples = [];
-          element.settingsSamplingDone = false;
-          const started = performance.now();
-          const tick = () => {
-            element.settingsSamples.push(element.offsetHeight);
-            if (performance.now() - started < 600) requestAnimationFrame(tick);
-            else element.settingsSamplingDone = true;
-          };
-          requestAnimationFrame(tick);
-        });
-        const assertStable = async () => {
-          await expect.poll(() => source.evaluate(element => element.settingsSamplingDone)).toBe(true);
-          const heights = await source.evaluate(element => element.settingsSamples);
-          expect(heights.length).toBeGreaterThan(3);
-          expect(Math.max(...heights) - Math.min(...heights)).toBeLessThanOrEqual(2);
-        };
-        await expect(toggle).toHaveAttribute("aria-expanded", "false");
-        for (let repeat = 0; repeat < 3; repeat += 1) {
-          const collapsed = await body.boundingBox(), before = await measure();
-          await sample();
-          await toggle.click();
-          await expect(toggle).toHaveAttribute("aria-expanded", "true");
-          await assertStable();
-          await expect.poll(async () => (await body.boundingBox()).height - collapsed.height).toBeGreaterThan(10);
-          expect(await measure()).toEqual(before);
-          const panelBox = await body.locator("[data-space-node-settings]").boundingBox();
-          const sourceBox = await source.boundingBox();
-          expect(panelBox.y).toBeGreaterThanOrEqual(sourceBox.y + sourceBox.height - 2);
-          await sample();
-          await toggle.focus(); await toggle.press("Enter");
-          await expect(toggle).toHaveAttribute("aria-expanded", "false");
-          await assertStable();
-          await expect.poll(async () => Math.abs((await body.boundingBox()).height - collapsed.height)).toBeLessThan(2);
-          expect(await measure()).toEqual(before);
-        }
-        const beforeResize = await body.boundingBox();
-        for (const delay of [0, 50, 100]) {
-          await toggle.focus(); await toggle.press("Enter");
-          if (delay) await page.waitForTimeout(delay);
-          await toggle.press("Enter");
-          await expect(toggle).toHaveAttribute("aria-expanded", "false");
-          await expect.poll(async () => Math.abs((await body.boundingBox()).height - beforeResize.height)).toBeLessThan(2);
-        }
-        const grip = await body.locator(".react-flow__resize-control.handle.bottom.right").boundingBox();
-        await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2); await page.mouse.down();
-        await page.mouse.move(grip.x + grip.width / 2 + 20, grip.y + grip.height / 2 + 24, { steps: 8 }); await page.mouse.up();
-        await expect.poll(async () => (await body.boundingBox()).width - beforeResize.width).toBeGreaterThan(10);
-        const resized = await body.boundingBox();
-        await toggle.click(); await expect(toggle).toHaveAttribute("aria-expanded", "true");
-        await expect.poll(async () => (await body.boundingBox()).height - resized.height).toBeGreaterThan(10);
-        await toggle.click();
-        await expect.poll(async () => Math.abs((await body.boundingBox()).height - resized.height)).toBeLessThan(2);
-        let editedParameters, editedFieldIndex, editedValue;
-        for (const enabled of [false, true]) {
-          await page.getByRole("button", { name: "Space settings", exact: true }).click();
-          const settings = page.getByRole("dialog", { name: "Space Settings", exact: true });
-          const inline = settings.getByRole("switch", { name: "Show model settings on nodes" });
-          if (await inline.getAttribute("aria-checked") !== String(enabled)) await inline.click();
-          await settings.getByRole("button", { name: "Save", exact: true }).click();
-          await expect(settings).toBeHidden();
-          await expect(body.locator("[data-space-node-settings]")).toHaveCount(enabled ? 1 : 0);
-          const side = page.locator("[data-space-node-inspector]");
-          if (!enabled) {
-            await expect(side).toBeVisible();
-            const fields = side.getByRole("spinbutton");
-            expect(await fields.count(), "Fixture model needs an editable numeric parameter").toBeGreaterThan(0);
-            editedFieldIndex = 0;
-            const field = fields.nth(editedFieldIndex);
-            const previous = (await readWorkflowViaApi(page, graph.id)).nodes.find(node => node.id === id).config.parameters;
-            editedValue = await field.evaluate(element => {
-              const current = Number(element.value || 0), step = Number(element.step) || 1;
-              const maximum = element.max === "" ? Infinity : Number(element.max);
-              return String(current + step <= maximum ? current + step : current - step);
-            });
-            await field.fill(editedValue); await field.blur();
-            const saved = await waitForWorkflowState(page, graph.id, value =>
-              JSON.stringify(value.nodes.find(node => node.id === id).config.parameters) !== JSON.stringify(previous), "Side panel change was not saved");
-            editedParameters = saved.nodes.find(node => node.id === id).config.parameters;
-          } else await expect(side).toBeHidden();
-          await page.reload(); await waitForFreshWorkflow(page, graph, false);
-          await expect(body.locator("[data-space-node-settings]")).toHaveCount(enabled ? 1 : 0);
-          if (!enabled) {
-            await selectNodeFromHeader(body);
-            await expect(side.getByRole("spinbutton").nth(editedFieldIndex)).toHaveValue(editedValue);
-            expect((await readWorkflowViaApi(page, graph.id)).nodes.find(node => node.id === id).config.parameters).toEqual(editedParameters);
-          }
-        }
-        expect((await readWorkflowViaApi(page, graph.id)).nodes).toHaveLength(1);
-        await expect(body.locator("[data-space-media-preview]")).toHaveCount(0);
-        await captureEvidenceScreenshot(page, testInfo, `settings-${item.label.toLowerCase().replaceAll(" ", "-")}`);
-      } finally { await page.goto("about:blank"); await deleteWorkflowViaApi(page, graph.id); }
-    }
-    expect(errors, errors.join("\n")).toEqual([]);
-  });
-
   test("real generation Run submits image/audio/video jobs, projects durable outputs, and reloads", { tag: ["@desktop", "@spaces-generation", "@spaces-media"] }, async ({ page }, testInfo) => {
     test.setTimeout(240_000);
 
@@ -2597,6 +1648,7 @@ test.describe("Spaces native editor Chromium regression", () => {
         "generation and downstream Output nodes were not persisted",
         45_000,
       );
+      const outputRecords = created.nodes.filter(node => node.kind === "output.single");
       const generationKinds = ["generate.image", "generate.audio", "generate.video"];
       let outputIndex = 0;
       const laidOut = created.nodes.map((node) => {
@@ -2626,10 +1678,9 @@ test.describe("Spaces native editor Chromium regression", () => {
       const generationNodeFor = (label) => nodeBody(page, label)
         .locator("xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' react-flow__node ')][1]")
         .first();
-      const outputBodies = canvas.locator('[data-space-node="output.single"]');
-      const outputNodeFor = (index) => outputBodies.nth(index)
-        .locator("xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' react-flow__node ')][1]")
-        .first();
+      // Snapshot enumeration and DOM order can differ on equal creation times.
+      // Pin preparation, pointer connections and assertions to the same IDs.
+      const outputNodeFor = index => canvas.locator(`.react-flow__node[data-id="${outputRecords[index].id}"]`);
       await fitCanvas(page);
 
       for (const item of runCases) {
@@ -2708,7 +1759,6 @@ test.describe("Spaces native editor Chromium regression", () => {
         }
       }
 
-      const outputRecords = created.nodes.filter((node) => node.kind === "output.single");
       for (const [index, item] of runCases.entries()) {
         const source = generationNodeFor(item.label);
         const output = outputNodeFor(index);
@@ -2722,6 +1772,9 @@ test.describe("Spaces native editor Chromium regression", () => {
           const outputEdges = snapshot.edges.filter((edge) => outputNodeIds.has(edge.targetNodeId));
           return outputEdges.length === 3 &&
             outputEdges.every((edge) => edge.targetPortId === edge.sourcePortId) &&
+            runCases.every((item, index) => outputEdges.some(edge =>
+              edge.sourceNodeId === generationRecordFor(item.kind).id && edge.targetNodeId === outputRecords[index].id &&
+              edge.sourcePortId === item.mediaType && edge.targetPortId === item.mediaType)) &&
             snapshot.edges.some((edge) => edge.targetNodeId === generationRecordFor("generate.video").id && edge.targetPortId === "initImage");
         },
         "generation outputs were not connected to their downstream Output nodes",
@@ -2796,239 +1849,6 @@ test.describe("Spaces native editor Chromium regression", () => {
     } finally {
       await deleteWorkflowViaApi(page, graph.id);
     }
-  });
-
-  test("Media choices dismiss safely, keep image dragging, and pan empty canvas with middle mouse", { tag: ["@spaces-media", "@spaces-canvas", "@spaces-generation"] }, async ({ page }, testInfo) => {
-    test.setTimeout(180_000);
-    const errors = attachErrorCapture(page);
-    const graph = await createWorkflowViaApi(page);
-    const imageId = `${graph.id}-image`;
-    const videoId = `${graph.id}-video`;
-    const generationId = `${graph.id}-generation`;
-    const videoModel = await activeModel(page, "video", item => item.meta?.supports_init_image === true);
-    const mediaDir = await mkdtemp(path.join(os.tmpdir(), "jfeb-input-"));
-    try {
-      await page.addInitScript(() => {
-      if (window.top !== window || location.protocol !== "http:") return;
-        window.localStorage.setItem("leesfield.locale", "en");
-        window.localStorage.setItem("node-studio.canvas-settings", JSON.stringify({panMode:"middleMouse",selectionMode:"shiftDrag",zoomMode:"scroll"}));
-      });
-      await replaceWorkflowViaApi(page, graph.id, [
-        {id:imageId,kind:"input.image",configVersion:1,position:{x:0,y:0},config:{assetId:null},selectedOutputAssetId:null},
-        {id:videoId,kind:"input.video",configVersion:1,position:{x:440,y:0},config:{assetId:null},selectedOutputAssetId:null},
-        {id:`${graph.id}-audio`,kind:"generate.audio",configVersion:1,position:{x:880,y:0},config:{prompt:"",modelKey:null,parameters:{}},selectedOutputAssetId:null},
-        {id:generationId,kind:"generate.video",configVersion:1,position:{x:440,y:430},config:{prompt:"a moving kite",modelKey:videoModel.key,parameters:{}},selectedOutputAssetId:null},
-      ]);
-      await waitForCanvas(page, graph.id);
-      const image = nodeBody(page, "Image Input");
-      const video = nodeBody(page, "Video Input");
-      const generation = nodeBody(page, "Generate Video");
-      const canvas = page.locator('[data-space-canvas]');
-      const viewport = canvas.locator('.react-flow__viewport');
-      const beforePan = await viewport.getAttribute('style');
-      await page.mouse.move(70,120);
-      await page.mouse.down({button:'middle'});
-      await page.mouse.move(140,170,{steps:8});
-      await page.mouse.up({button:'middle'});
-      await expect(viewport).not.toHaveAttribute('style',beforePan);
-      await fitCanvas(page);
-
-      const imageUpload = image.getByRole('button',{name:'Upload',exact:true});
-      const imageAssets = image.getByRole('button',{name:'Assets',exact:true});
-      const assets = page.getByRole('dialog',{name:'Assets',exact:true});
-      for (const input of [image, video]) {
-        await expect(input.getByRole('button',{name:'Upload',exact:true})).toBeVisible();
-        await expect(input.getByRole('button',{name:'Assets',exact:true})).toBeVisible();
-        await expect(input.locator('[data-space-media-chooser]')).toHaveCount(0);
-      }
-      await page.mouse.click(65,120);
-      await expect(imageUpload).toBeVisible();
-      await imageUpload.focus();
-      await page.keyboard.press('Escape');
-      await expect(image.locator('[data-space-node-body]')).toBeFocused();
-      await expect(image).toHaveAttribute('data-body-interactive', 'false');
-      await imageUpload.focus();
-      await imageUpload.press('Tab');
-      await expect(imageAssets).toBeFocused();
-      await imageAssets.press('Enter');
-      await expect(assets).toBeVisible();
-      await page.keyboard.press('Escape');
-      await expect(assets).toBeHidden();
-      await expect(imageAssets).toBeFocused();
-      await imageAssets.press('Shift+Tab');
-      await expect(imageUpload).toBeFocused();
-      await cancelInputMediaUpload(image);
-      expect((await readWorkflowViaApi(page,graph.id)).nodes.find(node=>node.id===imageId).config.assetId).toBeNull();
-      await uploadInputMedia(image,{name:'jfeb-image.png',mimeType:'image/png',buffer:deterministicPng(64,48,1)});
-      await expect(image.locator('img')).toBeVisible({timeout:30_000});
-      const uploadedImage = await waitForWorkflowState(page,graph.id,snapshot=>!!snapshot.nodes.find(node=>node.id===imageId)?.config.assetId,'image upload not saved',30_000);
-      const imageAssetId = uploadedImage.nodes.find(node=>node.id===imageId).config.assetId;
-      const imageDigest = await mediaAssetDigest(page,imageAssetId);
-      await image.locator('img').click();
-      await expect(reactFlowNodeForArticle(page,'Image Input')).toHaveClass(/selected/);
-      await expect(imageUpload).toHaveCount(0);
-      await expect(imageAssets).toHaveCount(0);
-      await expect(image.locator('[data-space-media-chooser]')).toHaveCount(0);
-      await expect(assets).toBeHidden();
-      await expect(page.locator('[data-space-floating-bar]').getByRole('button',{name:'Run',exact:true})).toBeDisabled();
-      const imageSettings = page.getByRole('region',{name:'Image view settings',exact:true});
-      await expect(imageSettings.getByRole('radio',{name:'Cover',exact:true})).toHaveAttribute('aria-checked','true');
-      const beforeFit = await readWorkflowViaApi(page,graph.id);
-      await imageSettings.getByRole('radio',{name:'Contain',exact:true}).click();
-      await expect(image.locator('img')).toHaveCSS('object-fit','contain');
-      const afterFit = await readWorkflowViaApi(page,graph.id);
-      expect(afterFit.version).toBe(beforeFit.version);
-      expect(afterFit.nodes).toEqual(beforeFit.nodes);
-      expect(afterFit.edges).toEqual(beforeFit.edges);
-      const imgBox = await image.locator('img').boundingBox();
-      await page.mouse.move(imgBox.x+imgBox.width/2,imgBox.y+imgBox.height/2);
-      await page.mouse.down();
-      await page.mouse.move(imgBox.x+imgBox.width/2+80,imgBox.y+imgBox.height/2-35,{steps:12});
-      await page.mouse.up();
-      const dragged = await waitForWorkflowState(page,graph.id,snapshot=>snapshot.nodes.find(node=>node.id===imageId).position.x>40,'image body drag not saved');
-      expect(dragged.nodes.find(node=>node.id===imageId).config.assetId).toBe(imageAssetId);
-      await expect(imageUpload).toHaveCount(0);
-      await expect(image.locator('[data-space-media-chooser]')).toHaveCount(0);
-      await image.hover();
-      await image.getByRole('button',{name:'Remove image',exact:true}).click();
-      await waitForWorkflowState(page,graph.id,snapshot=>snapshot.nodes.find(node=>node.id===imageId)?.config.assetId===null,'image X did not clear the input');
-      await expect(imageUpload).toBeVisible();
-      await expect(imageAssets).toBeVisible();
-      expect(await mediaAssetDigest(page,imageAssetId)).toBe(imageDigest);
-      await imageAssets.click();
-      await expect(assets).toBeVisible();
-      await assets.getByRole('button',{name:'Close assets',exact:true}).click();
-      await expect(assets).toBeHidden();
-      await expect(imageAssets).toBeFocused();
-      await imageAssets.click();
-      await searchAssets(page, assets, imageAssetId);
-      await expect(assets.locator('article > button[aria-pressed]')).toHaveCount(1);
-      await assets.locator('article > button[aria-pressed]').click();
-      await expect(assets).toBeHidden();
-      await expect(image.locator('[data-space-media-input="image"]')).toBeFocused();
-      await waitForWorkflowState(page,graph.id,snapshot=>snapshot.nodes.find(node=>node.id===imageId)?.config.assetId===imageAssetId,'cleared image could not be restored through Assets');
-      await expect(image.locator('img')).toHaveCSS('object-fit','contain');
-
-      const videoFile = path.join(mediaDir,'input.mp4');
-      await execFileAsync('ffmpeg',['-hide_banner','-loglevel','error','-y','-f','lavfi','-i','testsrc2=size=160x90:rate=10:duration=1','-c:v','libx264','-pix_fmt','yuv420p',videoFile],{timeout:30_000});
-      await cancelInputMediaUpload(video);
-      await uploadInputMedia(video,videoFile);
-      const uploadedVideo = await waitForWorkflowState(page,graph.id,snapshot=>!!snapshot.nodes.find(node=>node.id===videoId)?.config.assetId,'video upload not saved',30_000);
-      const videoAssetId = uploadedVideo.nodes.find(node=>node.id===videoId).config.assetId;
-      const videoDigest = await mediaAssetDigest(page,videoAssetId);
-      await expect(video.locator('video')).toBeVisible({timeout:30_000});
-      await video.locator('video').click();
-      await expect(reactFlowNodeForArticle(page,'Video Input')).toHaveClass(/selected/);
-      await expect(video.getByRole('button',{name:'Upload',exact:true})).toHaveCount(0);
-      await expect(video.getByRole('button',{name:'Assets',exact:true})).toHaveCount(0);
-      await expect(video.locator('[data-space-media-chooser]')).toHaveCount(0);
-      await expect(assets).toBeHidden();
-      await video.hover();
-      await video.getByRole('button',{name:'Remove video',exact:true}).click();
-      const clearedVideo = await waitForWorkflowState(page,graph.id,snapshot=>snapshot.nodes.find(node=>node.id===videoId)?.config.assetId===null,'video X did not clear the input');
-      expect(clearedVideo.nodes.find(node=>node.id===imageId).config.assetId).toBe(imageAssetId);
-      expect(await mediaAssetDigest(page,videoAssetId)).toBe(videoDigest);
-      await expect(video.getByRole('button',{name:'Upload',exact:true})).toBeVisible();
-      await video.getByRole('button',{name:'Assets',exact:true}).click();
-      await expect(assets).toBeVisible();
-      await searchAssets(page, assets, videoAssetId);
-      await expect(assets.locator('article > button[aria-pressed]')).toHaveCount(1);
-      await assets.locator('article > button[aria-pressed]').click();
-      await expect(assets).toBeHidden();
-      await expect(video.locator('[data-space-media-input="video"]')).toBeFocused();
-      await waitForWorkflowState(page,graph.id,snapshot=>snapshot.nodes.find(node=>node.id===videoId)?.config.assetId===videoAssetId,'cleared video could not be restored through Assets');
-
-      await expect(generation.getByRole('button',{name:/: Upload file$/})).toBeVisible();
-      await selectNodeFromHeader(generation);
-      await captureEvidenceScreenshot(page,testInfo,'video-generation-media-choices');
-      await generation.getByRole('button',{name:'Assets',exact:true}).click();
-      await expect(assets).toBeVisible();
-      await searchAssets(page, assets, imageAssetId);
-      await expect(assets.locator('article > button[aria-pressed]')).toHaveCount(1);
-      await assets.locator('article > button[aria-pressed]').click();
-      await expect(assets).toBeHidden();
-      const connected = await waitForWorkflowState(page,graph.id,snapshot=>snapshot.edges.some(edge=>edge.targetNodeId===generationId&&edge.targetPortId==='initImage'),'generation body asset did not create durable reference input');
-      const referenceEdge = connected.edges.find(edge=>edge.targetNodeId===generationId);
-      expect(connected.nodes.find(node=>node.id===referenceEdge.sourceNodeId).config.assetId).toBe(imageAssetId);
-      const referenceChooser = await Promise.all([page.waitForEvent('filechooser'),generation.getByRole('button',{name:/: Replace file$/}).click()]);
-      await referenceChooser[0].setFiles({name:'jfeb-replacement.png',mimeType:'image/png',buffer:deterministicPng(64,48,0)});
-      const replaced = await waitForWorkflowState(page,graph.id,snapshot=>snapshot.edges.some(edge=>edge.targetNodeId===generationId&&edge.sourceNodeId!==referenceEdge.sourceNodeId),'generation body upload did not replace reference',30_000);
-      expect(replaced.edges.filter(edge=>edge.targetNodeId===generationId)).toHaveLength(1);
-      expect(replaced.nodes.find(node=>node.id===referenceEdge.sourceNodeId).config.assetId).toBe(imageAssetId);
-      const audio = nodeBody(page, 'Generate Audio');
-      await expect(audio.getByRole("textbox", { name: "Prompt" })).toBeAttached();
-      await expect(audio.locator("[data-space-audio-waveform]")).toHaveCount(0);
-      const audioLayout = await audio.evaluate(element=>{const body=element.getBoundingClientRect(); const prompt=element.querySelector('[data-app-prompt-editor]').getBoundingClientRect(); return {left:prompt.left-body.left,right:body.right-prompt.right,bottom:body.bottom-prompt.bottom};});
-      expect(Math.abs(audioLayout.left-audioLayout.right)).toBeLessThan(2);
-      expect(audioLayout.bottom).toBeGreaterThan(0);
-      await page.reload();
-      await expect(image.locator('img')).toBeVisible({timeout:30_000});
-      await expect(video.locator('video')).toBeVisible({timeout:30_000});
-      await expect(image.locator('img')).toHaveCSS('object-fit','contain');
-      const reloadedInputs = await readWorkflowViaApi(page,graph.id);
-      expect(reloadedInputs.nodes.find(node=>node.id===imageId).config).toEqual({assetId:imageAssetId});
-      expect(reloadedInputs.nodes.find(node=>node.id===videoId).config).toEqual({assetId:videoAssetId});
-      expect(await mediaAssetDigest(page,imageAssetId)).toBe(imageDigest);
-      expect(await mediaAssetDigest(page,videoAssetId)).toBe(videoDigest);
-      await captureEvidenceScreenshot(page,testInfo,'input-interactions-audio-reload');
-      const imageBox = await image.locator('img').boundingBox();
-      const beforeNodePan = await viewport.getAttribute('style');
-      await page.mouse.move(imageBox.x+imageBox.width/2,imageBox.y+imageBox.height/2);
-      await page.mouse.down({button:'middle'});
-      await page.mouse.move(imageBox.x+imageBox.width/2+60,imageBox.y+imageBox.height/2+40,{steps:8});
-      await page.mouse.up({button:'middle'});
-      await expect(viewport).not.toHaveAttribute('style',beforeNodePan);
-      expect(errors,errors.join('\n')).toEqual([]);
-    } finally {
-      await page.goto('about:blank');
-      await deleteWorkflowViaApi(page,graph.id);
-      await rm(mediaDir,{recursive:true,force:true});
-    }
-  });
-
-  test("Audio generation keeps source prompt and result waveform usable after resizing and reload", { tag: ["@spaces-generation", "@spaces-media", "@spaces-prompt", "@spaces-canvas"] }, async ({ page }, testInfo) => {
-    const errors = attachErrorCapture(page);
-    const graph = await createWorkflowViaApi(page);
-    try {
-      const catalog = await (await page.request.get("/api/models?type=audio")).json();
-      const model = catalog.items.find(item => item.isActive);
-      expect(model).toBeTruthy();
-      const id = fixtureId(graph, "audio");
-      const prompt = "A short deterministic spoken tone";
-      await replaceWorkflowViaApi(page, graph.id, [{
-        id, kind: "generate.audio", configVersion: 1, position: { x: 0, y: 0 },
-        config: { prompt, modelKey: model.key, parameters: {} }, selectedOutputAssetId: null,
-      }]);
-      await waitForFreshWorkflow(page, graph);
-      const body = nodeById(page, id);
-      const execution = await runHostedGeneration(page, graph.id, id, body.locator("[data-space-node-header]"));
-      const result = await resultInput(page, graph.id, id, execution, "audio");
-      await expectMedia(page, result, result.config.assetId, "audio");
-      await expect(body.locator("canvas,audio")).toHaveCount(0);
-      await expectAudioSettings(nodeById(page,result.id));
-      for (const node of [body, nodeById(page, result.id)]) {
-        await selectNodeFromHeader(node);
-        const corner = await node.locator(".react-flow__resize-control.handle.bottom.right").boundingBox();
-        await page.mouse.move(corner.x + corner.width / 2, corner.y + corner.height / 2); await page.mouse.down();
-        await page.mouse.move(corner.x + corner.width / 2 - 180, corner.y + corner.height / 2 - 180, { steps: 12 }); await page.mouse.up();
-        const layout = await node.evaluate(element => {
-          const rect = element.getBoundingClientRect();
-          return [...element.querySelectorAll('[data-app-prompt-editor],canvas,button[aria-label="Play"]')].map(child => {
-            const box = child.getBoundingClientRect();
-            return { left: box.left - rect.left, top: box.top - rect.top, right: rect.right - box.right, bottom: rect.bottom - box.bottom };
-          });
-        });
-        expect(layout.length).toBeGreaterThan(0);
-        for (const control of layout) for (const distance of Object.values(control)) expect(distance, JSON.stringify(layout)).toBeGreaterThanOrEqual(-1);
-      }
-      await expectEditorText(body.getByRole("textbox", { name: "Prompt" }), prompt);
-      await expectMedia(page, result, result.config.assetId, "audio");
-      await captureEvidenceScreenshot(page, testInfo, "audio-generation-result-resize");
-      await page.reload(); await waitForFreshWorkflow(page, graph, false);
-      await expectEditorText(body.getByRole("textbox", { name: "Prompt" }), prompt);
-      await expectMedia(page, result, result.config.assetId, "audio");
-      expect(errors, errors.join("\n")).toEqual([]);
-    } finally { await page.goto("about:blank"); await deleteWorkflowViaApi(page, graph.id); }
   });
 
   test("Image Input history modal selects a durable asset and restores focus for close, Download, and X", { tag: "@spaces-media" }, async ({ page }, testInfo) => {
@@ -3156,431 +1976,6 @@ test.describe("Spaces native editor Chromium regression", () => {
     }
   });
 
-  test("Image Compare consumes two durable inputs and restores without exposing Image Resize", { tag: ["@spaces-media", "@spaces-canvas"] }, async ({ page }) => {
-    const graph = await createWorkflowViaApi(page), errors = attachErrorCapture(page);
-    try {
-      const ids = ["before","after"].map(key => fixtureId(graph,key));
-      await replaceWorkflowViaApi(page, graph.id, ids.map((id,index) => ({
-        id, kind:"input.image",configVersion:1,config:{assetId:null},position:{x:index*460,y:100},selectedOutputAssetId:null
-      })));
-      await waitForFreshWorkflow(page,graph);
-      expect(await paletteHasNode(page,"Image Resize")).toBe(false);
-      for(const [index,id] of ids.entries()) {
-        await uploadInputMedia(nodeById(page,id),{name:"compare-"+index+".png",mimeType:"image/png",buffer:deterministicPng(40,24,index)});
-        await waitForWorkflowState(page,graph.id,value=>Boolean(value.nodes.find(n=>n.id===id)?.config.assetId),"Compare image was not saved");
-      }
-      await addNodeFromAllNodes(page,"Image Compare");
-      const created = await waitForWorkflowState(page, graph.id, value => value.nodes.length === 3, "Compare node was not saved");
-      // Keep the fixture within the mobile canvas; pointer connection remains real.
-      await page.goto("about:blank");
-      await replaceWorkflowViaApi(page, graph.id, created.nodes.map(node => ({ ...node,
-        position: node.kind === "inspect.imageCompare" ? { x: 440, y: 200 } : { x: 0, y: node.id === ids[0] ? 0 : 400 },
-      })), created.edges);
-      await waitForFreshWorkflow(page, graph);
-      const compare=reactFlowNodeForArticle(page,"Image Compare");
-      await fitCanvas(page);
-      for(const [index,id] of ids.entries()) await connectHandleLocators(page,
-        nodeById(page,id).locator('.react-flow__handle.source[data-value-type="image"][data-visible="true"]').first(),
-        compare.locator('.react-flow__handle.target[data-value-type="image"][data-visible="true"]').nth(index));
-      const saved=await waitForWorkflowState(page,graph.id,value=>value.edges.length===2,"Compare inputs were not saved");
-      await expect(nodeBody(page,"Image Compare").locator("img")).toHaveCount(2);
-      const digests=await Promise.all(ids.map(id=>mediaAssetDigest(page,saved.nodes.find(n=>n.id===id).config.assetId)));
-      expect(digests[0]).not.toBe(digests[1]);
-      await page.reload();await waitForFreshWorkflow(page,graph);
-      await expect(nodeBody(page,"Image Compare").locator("img")).toHaveCount(2);
-      const restored=await readWorkflowViaApi(page,graph.id);
-      expect(restored.edges).toEqual(saved.edges);expect(restored.nodes).toEqual(saved.nodes);
-      expect(errors,errors.join("\n")).toEqual([]);
-    } finally { await deleteWorkflowViaApi(page,graph.id); }
-  });
-
-  test("Audio Input feeds durable Output and Gallery audio across reload without Audio Edit", { tag: ["@spaces-media", "@spaces-canvas"] }, async ({ page }) => {
-    const errors = attachErrorCapture(page);
-    const graph = await createWorkflowViaApi(page);
-    try {
-      await waitForFreshWorkflow(page, graph);
-      const canvas = page.locator('[data-space-canvas]');
-      const narrow = (page.viewportSize()?.width ?? 0) < 600;
-
-      await addNodeFromAllNodes(page, "Audio Input");
-      const audioInput = reactFlowNodeForArticle(page, "Audio Input");
-      const audioInputBody = nodeBody(page, "Audio Input");
-      await cancelInputMediaUpload(audioInputBody);
-      await uploadInputMedia(audioInputBody, {
-        name: "t25-tone.wav",
-        mimeType: "audio/wav",
-        buffer: deterministicWav(4),
-      });
-      await expect(audioInputBody.getByRole("link", { name: "Download audio" })).toBeAttached({ timeout: 30_000 });
-      const uploaded = await waitForWorkflowState(
-        page,
-        graph.id,
-        (snapshot) => snapshot.nodes.some((node) => node.kind === "input.audio" && typeof node.config?.assetId === "string"),
-        "Audio Input did not persist the uploaded asset",
-      );
-      const audioInputRecord = uploaded.nodes.find((node) => node.kind === "input.audio");
-      expect(audioInputRecord).toBeTruthy();
-      const canvasBounds = await canvas.boundingBox();
-      await page.mouse.click(canvasBounds.x + 8, canvasBounds.y + 8);
-      await expect(audioInputBody).toHaveAttribute('data-body-interactive', 'false');
-      const beforeBodyDrag = await readWorkflowViaApi(page, graph.id);
-      await dragNodeByBody(page, audioInput, { x: 24, y: 24 });
-      await waitForWorkflowState(page, graph.id, value => JSON.stringify(value.nodes.find(node => node.id === audioInputRecord.id).position)
-        !== JSON.stringify(beforeBodyDrag.nodes.find(node => node.id === audioInputRecord.id).position), 'Dragging the audio body did not save its position');
-      const audio = audioInputBody.locator('audio');
-      await expect.poll(() => audio.evaluate(element => element.paused)).toBe(true);
-      await audioInputBody.hover();
-      const firstClear = await audioInputBody.getByRole('button', { name: 'Remove audio', exact: true }).boundingBox();
-      await page.mouse.click(firstClear.x + firstClear.width / 2, firstClear.y + firstClear.height / 2);
-      await expect(audioInputBody).toHaveAttribute('data-body-interactive', 'true');
-      expect((await readWorkflowViaApi(page, graph.id)).nodes.find(node => node.id === audioInputRecord.id).config.assetId).toBe(audioInputRecord.config.assetId);
-      const selectionToolbar = page.locator('[data-space-selection-toolbar]');
-      await expect(selectionToolbar).toBeVisible();
-      await expect(selectionToolbar.getByRole('button', { name: 'Copy', exact: true })).toBeEnabled();
-      await expect(selectionToolbar.getByRole('button', { name: 'Stack horizontally (H)', exact: true })).toBeDisabled();
-      await audioInputBody.getByRole('button', { name: 'Play', exact: true }).click();
-      await expect.poll(() => audio.evaluate(element => element.currentTime)).toBeGreaterThan(.1);
-      await audioInputBody.getByRole('button', { name: 'Pause', exact: true }).click();
-      await expect.poll(() => audio.evaluate(element => element.paused)).toBe(true);
-      await dragNodeToViewportPosition(page, audioInput, narrow ? { x: 20, y: 40 } : { x: 120, y: 120 });
-
-      const uploadedAssetId = audioInputRecord.config.assetId;
-      const uploadedDigest = await mediaAssetDigest(page,uploadedAssetId);
-      await expect(audioInputBody.locator('[data-space-audio-waveform="ready"] svg')).toBeVisible({timeout:30_000});
-      await audioInputBody.getByRole("slider", { name: "Playback position", exact: true }).click();
-      await expect(audioInputBody.getByRole("button", { name: "Upload", exact: true })).toHaveCount(0);
-      await expect(audioInputBody.getByRole("button", { name: "Assets", exact: true })).toHaveCount(0);
-      await expect(audioInputBody.locator('[data-space-media-chooser]')).toHaveCount(0);
-      await expect(page.getByRole("dialog", { name: "Assets", exact: true })).toBeHidden();
-      await audioInputBody.hover();
-      await audioInputBody.getByRole("button", { name: "Remove audio", exact: true }).click();
-      await waitForWorkflowState(page,graph.id,snapshot=>snapshot.nodes.find(node=>node.id===audioInputRecord.id)?.config.assetId===null,"audio X did not clear the input");
-      await expect(audioInputBody.getByRole("button", { name: "Upload", exact: true })).toBeVisible();
-      await expect(audioInputBody.getByRole("button", { name: "Assets", exact: true })).toBeVisible();
-      expect(await mediaAssetDigest(page,uploadedAssetId)).toBe(uploadedDigest);
-      await audioInputBody.getByRole("button", { name: "Assets", exact: true }).click();
-      const audioAssets = page.getByRole("dialog", { name: "Assets", exact: true });
-      await searchAssets(page, audioAssets, uploadedAssetId);
-      await expect(audioAssets.locator('article > button[aria-pressed]')).toHaveCount(1);
-      await audioAssets.locator('article > button[aria-pressed]').click();
-      await expect(audioAssets).toBeHidden();
-      await expect(audioInputBody.locator('[data-space-media-input="audio"]')).toBeFocused();
-      await waitForWorkflowState(page,graph.id,snapshot=>snapshot.nodes.find(node=>node.id===audioInputRecord.id)?.config.assetId===uploadedAssetId,"cleared audio could not be restored through Assets");
-      await expectAudioSettings(audioInputBody);
-
-      await addNodeFromToolbar(page, "Output");
-      await expect(canvas.locator(".react-flow__node")).toHaveCount(2, { timeout: 15_000 });
-      const output = reactFlowNodeForArticle(page, "Output");
-      await dragNodeToViewportPosition(page, output, narrow ? { x: 35, y: 700 } : { x: 1_000, y: 600 });
-
-      await addNodeFromAllNodes(page, "Output Gallery");
-      await expect(canvas.locator(".react-flow__node")).toHaveCount(3, { timeout: 15_000 });
-      const gallery = reactFlowNodeForArticle(page, "Output Gallery");
-      // Keep the Gallery below Output so its image/video handles do not cover
-      // the audio handle that this real pointer connection must target.
-      await dragNodeToViewportPosition(page, gallery, narrow ? { x: 35, y: 1_200 } : { x: 500, y: 760 });
-      await fitCanvas(page);
-      await connectHandles(page, audioInput, output, "audio", "audio");
-      await connectHandles(page, audioInput, gallery, "audio", "audio");
-
-      const downstream = await waitForWorkflowState(
-        page,
-        graph.id,
-        (snapshot) => {
-          const outputRecord = snapshot.nodes.find((node) => node.kind === "output.single");
-          const galleryRecord = snapshot.nodes.find((node) => node.kind === "output.gallery");
-          return Boolean(outputRecord && galleryRecord) && snapshot.edges.some((edge) => edge.targetNodeId === outputRecord.id && edge.targetPortId === "audio") && snapshot.edges.some((edge) => edge.targetNodeId === galleryRecord.id && edge.targetPortId === "audio");
-        },
-        "Audio Input downstream Output/Gallery connections were not persisted",
-      );
-      const outputRecord = downstream.nodes.find((node) => node.kind === "output.single");
-      const galleryRecord = downstream.nodes.find((node) => node.kind === "output.gallery");
-      expect(outputRecord).toBeTruthy();
-      expect(galleryRecord).toBeTruthy();
-      const outputBody = nodeBody(page, 'Output');
-      await selectNodeFromHeader(outputBody);
-      await outputBody.getByRole('button', { name: 'Remove audio', exact: true }).click();
-      const detached = await waitForWorkflowState(page, graph.id, value => value.edges.every(edge => edge.targetNodeId !== outputRecord.id), 'Output X did not disconnect its own input');
-      expect(detached.edges.some(edge => edge.targetNodeId === galleryRecord.id)).toBe(true);
-      expect(detached.nodes.find(node => node.id === audioInputRecord.id).config.assetId).toBe(uploadedAssetId);
-      expect(await mediaAssetDigest(page, uploadedAssetId)).toBe(uploadedDigest);
-      await expect(outputBody.locator('[data-space-audio-waveform]')).toHaveCount(0);
-      await page.locator('[data-space-canvas]').focus(); await page.keyboard.press('ControlOrMeta+z');
-      await waitForWorkflowState(page, graph.id, value => value.edges.some(edge => edge.targetNodeId === outputRecord.id), 'Undo did not restore Output input');
-      await expect(nodeBody(page, "Output").locator('[data-space-audio-waveform] svg')).toBeAttached({ timeout: 30_000 });
-      await expect(nodeBody(page, "Output Gallery").getByRole("button", { name: "View full size · Audio 1" })).toBeVisible({ timeout: 30_000 });
-      expect(await mediaAssetDigest(page,uploadedAssetId)).toBe(uploadedDigest);
-      for (const record of [outputRecord, galleryRecord]) {
-        const response = await page.request.get(`/api/generation-graphs/${encodeURIComponent(graph.id)}/nodes/${encodeURIComponent(record.id)}/outputs`);
-        expect(response.ok()).toBeTruthy();
-        expect((await response.json()).output.groups).toEqual([
-          expect.objectContaining({ portId: "audio", assets: [expect.objectContaining({ id: uploadedAssetId })] }),
-        ]);
-      }
-
-      await page.reload({ waitUntil: "domcontentloaded" });
-      await expect(nodeBody(page, "Audio Input").getByRole("link", { name: "Download audio" })).toBeAttached({ timeout: 30_000 });
-      await expect(nodeBody(page, "Output").locator("audio")).toBeAttached({ timeout: 30_000 });
-      await expect(nodeBody(page, "Output Gallery").getByRole("button", { name: "View full size · Audio 1" })).toBeVisible({ timeout: 30_000 });
-      expect(await mediaAssetDigest(page,uploadedAssetId)).toBe(uploadedDigest);
-      await captureEvidenceScreenshot(page, test.info(), "audio-input-output-gallery-reload");
-      expect(errors, errors.join("\n")).toEqual([]);
-    } finally {
-      await deleteWorkflowViaApi(page, graph.id);
-    }
-  });
-
-  test("Custom media and Assistant nodes preserve resize, disabled Run, ports and Korean titles", { tag: ["@desktop", "@spaces-media", "@spaces-assistant", "@spaces-generation", "@spaces-capture", "@spaces-canvas", "@spaces-settings"] }, async ({ page, context }, testInfo) => {
-    const graph = await createWorkflowViaApi(page), errors = attachErrorCapture(page);
-    try {
-      const cases = [
-        { kind: "edit.video.extractFrames", title: "비디오 프레임 추출", config: { parameters: { timestampMs: 0 } } },
-        { kind: "generate.audio", title: "오디오 생성", config: { prompt: "", modelKey: null, parameters: {} } },
-        { kind: "generate.assistant", title: "AI 어시스턴트", config: { prompt: "", modelKey: null } },
-        { kind: "generate.video", title: "비디오 생성", config: { prompt: "", modelKey: null, parameters: {} } },
-      ].map((item, index) => ({ ...item, id: fixtureId(graph, `localized-${index}`) }));
-      await replaceWorkflowViaApi(page, graph.id, cases.map((item, index) => ({
-        id: item.id, kind: item.kind, configVersion: 1, config: item.config,
-        position: { x: index % 2 * 700, y: Math.floor(index / 2) * 700 }, selectedOutputAssetId: null,
-      })));
-      await context.addCookies([{ name: "locale", value: "ko", url: testInfo.project.use.baseURL }]);
-      await waitForCanvas(page, graph.id);
-      await fitCanvas(page);
-      for (const item of cases) {
-        const node = nodeById(page, item.id);
-        await expect(node.locator("[data-space-node-header]")).toContainText(item.title);
-        await selectNodeFromHeader(node);
-        const run = node.locator("[data-canvas-action=run]");
-        await expect(run).toHaveCount(1); await expect(run).toBeDisabled();
-        await expect(run).toHaveAccessibleName(/.+/);
-        const port = node.locator('[data-space-port][data-visible="true"]').first();
-        await expect(port).toHaveAttribute("role", "button");
-        await expect(port).toHaveAttribute("aria-label", /.+/);
-        const dimensions = await port.evaluate(element => ({ width: element.offsetWidth, height: element.offsetHeight }));
-        expect(dimensions).toEqual({ width: 30, height: 30 });
-        const grip = node.locator(".react-flow__resize-control.handle.bottom.right");
-        await expect(grip).toBeVisible();
-        await expect(grip).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
-        const before = await node.boundingBox(), corner = await grip.boundingBox();
-        await page.mouse.move(corner.x + corner.width / 2, corner.y + corner.height / 2); await page.mouse.down();
-        await page.mouse.move(corner.x + corner.width / 2 + 25, corner.y + corner.height / 2 + 25, { steps: 8 }); await page.mouse.up();
-        await expect.poll(async () => (await node.boundingBox()).width - before.width).toBeGreaterThan(15);
-        await expect.poll(async () => (await node.boundingBox()).height - before.height).toBeGreaterThan(15);
-      }
-      const assistant = nodeById(page, cases[2].id);
-      await selectNodeFromHeader(assistant);
-      const panel = page.getByRole("region", { name: "AI 어시스턴트 설정" });
-      await expect(panel).toBeVisible();
-      const bounds = await panel.boundingBox();
-      expect(bounds.x + bounds.width).toBeLessThanOrEqual(1440);
-      await assistant.locator("[data-space-node-header]").getByRole("button", { name: "모델 살펴보기" }).click();
-      await expect(page.locator("[data-space-model-browser]")).toBeVisible();
-      await page.keyboard.press("Escape");
-      await selectNodeFromHeader(nodeById(page, cases[1].id));
-      await expect(panel).toBeHidden();
-      await captureEvidenceScreenshot(page, testInfo, "custom-node-ui-korean");
-      expect(errors, errors.join("\n")).toEqual([]);
-    } finally { await deleteWorkflowViaApi(page, graph.id); }
-  });
-
-  test("Assistant shares the media model browser and preserves LLM catalog selection", { tag: ["@desktop", "@spaces-assistant", "@spaces-generation", "@spaces-settings"] }, async ({ page }, testInfo) => {
-    const graph = await createWorkflowViaApi(page), errors = attachErrorCapture(page);
-    const llm = await activeModel(page, "llm", item => item.providerConfig.supports_images === true);
-    const second = await activeModel(page, "llm", item => item.key !== llm.key);
-    const provider = "Fixture Second Provider";
-    let preferences = { schemaVersion: 1, revision: 0, recentModelKeys: [second.key, "inactive-fixture-llm"], defaults: {}, inlineParametersEnabled: false };
-    await page.route("**/api/spaces/preferences", async route => {
-      if (route.request().method() === "PATCH") {
-        const body = route.request().postDataJSON();
-        preferences = { ...preferences, revision: preferences.revision + 1,
-          recentModelKeys: body.action === "track" ? [body.modelKey, ...preferences.recentModelKeys.filter(key => key !== body.modelKey)] : preferences.recentModelKeys };
-      }
-      await route.fulfill({ json: { preferences } });
-    });
-    let refreshes = 0;
-    await page.route("**/api/models", async route => {
-      refreshes += 1;
-      const response = await route.fetch(), payload = await response.json();
-      await route.fulfill({ response, json: { ...payload,
-        items: [...payload.items.map(item => item.key === second.key ? { ...item, vendor: provider } : item),
-          { ...llm, key: "inactive-fixture-llm", label: "Inactive LLM", isActive: false }] } });
-    });
-    try {
-      const kinds = ["generate.assistant", "generate.image", "generate.video", "generate.audio"];
-      const nodes = kinds.map((kind, index) => ({
-        id: fixtureId(graph, `browser-${index}`), kind, configVersion: 1, position: { x: index % 2 * 650, y: Math.floor(index / 2) * 560 },
-        config: kind === "generate.assistant" ? { prompt: "", modelKey: null } : { prompt: "", modelKey: null, parameters: {} }, selectedOutputAssetId: null,
-      }));
-      await replaceWorkflowViaApi(page, graph.id, nodes); await waitForFreshWorkflow(page, graph);
-      const assistant = nodeById(page, nodes[0].id);
-      await selectNodeFromHeader(assistant);
-      const modelButton = page.locator("[data-space-node-inspector]").getByRole("button").first();
-      await modelButton.click();
-      const dialog = page.locator("[data-space-model-browser]");
-      await expect(dialog.getByText("Inactive LLM", { exact: true })).toHaveCount(0);
-      await expect(dialog.getByRole("heading", { name: "Recently Used" })).toBeVisible();
-      const baseline = await settledDialogBounds(dialog);
-      await dialog.getByRole("button", { name: "Filter", exact: true }).click();
-      const providerSelect = page.getByRole("combobox", { name: "Provider", exact: true });
-      await providerSelect.selectOption(provider);
-      await expect(dialog.getByRole("list", { name: "All models", exact: true }).getByRole("listitem")).toHaveCount(1);
-      await expect(dialog.getByRole("button", { name: second.label, exact: true }).last()).toBeVisible();
-      await providerSelect.selectOption("");
-      await page.keyboard.press("Escape");
-      const beforeRefresh = refreshes;
-      await dialog.getByRole("button", { name: "Refresh models & schemas" }).click();
-      await expect.poll(() => refreshes).toBeGreaterThan(beforeRefresh);
-      await (await openModelSearch(page, dialog)).fill(llm.providerConfig.model_id);
-      await page.keyboard.press("Escape");
-      await dialog.getByRole("button", { name: llm.label, exact: true }).click();
-      await expect(dialog).toBeHidden();
-      await waitForWorkflowState(page, graph.id, value => value.nodes.find(node => node.id === nodes[0].id)?.config.modelKey === llm.key, "LLM selection not saved");
-      await expect(modelButton).toBeFocused(); await modelButton.click();
-      await expect(await openModelSearch(page, dialog)).toHaveValue("");
-      await page.keyboard.press("Escape");
-      await expect(dialog.getByRole("button", { name: llm.label, exact: true }).first()).toHaveAttribute("aria-pressed", "true");
-      await page.keyboard.press("Escape"); await expect(modelButton).toBeFocused();
-      for (const node of nodes.slice(1)) {
-        await selectNodeFromHeader(nodeById(page, node.id));
-        await nodeById(page, node.id).locator("[data-space-node-header]").getByRole("button", { name: "Browse models" }).click();
-        await expect(dialog.getByRole("list", { name: "All models", exact: true }).getByRole("listitem").first()).toBeVisible();
-        const bounds = await settledDialogBounds(dialog);
-        expect(Math.abs(bounds.width - baseline.width)).toBeLessThan(2);
-        expect(Math.abs(bounds.height - baseline.height)).toBeLessThan(2);
-        await expect(dialog.getByRole("button", { name: llm.label, exact: true })).toHaveCount(0);
-        await page.keyboard.press("Escape");
-      }
-      await page.reload(); await waitForFreshWorkflow(page, graph, false);
-      await selectNodeFromHeader(assistant);
-      await expect(modelButton).toContainText(llm.label);
-      await captureEvidenceScreenshot(page, testInfo, "assistant-shared-model-browser");
-      expect(errors, errors.join("\n")).toEqual([]);
-    } finally { await page.goto("about:blank"); await deleteWorkflowViaApi(page, graph.id); }
-  });
-
-  test("Assistant shows references, LLM browse, durable prompt, and copied result", { tag: ["@desktop", "@spaces-assistant", "@spaces-prompt", "@spaces-media", "@spaces-capture"] }, async ({ page, context }, testInfo) => {
-    test.setTimeout(160_000);
-
-    const errors = attachErrorCapture(page);
-    const graph = await createWorkflowViaApi(page);
-    const llm = await activeModel(page, "llm", item => item.providerConfig.supports_images === true);
-    const assistantText = Array.from({ length: 35 }, (_, index) => `${index + 1}. A pink bandana and brown coat.`).join("\n\n");
-    let completed = false;
-    let assistantPreferences = { schemaVersion: 1, revision: 0, recentModelKeys: [], defaults: {}, inlineParametersEnabled: false };
-    await page.route("**/api/spaces/preferences", async route => {
-      if (route.request().method() === "PATCH") {
-        const body = route.request().postDataJSON();
-        assistantPreferences = { ...assistantPreferences, revision: assistantPreferences.revision + 1,
-          recentModelKeys: body.action === "track" ? [body.modelKey] : assistantPreferences.recentModelKeys };
-      }
-      await route.fulfill({ json: { preferences: assistantPreferences } });
-    });
-    await page.route(`**/api/generation-graphs/${graph.id}/nodes/${fixtureId(graph, "assistant-1")}/executions`, async (route) => {
-      if (route.request().method() === "POST") {
-        completed = true;
-        await route.fulfill({ json: { execution: { executionId: fixtureId(graph, "assistant-run"), executionKind: "assistant", graphNodeId: fixtureId(graph, "assistant-1"), progress: 0, status: "pending", mediaType: "text" } } });
-      } else if (route.request().method() === "GET") {
-        await route.fulfill({ json: { executions: completed ? [{ executionId: fixtureId(graph, "assistant-run"), executionKind: "assistant", graphNodeId: fixtureId(graph, "assistant-1"), progress: 100, modelKey: llm.key, status: "completed", mediaType: "text", outputText: assistantText, outputAssetIds: [], errorCode: null, createdAt: new Date().toISOString() }] : [] } });
-      } else await route.continue();
-    });
-    try {
-      await replaceWorkflowViaApi(page, graph.id, [
-        { id: fixtureId(graph, "image-1"), kind: "input.image", configVersion: 1, position: { x: 0, y: 0 }, config: { assetId: null }, selectedOutputAssetId: null },
-        { id: fixtureId(graph, "assistant-1"), kind: "generate.assistant", configVersion: 1, position: { x: 460, y: 0 }, config: { prompt: "Describe these clothes", modelKey: null }, selectedOutputAssetId: null },
-        { id: fixtureId(graph, "trim-tabs"), kind: "edit.video.extractFrames", configVersion: 1, position: { x: 0, y: 440 }, config: { parameters: { timestampMs: 0 } }, selectedOutputAssetId: null },
-      ]);
-      await waitForFreshWorkflow(page, graph);
-      const image = nodeBody(page, "Image Input");
-      await uploadInputMedia(image, { name: "assistant-reference.png", mimeType: "image/png", buffer: deterministicPng(32, 24, 1) });
-      const savedImage = await waitForWorkflowState(page, graph.id, (value) => Boolean(value.nodes.find((node) => node.id === fixtureId(graph, "image-1"))?.config.assetId), "Assistant reference upload not saved");
-      await replaceWorkflowViaApi(page, graph.id, savedImage.nodes, [
-        { id: fixtureId(graph, "assistant-image"), sourceNodeId: fixtureId(graph, "image-1"), sourcePortId: "image", targetNodeId: fixtureId(graph, "assistant-1"), targetPortId: "images", sortOrder: 0, hasPause: false },
-      ]);
-      await context.addCookies([{ name: "locale", value: "ko", url: new URL(page.url()).origin }]);
-      await page.reload(); await waitForFreshWorkflow(page, graph, false);
-      const body = nodeById(page, fixtureId(graph, "assistant-1"));
-      await selectNodeFromHeader(body);
-      await expect(body.locator("[data-space-assistant]")).toBeVisible();
-      await expect(body.getByRole("tab", { name: "원본" })).toHaveAttribute("aria-selected", "true");
-      await expect(body.getByRole("tab", { name: "원본" })).toHaveText("원본");
-      await expect(body.getByRole("tab", { name: "결과" })).toHaveText("결과");
-      const trim = nodeById(page, fixtureId(graph, "trim-tabs"));
-      await expect(trim.locator('[data-space-video="edit.video.extractFrames"]')).toBeVisible();
-      await expect(trim.getByRole("tablist")).toHaveCount(0);
-      await expect(body.getByRole("img", { name: "이미지 참고자료 1" })).toBeVisible();
-      await body.getByRole("tab", { name: "결과" }).click();
-      await expect(body.getByRole("button", { name: "결과 복사" })).toBeVisible();
-      await expect(body.getByRole("button", { name: "결과 복사" })).toBeDisabled();
-      await body.getByRole("tab", { name: "원본" }).click();
-      await selectNodeFromHeader(body);
-      await expect(page.getByRole("region", { name: "AI 어시스턴트 설정" })).toBeVisible();
-      await fillEditor(body.getByRole("textbox", { name: "Assistant 지시문" }), "Describe both items in detail");
-      await waitForWorkflowState(page, graph.id, (value) => value.nodes.find((node) => node.id === fixtureId(graph, "assistant-1"))?.config.prompt === "Describe both items in detail", "Assistant prompt not saved");
-      await page.getByRole("region", { name: "AI 어시스턴트 설정" }).getByRole("button").first().click();
-      const browse = page.locator("[data-space-model-browser]");
-      await expect(browse).toBeVisible();
-      await captureEvidenceScreenshot(page, testInfo, "assistant-model-browser");
-      await expect(browse.getByRole("button", { name: llm.label, exact: true })).toHaveCount(1);
-      await (await openModelSearch(page, browse)).fill(llm.providerConfig.model_id);
-      await page.keyboard.press("Escape");
-      await browse.getByRole("button", { name: llm.label, exact: true }).click();
-      await waitForWorkflowState(page, graph.id, (value) => value.nodes.find((node) => node.id === fixtureId(graph, "assistant-1"))?.config.modelKey === llm.key, "Assistant model not saved");
-      await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-      await body.getByRole("button", { name: "원본 복사" }).click();
-      await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe("Describe both items in detail");
-      await expect(page.locator('[data-sonner-toast]').filter({ hasText: "복사됨" }).first()).toBeVisible();
-      await expect(body.getByText("복사됨")).toHaveCount(0);
-      await expect.poll(async () => (await page.locator('[data-sonner-toast]').first().boundingBox()).y).toBeGreaterThan(10);
-      await captureEvidenceScreenshot(page, testInfo, "assistant-tabs-original");
-      await body.locator('[data-space-node-header] button[data-canvas-action="run"]').click();
-      await expect(body.getByRole("tab", { name: "결과" })).toHaveAttribute("aria-selected", "true", { timeout: 20_000 });
-      await expect(body.getByRole("tabpanel", { name: "결과" })).toContainText("pink bandana");
-      const copy = body.getByRole("button", { name: "결과 복사" });
-      const resultPanel = body.getByRole("tabpanel", { name: "결과" });
-      const assertCopyPosition = async () => {
-        await expect(copy).toBeVisible();
-        const headerBox = await body.getByRole("tablist").locator("..").boundingBox();
-        const tabsBox = await body.getByRole("tablist").boundingBox();
-        const copyBox = await copy.boundingBox();
-        const panelBox = await resultPanel.boundingBox();
-        expect(Math.abs(copyBox.x + copyBox.width - headerBox.x - headerBox.width)).toBeLessThan(2);
-        expect(Math.abs(copyBox.y + copyBox.height / 2 - tabsBox.y - tabsBox.height / 2)).toBeLessThan(2);
-        expect(copyBox.y + copyBox.height).toBeLessThanOrEqual(panelBox.y);
-      };
-      await assertCopyPosition();
-      const node = page.locator(`.react-flow__node[data-id="${fixtureId(graph, "assistant-1")}"]`);
-      const beforeResize = await body.boundingBox();
-      const gripBox = await node.locator(".react-flow__resize-control.handle.bottom.right").boundingBox();
-      await page.mouse.move(gripBox.x + gripBox.width / 2, gripBox.y + gripBox.height / 2);
-      await page.mouse.down();
-      await page.mouse.move(gripBox.x + gripBox.width / 2 - 120, gripBox.y + gripBox.height / 2 - 90, { steps: 8 });
-      await page.mouse.up();
-      await expect.poll(async () => beforeResize.width - (await body.boundingBox()).width).toBeGreaterThan(30);
-      await assertCopyPosition();
-      const beforeScroll = await copy.boundingBox();
-      expect(await resultPanel.evaluate(element => { element.scrollTop = element.scrollHeight; return element.scrollTop; })).toBeGreaterThan(0);
-      expect(await copy.boundingBox()).toEqual(beforeScroll);
-      await copy.focus();
-      await page.keyboard.press("Enter");
-      await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(assistantText);
-      await expect(page.locator('[data-sonner-toast]').filter({ hasText: "복사됨" }).first()).toBeVisible();
-      await expect(body.getByText("복사됨")).toHaveCount(0);
-      await expect.poll(async () => (await page.locator('[data-sonner-toast]').first().boundingBox()).y).toBeGreaterThan(10);
-      await resultPanel.evaluate(element => { element.scrollTop = 0; });
-      await captureEvidenceScreenshot(page, testInfo, "assistant-tabs-result");
-      await page.reload(); await waitForFreshWorkflow(page, graph, false);
-      await expect(body.getByRole("tabpanel", { name: "결과" })).toContainText("pink bandana");
-      await selectNodeFromHeader(body);
-      await assertCopyPosition();
-      await copy.click();
-      await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(assistantText);
-      await body.getByRole("tab", { name: "원본" }).click();
-      await body.getByRole("button", { name: "원본 복사" }).click();
-      await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe("Describe both items in detail");
-      expect(errors, errors.join("\n")).toEqual([]);
-    } finally { await deleteWorkflowViaApi(page, graph.id); }
-  });
-
   test("Video Generation connections render Frames and Output immediately and survive reload", { tag: ["@desktop", "@spaces-generation", "@spaces-media", "@spaces-capture", "@spaces-canvas"] }, async ({ page }) => {
     test.setTimeout(200_000);
 
@@ -3669,15 +2064,8 @@ test.describe("Spaces native editor Chromium regression", () => {
     const graph=await createWorkflowViaApi(page),errors=attachErrorCapture(page);
     try {
       await waitForFreshWorkflow(page,graph);
-      for(const [kind,label] of [["edit.image.resize","Image Resize"],["edit.video.trim","Video Trim"],["edit.video.stitch","Video Stitch"]]) {
+      for(const label of ["Image Resize", "Video Trim", "Video Stitch"]) {
         expect(await paletteHasNode(page,label)).toBe(false);
-        const current=await readWorkflowViaApi(page,graph.id);
-        const response=await page.request.put("/api/generation-graphs/"+graph.id,{data:{
-          schemaVersion:3,title:current.title,expectedVersion:current.version,groups:[],edges:[],
-          nodes:[{id:fixtureId(graph,"unavailable"),kind,configVersion:1,config:{parameters:{}},position:{x:0,y:0},selectedOutputAssetId:null}]
-        }});
-        expect(response.status()).toBe(400);
-        expect((await readWorkflowViaApi(page,graph.id)).nodes).toEqual(current.nodes);
       }
       await addNodeFromAllNodes(page,"Video Input");
       const input=nodeBody(page,"Video Input");

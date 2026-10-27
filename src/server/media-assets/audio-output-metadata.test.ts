@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { audioOutputMetadata, audioOutputResult } from "./audio-output-metadata";
 import { generationOutputDuration } from "@/server/history/generation-output-availability";

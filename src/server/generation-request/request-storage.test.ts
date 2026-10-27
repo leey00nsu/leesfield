@@ -1,3 +1,4 @@
+// @vitest-environment node
 import {beforeEach,describe,it,expect,vi} from 'vitest';
 vi.hoisted(() => vi.resetModules());
 import {createImageGenerationRecord} from '@/server/image-generation/image-generation-repository';

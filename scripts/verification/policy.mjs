@@ -1,4 +1,5 @@
 import path from "node:path";
+import { externalContractDecision } from "./external-contract.mjs";
 
 export const BASE_CHECKS = ["test", "typecheck", "lint", "build", "security:production", "test:production-integration", "dependencies:check", "license:check"];
 export const AREA_NAMES = ["prompt", "canvas", "settings", "media", "generation", "assistant", "capture", "limits"];
@@ -53,7 +54,7 @@ export function ownership(file) {
 }
 
 function broadChange(file) {
-  return /^(?:package\.json|pnpm-(?:lock|workspace)\.yaml|(?:next|vitest|playwright\.[^.]+|postcss|tailwind|eslint)\.config\.[^/]+|tsconfig[^/]*\.json|instrumentation\.[jt]s|(?:middleware|proxy)\.[jt]s)$/.test(file)
+  return /^(?:package\.json|pnpm-(?:lock|workspace)\.yaml|(?:next|vitest(?:\.browser)?|playwright\.[^.]+|postcss|tailwind|eslint)\.config\.[^/]+|tsconfig[^/]*\.json|instrumentation\.[jt]s|(?:middleware|proxy)\.[jt]s)$/.test(file)
     || /^(?:prisma\/|configs\/|scripts\/verification\/|scripts\/spaces\/|scripts\/production\/test-(?:suite|production)|src\/(?:middleware|proxy|instrumentation)\.)/.test(file);
 }
 
@@ -75,7 +76,7 @@ function affect(file, reverseImports) {
 }
 
 /** Pure policy: reasons and selected checks are part of the verification record. */
-export function createVerificationPlan({ changes, reverseImports = new Map(), unresolvedImports = [], rangeProblem = null, forceFull = false }) {
+export function createVerificationPlan({ changes, reverseImports = new Map(), unresolvedImports = [], rangeProblem = null, forceFull = false, forceExternal = false, dependencyImpact, storageSdkConsumers }) {
   const areas = new Set(), reasons = [];
   let full = forceFull || Boolean(rangeProblem), storybook = false, smoke = false;
   if (forceFull) reasons.push({ path: null, level: "full", reason: "명시적인 전체 검증" });
@@ -89,6 +90,7 @@ export function createVerificationPlan({ changes, reverseImports = new Map(), un
     if ((/^[DT]/.test(change.status) || /^[RC]/.test(change.status)) && (isRuntime(file) || isRuntime(change.oldPath ?? ""))) {
       full = true; reasons.push({ path: file, oldPath: change.oldPath, level: "full", reason: "런타임 경로 삭제·이동·복사로 이전 의존 관계 재검증" }); continue;
     }
+    if (/\.browser\.test\.[jt]sx?$/.test(file)) storybook = true;
     if (testFile.test(file)) { reasons.push({ path: file, level: "base", reason: "소유 단위·통합 검사는 기본 실행에 포함" }); continue; }
     if (storyFile.test(file) || file.startsWith(".storybook/")) {
       storybook = true; reasons.push({ path: file, level: "base", reason: "Storybook 구성·스토리 검증 추가" }); continue;
@@ -122,8 +124,14 @@ export function createVerificationPlan({ changes, reverseImports = new Map(), un
   const level = full ? "full" : areas.size || smoke ? "related" : "base";
   const selectedAreas = AREA_NAMES.filter(area => areas.has(area));
   const checks = BASE_CHECKS.map(script => ({ id: script, command: "pnpm", args: [script] }));
+  if (storybook || full) checks.push({ id: "browser-components", command: "pnpm", args: ["test:browser"] });
+  if (forceExternal) checks.push({ id: "production-smoke", command: "pnpm", args: ["e2e:spaces:production"] });
   if (storybook || full) checks.push({ id: "storybook", command: "pnpm", args: ["build-storybook"] });
-  if (level !== "base") checks.push({ id: "spaces-e2e", command: "pnpm", args: full ? ["e2e:spaces:isolated"]
-    : ["e2e:spaces:isolated", "--areas", selectedAreas.length ? selectedAreas.join(",") : "smoke"] });
-  return { schemaVersion: 1, level, areas: full ? [...AREA_NAMES] : selectedAreas, smoke: level !== "base", storybook: storybook || full, reasons, checks };
+  const external = externalContractDecision({ changes, reverseImports, unresolvedImports, rangeProblem, forceExternal, dependencyImpact, storageSdkConsumers });
+  if (external.required) checks.push({ id: "storage-contract", command: "pnpm", args: ["test:storage-contract:isolated"] });
+  const uncertainScope = reasons.some(item => /불확실|해석하지 못|삭제·이동|비교 범위/.test(item.reason));
+  const browserTier = forceFull || rangeProblem || uncertainScope ? "all" : "core";
+  if (level !== "base") checks.push({ id: "spaces-e2e", command: "pnpm",
+    args: browserTier === "all" ? ["e2e:spaces:isolated"] : ["e2e:spaces:core"] });
+  return { schemaVersion: 3, browserTier, level, areas: full ? [...AREA_NAMES] : selectedAreas, smoke: level !== "base", storybook: storybook || full, external, reasons, checks };
 }

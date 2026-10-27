@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { copySpaceConfig } from "./copy-space-config";
 import type { CanonicalNode } from "@/shared/generation-graph/canonical-graph";

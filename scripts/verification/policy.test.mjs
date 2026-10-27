@@ -34,6 +34,12 @@ describe("verification impact decisions", () => {
     expect(normalized.SESSION_PASSWORD).toBe(inherited.SESSION_PASSWORD);
     expect(inherited.PRODUCTION_INTEGRATION_TEST).toBe("1");
   });
+  it("passes only this verification's observed memory constraint to the browser", () => {
+    const inherited = { SPACES_E2E_MEMORY_CONSTRAINED: "1", SPACES_E2E_WORKERS: "4" };
+    expect(verificationEnvironment(inherited).SPACES_E2E_MEMORY_CONSTRAINED).toBeUndefined();
+    expect(verificationEnvironment(inherited, { memoryConstrained: true })).toMatchObject({ SPACES_E2E_MEMORY_CONSTRAINED: "1", SPACES_E2E_WORKERS: "4" });
+    expect(inherited.SPACES_E2E_MEMORY_CONSTRAINED).toBe("1");
+  });
   it("keeps unrelated API work on the basic checks, including database and security contracts", () => {
     const plan = planFor(["src/app/api/unrelated-report/route.ts"]);
     expect(plan.level).toBe("base");
@@ -44,6 +50,14 @@ describe("verification impact decisions", () => {
     const plan = planFor(["src/widgets/api-docs/ui/api-docs-widget.tsx"]);
     expect(plan.level).toBe("base"); expect(plan.storybook).toBe(true);
     expect(scripts(plan)).toContain("build-storybook"); expect(scripts(plan)).not.toContain("e2e:spaces:isolated");
+    expect(scripts(plan)).toContain("test:browser");
+  });
+  it("runs browser component changes in Chrome and production core in release only", () => {
+    expect(scripts(planFor(["src/shared/ui/app-tabs.browser.test.tsx"]))).toContain("test:browser");
+    expect(planFor(["vitest.browser.config.ts"]).level).toBe("full");
+    expect(scripts(planFor([], { forceFull: true }))).toContain("test:browser");
+    expect(scripts(planFor([], { forceFull: true }))).not.toContain("e2e:spaces:production");
+    expect(scripts(planFor([], { forceFull: true, forceExternal: true }))).toContain("e2e:spaces:production");
   });
   it("keeps unit-only corrections in the owned baseline suites", () => {
     expect(planFor(["src/features/node-studio/model/space-editor-document.test.ts"]).level).toBe("base");
@@ -51,7 +65,7 @@ describe("verification impact decisions", () => {
   it("selects Assistant and smoke while keeping the rest of the browser suite available", () => {
     const plan = planFor(["src/features/node-studio/ui/nodes/space-node-assistant.tsx"]);
     expect(plan.level).toBe("related"); expect(plan.areas).toEqual(["assistant"]); expect(plan.smoke).toBe(true);
-    expect(plan.checks.at(-1).args).toEqual(["e2e:spaces:isolated", "--areas", "assistant"]);
+    expect(plan.checks.at(-1).args).toEqual(["e2e:spaces:core"]);
   });
   it("follows reverse imports but stops at a functional owner instead of the shared registry", () => {
     const graph = new Map([
@@ -72,7 +86,8 @@ describe("verification impact decisions", () => {
     "src/app/api/models/route.ts", "src/app/api/history/[historyId]/route.ts",
   ])("uses the full suite for the broad contract %s", file => {
     const plan = planFor([file]); expect(plan.level).toBe("full"); expect(plan.storybook).toBe(true);
-    expect(plan.checks.at(-1).args).toEqual(["e2e:spaces:isolated"]);
+    expect(plan.browserTier).toBe("core");
+    expect(plan.checks.at(-1).args).toEqual(["e2e:spaces:core"]);
   });
   it("keeps a deleted or renamed runtime edge from disappearing from impact analysis", () => {
     for (const change of [{ status: "D", path: "src/shared/lib/deleted.ts" }, { status: "R100", path: "src/new.ts", oldPath: "src/old.ts" }]) {
@@ -80,8 +95,18 @@ describe("verification impact decisions", () => {
     }
   });
   it("escalates a missing baseline and explicit full requests", () => {
-    expect(planFor([], { rangeProblem: "main unavailable" }).level).toBe("full");
+    expect(planFor([], { rangeProblem: "main unavailable" })).toMatchObject({ level: "full", browserTier: "all" });
+    expect(planFor([], { forceFull: true }).checks.at(-1).args).toEqual(["e2e:spaces:isolated"]);
     expect(planFor(["documentation.md"], { forceFull: true }).level).toBe("full");
+  });
+  it("requires real storage for storage and SDK changes, but not unrelated local full or UI checks", () => {
+    for (const file of ["src/server/media-assets/leemage-media-storage.ts", "pnpm-lock.yaml", "scripts/spaces/run-e2e.mjs"]) {
+      expect(scripts(planFor([file]))).toContain("test:storage-contract:isolated");
+    }
+    expect(scripts(planFor([], { forceFull: true }))).not.toContain("test:storage-contract:isolated");
+    expect(scripts(planFor([], { forceFull: true, forceExternal: true }))).toContain("test:storage-contract:isolated");
+    expect(scripts(planFor(["scripts/spaces/local-storage.mjs"]))).not.toContain("test:storage-contract:isolated");
+    expect(scripts(planFor(["src/features/node-studio/ui/nodes/space-node-media.tsx"]))).not.toContain("test:storage-contract:isolated");
   });
   it("escalates an unresolved internal dependency which could conceal a Space consumer", () => {
     const plan = planFor(["src/shared/lib/missing.ts"], { unresolvedImports: [{ importer: "src/features/node-studio/ui/nodes/space-node-assistant.tsx", candidates: ["src/shared/lib/missing.ts"] }] });

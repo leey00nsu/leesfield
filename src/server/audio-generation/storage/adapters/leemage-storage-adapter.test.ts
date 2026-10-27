@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { audioGenerationDefaults } from "@/features/audio-generation/model/audio-generation-schema";
 
 const baseEnv = {

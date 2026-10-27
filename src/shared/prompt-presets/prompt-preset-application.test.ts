@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { applyPromptPreset, emptyPromptPresetDraft, presetNeedsConfirmation, promptPresetInputIssue, promptPresetRecommendations } from "./prompt-preset-application";
 import { promptPresetReference, type PromptPreset } from "./prompt-preset-contract";

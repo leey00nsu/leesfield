@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { audioGenerationDefaults } from "@/features/audio-generation/model/audio-generation-schema";
 import { resolveAudioGenerationResult } from "@/server/audio-generation/audio-generation";

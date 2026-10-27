@@ -23,6 +23,11 @@ import { withQueueTransaction } from "@/server/job-queue/job-queue-transaction";
 import { enqueueQueueJobTx, queueScopeDigest } from "@/server/job-queue/job-queue-registration";
 import { settleQueueSuccess } from "@/server/job-queue/job-queue-settlement";
 import { nodeOutputService } from "./node-output-service";
+import { maximumGraph, NODE_LIMIT, EDGE_LIMIT, GROUP_LIMIT } from "../../../scripts/spaces/maximum-graph-fixture.mjs";
+import { GET as getGraph, PUT as putGraph } from "@/app/api/generation-graphs/[graphId]/route";
+
+const routeOwner = vi.hoisted(() => ({ email: "" }));
+vi.mock("@/server/auth/session", () => ({ getSession: async () => ({ isLoggedIn: true, adminEmail: routeOwner.email }) }));
 
 const integration = describe.skipIf(!postgresIntegrationEnabled);
 
@@ -60,6 +65,79 @@ integration("generation graph diff writes", () => {
   const ownerEmail = `it-graph-diff-${randomUUID()}@example.com`;
   useSharedQueueFixture(() => [ownerEmail]);
   const graphIds: string[] = [];
+
+  it("roundtrips migrated UI node fields and media ports through HTTP and PostgreSQL", async () => {
+    routeOwner.email = ownerEmail;
+    const graph = await generationGraphRepository.create(ownerEmail, "Browser component payloads"); graphIds.push(graph.id);
+    const assets = await Promise.all(["image", "image", "audio", "video"].map(type => prisma.mediaAsset.create({ data: {
+      ownerEmail, type: type as "image" | "audio" | "video", origin: "upload", status: "completed",
+      storageProvider: "leemage", storageObjectId: randomUUID(), storageUrl: "https://storage.example/" + randomUUID(),
+      mimeType: type === "image" ? "image/png" : type === "audio" ? "audio/wav" : "video/mp4",
+    } })));
+    const ids = Object.fromEntries(["memo", "prompt", "builder", "image", "second", "audio", "video", "generate.image", "generate.audio",
+      "generate.video", "generate.assistant", "frames", "output", "gallery", "compare"].map(key => [key, randomUUID()]));
+    const nodes = [
+      node(ids.memo, 0, "note.memo", { text: "Persisted note", size: { width: 480, height: 320 }, backgroundColor: "#f2d86b" }),
+      node(ids.prompt, 400, "input.prompt", { text: "한글 source", variableName: "scene", presentation: { comment: "Review" } }),
+      node(ids.builder, 800, "process.promptConstructor", { template: "@scene / @missing" }),
+      ...["image", "second", "audio", "video"].map((key, index) => node(ids[key], index * 400, "input." + assets[index].type, { assetId: assets[index].id })),
+      ...["image", "audio", "video", "assistant"].map((type, index) => node(ids["generate." + type], index * 400, "generate." + type,
+        { prompt: "Keep this source", modelKey: "component-" + type,
+          ...(type === "assistant" ? { outputMode: "list" } : { parameters: { dynamicParams: { seed: 0, enabled: false, payload: { quality: "draft" } } } }) })),
+      node(ids.frames, 800, "edit.video.extractFrames", { parameters: { timestampMs: 100 } }),
+      node(ids.output, 1200, "output.single", { mediaType: "audio" }),
+      node(ids.gallery, 1600, "output.gallery", { mediaType: null }), node(ids.compare, 2000, "inspect.imageCompare", {}),
+    ];
+    const edges: GraphEdgeInput[] = [
+      { id: randomUUID(), sourceNodeId: ids.image, sourcePortId: "image", targetNodeId: ids.compare, targetPortId: "before", sortOrder: 0 },
+      { id: randomUUID(), sourceNodeId: ids.second, sourcePortId: "image", targetNodeId: ids.compare, targetPortId: "after", sortOrder: 0 },
+      ...[ids.output, ids.gallery].map(targetNodeId => ({ id: randomUUID(), sourceNodeId: ids.audio, sourcePortId: "audio", targetNodeId, targetPortId: "audio", sortOrder: 0, hasPause: false })),
+    ];
+    const endpoint = "http://localhost/api/generation-graphs/" + graph.id;
+    const context = { params: Promise.resolve({ graphId: graph.id }) };
+    const put = await putGraph(new Request(endpoint, { method: "PUT", body: JSON.stringify(updateInput(graph, graph.title, nodes, edges)) }), context);
+    expect(put.status, await put.text()).toBe(200);
+    const read = await getGraph(new Request(endpoint), context);
+    expect(read.status).toBe(200);
+    const saved = (await read.json()).graph;
+    expect(saved.nodes).toHaveLength(nodes.length);
+    for (const expected of nodes) expect(saved.nodes.find((item: { id: string }) => item.id === expected.id)).toMatchObject(expected);
+    expect(saved.edges).toEqual(expect.arrayContaining(edges.map(edge => expect.objectContaining({ id: edge.id, sourceNodeId: edge.sourceNodeId, sourcePortId: edge.sourcePortId, targetNodeId: edge.targetNodeId, targetPortId: edge.targetPortId, sortOrder: edge.sortOrder }))));
+    expect(await generationGraphRepository.get(ownerEmail, graph.id)).toMatchObject({ nodes: saved.nodes, edges: saved.edges });
+    for (const target of [ids.output, ids.gallery]) await expect(nodeOutputService.resolve(ownerEmail, graph.id, target))
+      .resolves.toMatchObject({ groups: [expect.objectContaining({ portId: "audio", assets: [expect.objectContaining({ id: assets[2].id, type: "audio" })] })] });
+    const paused = { ...edges[2], hasPause: true };
+    const changed = await generationGraphService.update(ownerEmail, graph.id, updateInput(saved, graph.title, saved.nodes, edges.map(edge => edge.id === paused.id ? paused : edge)));
+    expect((await generationGraphRepository.get(ownerEmail, graph.id)).edges.find(edge => edge.id === paused.id)?.hasPause).toBe(true);
+    expect(changed.nodes).toEqual(saved.nodes);
+  });
+
+  it("returns exact HTTP400 for every graph overflow without changing the real stored snapshot", async () => {
+    routeOwner.email = ownerEmail;
+    const graph = await generationGraphRepository.create(ownerEmail, "Maximum API boundary"); graphIds.push(graph.id);
+    const saved = await generationGraphService.update(ownerEmail, graph.id, maximumGraph(graph));
+    const context = { params: Promise.resolve({ graphId: graph.id }) };
+    for (const [field, limit] of [["nodes", NODE_LIMIT], ["edges", EDGE_LIMIT], ["groups", GROUP_LIMIT]] as const) {
+      const body = { schemaVersion: 3, expectedVersion: saved.version, title: saved.title, nodes: saved.nodes, edges: saved.edges, groups: saved.groups,
+        [field]: [...saved[field], { ...saved[field][0], id: randomUUID() }] };
+      expect(Buffer.byteLength(JSON.stringify(body))).toBeLessThan(1024 * 1024);
+      const response = await putGraph(new Request("http://localhost/api/generation-graphs/" + graph.id, { method: "PUT", body: JSON.stringify(body) }), context);
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ message: "INVALID_REQUEST", errors: { formErrors: [], fieldErrors: { [field]: [`Too big: expected array to have <=${limit} items`] } } });
+      expect(await generationGraphRepository.get(ownerEmail, graph.id)).toEqual(saved);
+    }
+  });
+
+  it.each(temporarilyHiddenEditNodeKinds)("rejects new %s through the real HTTP handler without changing the stored graph", async kind => {
+    routeOwner.email = ownerEmail;
+    const graph = await generationGraphRepository.create(ownerEmail, "Unavailable HTTP authoring"); graphIds.push(graph.id);
+    const saved = await generationGraphRepository.get(ownerEmail, graph.id);
+    const body = { schemaVersion: 3, expectedVersion: saved.version, title: saved.title, groups: [], edges: [], nodes: [node(randomUUID(), 0, kind, { parameters: {} })] };
+    const response = await putGraph(new Request("http://localhost/api/generation-graphs/" + graph.id, { method: "PUT", body: JSON.stringify(body) }), { params: Promise.resolve({ graphId: graph.id }) });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ message: "INVALID_REQUEST" });
+    expect(await generationGraphRepository.get(ownerEmail, graph.id)).toEqual(saved);
+  });
 
   afterAll(async () => {
     await prisma.mediaOperation.deleteMany({ where: { ownerEmail } });

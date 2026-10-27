@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import type { CanonicalNode } from "@/shared/generation-graph/canonical-graph";
 import type { SpaceEditorDocument } from "./space-editor-types";

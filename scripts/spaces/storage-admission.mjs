@@ -8,18 +8,20 @@ import { randomBytes } from "node:crypto";
 export async function startStorageAdmission() {
   const token = randomBytes(32).toString("hex"), shutdown = new AbortController();
   const buckets = {
-    upload: { interval: 3_150, tail: Promise.resolve(), last: 0, count: 0 },
-    api: { interval: 650, tail: Promise.resolve(), last: 0, count: 0 },
+    upload: { interval: 3_150, tail: Promise.resolve(), last: 0, count: 0, waitMs: 0 },
+    api: { interval: 650, tail: Promise.resolve(), last: 0, count: 0, waitMs: 0 },
   };
   const server = createServer((request, response) => {
     const key = request.url?.slice(1), bucket = Object.hasOwn(buckets, key) ? buckets[key] : undefined;
     if (request.method !== "POST" || !bucket || request.headers.authorization !== `Bearer ${token}`) {
       response.writeHead(403).end(); return;
     }
+    const queuedAt = Date.now();
     const admission = bucket.tail.then(async () => {
       await delay(Math.max(0, bucket.last + bucket.interval - Date.now()), undefined, { signal: shutdown.signal });
       if (request.aborted || response.destroyed) return;
       bucket.last = Date.now(); bucket.count += 1;
+      bucket.waitMs += Date.now() - queuedAt;
       response.writeHead(204).end();
     });
     bucket.tail = admission.catch(() => { if (!response.destroyed) response.writeHead(503).end(); });
@@ -28,6 +30,7 @@ export async function startStorageAdmission() {
   return {
     url: `http://127.0.0.1:${server.address().port}`,
     token,
+    snapshot: () => Object.fromEntries(Object.entries(buckets).map(([name, bucket]) => [name, { count: bucket.count, waitMs: bucket.waitMs, intervalMs: bucket.interval }])),
     async close() {
       shutdown.abort();
       server.closeAllConnections();

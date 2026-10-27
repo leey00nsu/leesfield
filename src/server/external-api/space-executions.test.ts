@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ node: vi.fn(), get: vi.fn(), execute: vi.fn(), rows: vi.fn(), lookup: vi.fn(), context: {} }));
 vi.mock("./node-execution-history", () => ({ queryNodeExecutionHistory: mocks.rows }));

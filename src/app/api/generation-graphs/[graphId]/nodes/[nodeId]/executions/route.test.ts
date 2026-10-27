@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { GET, POST } from "./route";
 import {
   NodeExecutionActiveError,

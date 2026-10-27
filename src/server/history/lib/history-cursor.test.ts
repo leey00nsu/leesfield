@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from "vitest";
 import { compareHistory, cursorWhere, decodeHistoryCursor, encodeHistoryCursor } from "./history-cursor";
 import type { GenerationHistoryItem } from "@/entities/generation/model/types";

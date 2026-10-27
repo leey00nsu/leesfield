@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ session: vi.fn(), copy: vi.fn() }));
 vi.mock("@/server/auth/session", () => ({ getSession: mocks.session }));

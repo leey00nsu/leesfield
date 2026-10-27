@@ -1,6 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
 import { join } from "node:path";
+import { resolveSpacesWorkerBudget } from "./scripts/spaces/worker-budget.mjs";
 
+import { tierGrep } from "./scripts/spaces/e2e-tiers.mjs";
+
+const tier = process.env.SPACES_E2E_TIER ?? "all";
 const startServer = process.env.E2E_START_SERVER === "1";
 const baseURL = process.env.SPACES_BASE_URL ?? "http://127.0.0.1:3100";
 const output = process.env.SPACES_E2E_OUTPUT_DIR ?? "./artifacts/spaces-e2e";
@@ -8,12 +12,12 @@ if (new URL(baseURL).port === "3000") {
   throw new Error("Spaces E2E requires an isolated server; port 3000 belongs to the user's development session.");
 }
 if (startServer) process.env.NODE_STUDIO_E2E_MOCK_GENERATION = "1";
-const workers = Number(process.env.SPACES_E2E_WORKERS ?? 2);
+const { workers } = await resolveSpacesWorkerBudget(process.env);
 if (!Number.isInteger(workers) || workers < 1 || workers > 4) throw new Error("SPACES_E2E_WORKERS must be between 1 and 4");
 
 export default defineConfig({
   testDir: "./scripts/spaces/e2e",
-  testMatch: ["spaces.spec.mjs", "large-graph.spec.mjs"],
+  testMatch: ["spaces.spec.mjs", "large-graph.spec.mjs", "core-boundaries.spec.mjs"],
   globalSetup: "./scripts/spaces/e2e/spaces-global-setup.mjs",
   outputDir: join(output, "test-results"),
   snapshotDir: "./artifacts/spaces-e2e/snapshots",
@@ -43,10 +47,12 @@ export default defineConfig({
   projects: [
     {
       name: "desktop",
+      grep: tierGrep(tier, "desktop"),
       use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
     },
     {
       name: "mobile-390",
+      grep: tierGrep(tier, "mobile-390"),
       // Preserve the desktop integration scope without runtime test skips.
       grepInvert: /@desktop/,
       use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 }, isMobile: false },

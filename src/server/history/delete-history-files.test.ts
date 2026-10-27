@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, expect, it, vi } from "vitest";
 vi.hoisted(() => vi.resetModules());
 const mocks = vi.hoisted(() => ({ find: vi.fn(), update: vi.fn(), remove: vi.fn(), queue: vi.fn(), usage: vi.fn(), covers: vi.fn() }));

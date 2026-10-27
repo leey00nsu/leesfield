@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MonitoringQuery } from "@/server/monitoring/monitoring-query";
 import { getMonitoringStats } from "@/server/monitoring/stats";

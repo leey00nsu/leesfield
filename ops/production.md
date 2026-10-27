@@ -94,11 +94,33 @@ pnpm queue:transition activate --expected-epoch=1
 
 ## 보안 감사와 로컬 검증
 
+개발 중에는 `pnpm verify:quick`으로 HEAD 대비 미커밋 변경의 관련 단위/UI 검사·타입·대상 lint를 실행한다. 파일 경로를 인자로 주거나 `--since <ref>`로 비교 기준을 정하고, `--plan --json`으로 선택을 확인할 수 있다. 범위가 넓거나 불확실하면 단위/UI와 lint 전체로 확대한다. 관련 검사 없음·변경 없음은 실행 성공과 구분하며, 결과는 `.next/verification/last-quick.json`에 남긴다. 이 경로는 DB·빌드·E2E·보안 등을 포함한 공식 완료 검증을 대체하지 않는다.
+
 `.github/workflows/production-security.yml`은 dependency 또는 workflow 변경과 매주 schedule에서 `pnpm security:production`을 실행한다. 이 workflow는 알려진 production dependency 취약점을 알리는 감사 신호이며 Coolify Auto Deploy를 차단하는 gate가 아니다. 프로젝트 lockfile은 source-map-js를1.2.2로 고정해 indexed source-map offset의 event-loop DoS(GHSA-68fv-2mgg-jv7q) 패치를 포함한다. 의존성 override를 갱신하거나 제거할 때는 실제 설치 버전과 production audit 및 build를 함께 확인한다.
 
-Feature 완료 전에는 lee-spec-kit의 로컬 검사로 `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm build`, `pnpm security:production`, `pnpm test:production-integration`을 실행한다. production integration script는 호출자가 가진 `DATABASE_URL`을 사용하지 않고 1 GiB tmpfs의 PostgreSQL 16 컨테이너를 만들며 migration과 전체 테스트가 끝나면 `--rm` 컨테이너를 stop한다. Docker나 PostgreSQL image를 사용할 수 없는 환경에서는 통합 검사를 성공으로 건너뛰지 않는다.
+Feature 완료 검증은 `pnpm verify`가 변경 범위에 맞게 선택하며, 로컬 전체 회귀는 `pnpm verify:full`, 실제 저장소까지 포함한 릴리스 전 검증은 `pnpm verify:release`를 실행한다. 일반 테스트·typecheck·lint·build·보안·격리 DB·의존성·라이선스는 기본 검사이고 UI/전체 검증에는 브라우저 컴포넌트·Storybook이, full/release에는 확장을 포함한 전체 브라우저가 추가된다. 릴리스 검증은 새 production 핵심 흐름도 실행한다. 실제 Leemage 계약은 저장소 연결부/SDK·관련 의존 변경 또는 release에서 별도로 필수 실행한다. production integration script는 호출자가 가진 `DATABASE_URL`을 사용하지 않고 1 GiB tmpfs의 PostgreSQL 16 컨테이너를 만들며 migration과 전체 테스트가 끝나면 `--rm` 컨테이너를 stop한다. Docker나 PostgreSQL image를 사용할 수 없는 환경에서는 통합 검사를 성공으로 건너뛰지 않는다.
 
-스페이스 브라우저 검사는 `pnpm e2e:spaces:isolated`를 사용한다. 매 실행마다 현재 소스를 별도 임시 작업 공간에 복사하고 새 Next 컴파일 캐시·PostgreSQL·스토리지 프로젝트를 사용한다. 패키지만 공유하고 원본 `.env`·`next-env.d.ts`·빌드 산출물을 복사하지 않으며 생성 타입/설정은 임시 공간 안에 남긴다. 사용자 개발 서버를 종료하거나 이전 검사 캐시를 지울 필요가 없다. 별도 소유자의 준비용 스페이스에서 실제 canvas·설정 준비까지 확인한 뒤 병렬 사례를 시작하며, API200만으로 편집기 준비를 판단하지 않는다. 준비용 graph/browser도 정리하고 readiness.json에 결과를 기록한다. 종료·실패·중단 시 임시 자원을 정리하고 보고서는 `.next/spaces-e2e/<run>/`에 보존한다. 실패 보고서의 `hmr-diagnostics`와 `hmr-counters`에서 재탐색·restart·강제 새로고침을 구분한다. timeout 증가·worker 축소·재실행으로 통과시키기 전에 원인을 확인한다.
+검증 실행기는 Prisma 생성과 타입 검사를 먼저 마친다. 정상 환경은 일반 테스트·lint·보안·격리 DB·의존성·라이선스를 함께 실행하고, 메모리 제약 환경은 unit2worker를 독립 배치로 먼저 실행한다. DB suite 내부는1개 작업자로 순차 실행하며, build와 후속 검사는 이 그룹이 모두 종료된 뒤 시작한다. 실패·중단은 같은 그룹에 전파하고 각 결과를 보존한다. `.next/verification/last-run.json`의 durationMs는 실제 경과시간이며 summedCheckDurationMs는 겹친 명령별 시간의 합이다.
+
+스페이스의 일상/PR 검증은 `pnpm e2e:spaces:core`, 확장 회귀와 배포 전 검증은 `pnpm e2e:spaces:isolated` 또는 `pnpm verify:release`를 사용한다. `verify`도 핵심 E2E를 선택하며, 명시적 full/release·삭제·불확실한 영향 범위에서는 확장을 포함한다. `verify:plan`의 browser.tier와 selected/total로 실제 범위를 확인한다. 매 실행마다 현재 소스를 별도 임시 작업 공간에 복사하고 독립 Next 컴파일 공간·새 PostgreSQL·로컬 파일 저장소를 사용한다. 패키지만 공유하고 원본 `.env`·`next-env.d.ts`·빌드 산출물을 복사하지 않으며 생성 타입/설정은 임시 공간 안에 남긴다. 사용자 개발 서버를 종료하거나 이전 검사 캐시를 지울 필요가 없다. 별도 소유자의 준비용 스페이스에서 실제 canvas·설정 준비까지 확인한 뒤 병렬 사례를 시작하며, API200만으로 편집기 준비를 판단하지 않는다. 준비용 graph/browser도 정리하고 readiness.json에 결과를 기록한다. 종료·실패·중단 시 임시 자원을 정리하고 보고서는 `.next/spaces-e2e/<run>/`에 보존한다. 실패 보고서의 `hmr-diagnostics`와 `hmr-counters`에서 재탐색·restart·강제 새로고침을 구분한다. timeout 증가·worker 축소·재실행으로 통과시키기 전에 원인을 확인한다.
+
+일반 브라우저의 저장소와 검사 전용 어시스턴트 provider 연결을 격리 프로세스에서 제공한다. 어시스턴트의 앱 API·admission·공통 큐·결과 저장/재진입과 실제 로그인/소유권 경계를 확인한다. 유료 provider의 지정 HTTP 소켓만 로컬 응답으로 연결하며 임시 계정·credential 키를 실행별로 생성한다. 앱 API·큐·실제 파일 검사·FFmpeg와 디코딩은 실행하며 운영 인증·URL/DNS 보안 정책을 완화하지 않는다. 로컬 파일은 실행별로 격리하고 이미지 변환은 기존 Next의 sharp를 사용한다. 정상 상태의 기본 브라우저 작업자는4개이며 `SPACES_E2E_WORKERS=2 pnpm e2e:spaces:isolated` 또는 `--workers=2`로 조절한다(허용1~4). DB 검사는1개 작업자로 실행하며 브라우저의 native clipboard 잠금도 유지한다. metrics.json에는 범위 hash·작업자·저장소 모드·환경·단계/사례별 시간·저장소 호출/대기·HMR/클립보드 진단을 기록하며 키·세션·파일 내용은 제외한다.
+
+검사 보고서의 `resources`는 실행 프로세스 트리의 CPU/RSS와 호스트 load를 약1초 간격으로 기록한다. 명령 인자·환경·PID는 보관하지 않는다. RSS는 공유 페이지를 중복 계산할 수 있고 CPU는 프로세스 수명 평균이다. Docker VM과 다른 앱은 프로세스 합계에서 빠지며 호스트 load에는 포함된다. macOS는 메모리 압력과 swap 사용량, Linux는 memory PSI를 지원될 때 추가 기록한다. OS 미지원/조회 실패는 별도 상태이며 thermal은 측정하지 않는다. 특정 앱이나 시간 편차의 원인은 이 표본만으로 단정하지 않는다. OS 미지원/표본 실패는 0과 구분한다.
+
+일반 브라우저 회귀는 시작 시 또는 같은 공식 실행에서 macOS warning/critical이나 Linux memory full-stall을 관측하면2개, 그 외에는4개 worker를 기본 선택한다. 시작 시와 같은 공식 검증의 이전 단계에서 관측한 경고를 반영해 선택을 고정하고 이유·OS 표본을 기록한다. 과거 실행의 상태는 재사용하지 않는다. `SPACES_E2E_WORKERS=1~4` 또는 Playwright worker 옵션으로 명시할 수 있으며 실제 저장소 계약은1개다. 검사 개수·제품 DB 예산·재시도0은 유지한다. 로컬 파일 fixture는 응답 후 연결을 닫아 idle 소켓 재사용을 피한다.
+
+`pnpm test:browser`는 실제 Chrome에서 공용 탭과 상세창의 키보드·배치·미저장 확인을 검사한다. 전체 앱/DB 없이 실제 편집기의 설정·포트·모델·미디어·clipboard 행렬도 검사한다. 이전 원장은 scripts/spaces/e2e-migrations.json에 연결하고 저장은 HTTP/PG, 앱 연결은 핵심/확장 E2E로 분담한다. 실패 스크린샷은 `.next/browser-components`에 남는다.
+
+`pnpm e2e:spaces:production`은 새 소스·빌드 산출물·PostgreSQL·임시 HTTPS 서버에서 서명 세션, 프롬프트 저장/폐기와 설정의 재진입을 확인한다. 외부 업로드·생성을 실행하지 않고 운영 mock 차단을 유지한다. `--development`로 같은 흐름의 dev 준비 비용을 비교한다. 원본 `.env`와 서버는 사용하지 않으며 단계별 결과는 `.next/core-smoke`에 남긴다. `verify:release`에는 production 경로가 필수다.
+
+검사 성능: 서버/API·순수 로직은 Node, DOM UI는 jsdom으로 분리하며 서버 fixture는 필요한 파일에만 적용한다. VERIFICATION_TEST_WORKERS=1~4로 unit 병렬도를 명시할 수 있다. 정상 기본4개, 메모리 경고 또는4core/8GiB 이하에서는2개와 별도 unit 배치를 사용한다. 결과의 workerPlan·executionBatches·unitTests에서 실제 설정과 파일/사례 시간을 확인한다.
+
+격리 검사는 같은 checkout/toolchain/lock/config/NEXT_PUBLIC_* hash의 전용 source 경로에서 production build compiler cache만 보존한다. dev filesystem cache는 새 runtime과 함께 복원할 때 stale chunk 재시작이 발생하므로 격리 dev에서 끄고 복원하지 않는다. 소스와 runtime/static 결과는 정리하고 다음 실행에 새로 복사한다. compilerCache는 실제 profile/policy와 이전 데이터 존재 여부를 표시하며 실제 내부 hit나 속도 향상을 보장하지 않는다. SPACES_E2E_COLD=1은 캐시 없이 별도 임시 공간을 사용한다. 잠긴 cache workspace를 자동 삭제하지 않는다.
+
+의존 설치는 검사별로 반복하지 않고 기존 node_modules를 공유한다. 보안 CI는 setup-node의 pnpm cache와 frozen lockfile install을 이미 사용한다. Coolify 원격 빌드 캐시의 실제 활성 여부는 로컬 설정만으로 확인하지 않는다.
+
+`pnpm test:storage-contract:isolated`는 새 PostgreSQL·소스·실제 Leemage 프로젝트에서 PNG/WAV/MP4 업로드·원본 digest·소유자 접근 제한·큐 삭제를 확인한다. 저장소 연결부/SDK 변경과 `verify:release`에서 필수다. 일반 UI/로컬 전체 변경에 저장소 영향이 없으면 선택되지 않는다. manifest는 scripts만 바뀐 경우 외부 의존과 무관하다고 확인하며, lock/workspace 변경이나 불확실한 영향은 실제 계약을 요구한다. `LEEMAGE_API_KEY`와 `LEEMAGE_PROJECT_ID`가 필요하며, 필요한 검사의 인증 누락·외부 오류·준비/정리 실패는 nonzero로 종료한다. 계획의 external.required와 reasons에서 필요 여부와 근거를 확인한다. 로컬 fixture나 선택 옵션으로 이 검사를 대체하지 않는다. 실제 저장소를 쓰는 전체 화면 진단은 `SPACES_E2E_STORAGE_MODE=real pnpm e2e:spaces:isolated`로 실행할 수 있다. presign/confirm은3150ms, 다른 API는650ms의 기존 admission을 유지한다.
 
 안전한 harness 확인은 다음 명령으로 실행한다.
 
@@ -254,3 +276,5 @@ curl -i --cookie '<admin-session-cookie>' https://<host>/api/health/metrics
 - [ ] 별도 시험 DB에서 process restart와 lease expiry 후 상태가 terminal로 수렴하는가
 - [ ] Modal remote jobId가 있는 작업과 POST 직후 ID가 없는 작업의 recovery 결과를 확인했는가
 - [ ] 실제 provider/storage의 원격 취소·backup·복원 정책을 코드 증거와 구분해 기록했는가
+
+검사 전용 업로드 scheduler는 사용자별 capacity2 burst를 즉시 허용하고 이후10/min refill에만 대기한다. 실제 앱 rate limit과 업로드·확인 API는 그대로 통과한다.

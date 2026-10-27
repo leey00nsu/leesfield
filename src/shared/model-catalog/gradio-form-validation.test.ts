@@ -1,3 +1,4 @@
+// @vitest-environment node
 
 import { describe, expect, it } from "vitest";
 import { gradioFormError, gradioFormMessage, gradioFieldLabel } from "./gradio-form-validation";

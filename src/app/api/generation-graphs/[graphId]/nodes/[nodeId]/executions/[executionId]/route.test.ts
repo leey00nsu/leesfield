@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { DELETE, GET, PATCH } from "./route";
 import { NodeExecutionSelectionConflictError } from "@/server/node-executions/node-execution-errors";
 

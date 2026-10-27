@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, vi } from "vitest";
 vi.mock("@/server/model-catalog/catalog-service",()=>({getModelCatalog:vi.fn()}));
 import workflows from "./fixtures/workflows.json";

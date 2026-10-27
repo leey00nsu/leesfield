@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import type { CanonicalEdge, CanonicalJsonValue, CanonicalNode } from "@/shared/generation-graph/canonical-graph";
 import type { GeneratedResultGalleryItem } from "@/shared/generation-graph/node-registry";

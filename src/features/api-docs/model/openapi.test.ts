@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, vi } from "vitest";
 import Ajv2020 from "ajv/dist/2020";
 import type { RequestBodyObject, SchemaObject } from "openapi3-ts/oas31";
@@ -79,14 +80,25 @@ describe("public API protocol", () => {
     const input = buildExampleFromSchema(registration.request!.schema, document, undefined, examples);
     expect(modelCatalogInputSchema.safeParse(input).success).toBe(true);
     const ajv = new Ajv2020({ strict: false, validateFormats: false });
+    // Compile each distinct schema once per locale; every payload is still validated.
+    const compiled = new Map<string, ReturnType<typeof ajv.compile>>();
+    const compile = (schema: SchemaObject) => {
+      const key = JSON.stringify(schema);
+      let validate = compiled.get(key);
+      if (!validate) {
+        validate = ajv.compile({ ...schema, components: document.components });
+        compiled.set(key, validate);
+      }
+      return validate;
+    };
     for (const operation of operations) {
       if (operation.request?.schema && operation.request.contentType === "application/json") {
-        const validate = ajv.compile({ ...operation.request.schema, components: document.components });
+        const validate = compile(operation.request.schema);
         expect(validate(buildExampleFromSchema(operation.request.schema, document, undefined, examples)),
           operation.method + " " + operation.path + ": " + JSON.stringify(validate.errors)).toBe(true);
       }
       for (const response of operation.responses.filter((r) => r.schema)) {
-        const validate = ajv.compile({ ...response.schema!, components: document.components });
+        const validate = compile(response.schema!);
         const payloads = response.examples?.length ? response.examples.map((example) => example.value)
           : [response.example ?? buildExampleFromSchema(response.schema, document, undefined, examples)];
         for (const payload of payloads) {
@@ -104,7 +116,7 @@ describe("public API protocol", () => {
         }
       }
     }
-    const validateRegistration = ajv.compile({ ...registration.request!.schema!, components: document.components });
+    const validateRegistration = compile(registration.request!.schema!);
     const invalid = { ...(input as Record<string, unknown>), providerConfig: {} };
     expect(validateRegistration(invalid)).toBe(false);
     expect(validateRegistration({ ...(input as Record<string, unknown>), apiKey: "wrong-media-credential" })).toBe(false);

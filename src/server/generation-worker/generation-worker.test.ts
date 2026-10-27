@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const queue = vi.hoisted(() => ({ process: vi.fn(async (options?: { awaitCompletion?: boolean }) => { void options; return 3; }), start: vi.fn(), stop: vi.fn(async () => {}), state: vi.fn(() => ({ started: true })) }));
 vi.mock("@/server/job-queue/job-queue-runtime", () => ({

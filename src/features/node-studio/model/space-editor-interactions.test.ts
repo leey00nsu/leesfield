@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { spaceInspectorPanOffset } from "./space-editor-interactions";
 

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { adjustCrop, containedMediaBox, mediaEditBarPosition, presetCrop } from "./media-crop-geometry";
 describe("original media crop coordinates", () => {

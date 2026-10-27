@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { adjustTrimRange, trimKeyboardRange } from "./media-trim-range";
 describe("direct trim range", () => {

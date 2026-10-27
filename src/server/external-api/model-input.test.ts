@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, vi } from "vitest";
 import Ajv2020 from "ajv/dist/2020";
 import { getExternalModelInput } from "./model-input";

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { defaultConfigForKind } from "@/shared/generation-graph/node-default-config";
 import { validateNodeConfig, type CanonicalNodeKind } from "@/shared/generation-graph/node-registry";

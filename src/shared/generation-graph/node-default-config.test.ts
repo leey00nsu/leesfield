@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { defaultConfigForKind } from "./node-default-config";
 import { validateNodeConfig } from "./node-registry";

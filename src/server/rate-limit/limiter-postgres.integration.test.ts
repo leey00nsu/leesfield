@@ -42,11 +42,12 @@ integration("shared rate limit buckets", () => {
   });
 
   it("enforces one shared budget across concurrent callers", async () => {
+    const at = new Date();
     const p = policy("burst", 5, 1);
     const key = trackedKey(p, "burst-subject");
 
     const outcomes = await Promise.all(
-      Array.from({ length: 20 }, () => consumeRateLimit(p, "burst-subject")),
+      Array.from({ length: 20 }, () => consumeRateLimit(p, "burst-subject", at)),
     );
     const allowed = outcomes.filter((outcome) => outcome.allowed).length;
 
@@ -57,12 +58,13 @@ integration("shared rate limit buckets", () => {
   });
 
   it("refills over time and reports a retry hint when exhausted", async () => {
+    const at = new Date();
     const p = policy("refill", 2, 1);
     trackedKey(p, "refill-subject");
 
-    const first = await consumeRateLimit(p, "refill-subject");
-    const second = await consumeRateLimit(p, "refill-subject");
-    const blocked = await consumeRateLimit(p, "refill-subject");
+    const first = await consumeRateLimit(p, "refill-subject", at);
+    const second = await consumeRateLimit(p, "refill-subject", at);
+    const blocked = await consumeRateLimit(p, "refill-subject", at);
 
     expect(first.allowed).toBe(true);
     expect(second.allowed).toBe(true);
@@ -72,22 +74,26 @@ integration("shared rate limit buckets", () => {
     const later = await consumeRateLimit(
       p,
       "refill-subject",
-      new Date(Date.now() + 10_000),
+      new Date(at.getTime() + 10_000),
     );
     expect(later.allowed).toBe(true);
   });
 
   it("does not accumulate denial debt under a sustained rejected burst", async () => {
+    const at = new Date();
     const p = policy("bounded-debt", 1, 1);
     trackedKey(p, "bounded-debt-subject");
     expect(
-      (await consumeRateLimit(p, "bounded-debt-subject", new Date(1_000)))
+      (await consumeRateLimit(p, "bounded-debt-subject", at))
         .allowed,
     ).toBe(true);
 
+    // Keep the injected instant within the live TTL. An old epoch allowed an
+    // unrelated real-time background sweep to delete this supposedly live row.
+    await sweepRateLimitBuckets();
     const blocked = await Promise.all(
       Array.from({ length: 20 }, () =>
-        consumeRateLimit(p, "bounded-debt-subject", new Date(1_000)),
+        consumeRateLimit(p, "bounded-debt-subject", at),
       ),
     );
     expect(blocked.every((outcome) => !outcome.allowed)).toBe(true);
@@ -96,20 +102,21 @@ integration("shared rate limit buckets", () => {
     const recovered = await consumeRateLimit(
       p,
       "bounded-debt-subject",
-      new Date(2_000),
+      new Date(at.getTime() + 1_000),
     );
     expect(recovered.allowed).toBe(true);
   });
 
   it("keeps policies isolated for the same subject", async () => {
+    const at = new Date();
     const left = policy("isolated-left", 1, 1);
     const right = policy("isolated-right", 1, 1);
     trackedKey(left, "shared-subject");
     trackedKey(right, "shared-subject");
 
-    expect((await consumeRateLimit(left, "shared-subject")).allowed).toBe(true);
-    expect((await consumeRateLimit(left, "shared-subject")).allowed).toBe(false);
-    expect((await consumeRateLimit(right, "shared-subject")).allowed).toBe(true);
+    expect((await consumeRateLimit(left, "shared-subject", at)).allowed).toBe(true);
+    expect((await consumeRateLimit(left, "shared-subject", at)).allowed).toBe(false);
+    expect((await consumeRateLimit(right, "shared-subject", at)).allowed).toBe(true);
   });
 
   it("removes expired buckets", async () => {

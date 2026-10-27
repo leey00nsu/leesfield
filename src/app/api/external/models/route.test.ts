@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, describe, it, expect, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ catalog: vi.fn(), auth: vi.fn() }));
 vi.mock("@/server/model-catalog/catalog-service", () => ({

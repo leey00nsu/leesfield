@@ -75,13 +75,13 @@ export function flattenSpacesTests(report) {
   return validateSpacesTests(tests);
 }
 
-export async function collectSpacesTests(rootDirectory = process.cwd(), environment = process.env) {
+export async function collectSpacesTests(rootDirectory = process.cwd(), environment = process.env, selectionArguments = []) {
   // Collection must never start the configured app, even when a caller's
   // environment requests it. Reporter env overrides must not redirect JSON.
   const env = { ...environment, E2E_START_SERVER: "0" };
   for (const key of ["PLAYWRIGHT_JSON_OUTPUT_FILE", "PLAYWRIGHT_JSON_OUTPUT_NAME", "PLAYWRIGHT_JSON_OUTPUT_DIR"]) delete env[key];
   const { stdout } = await execute("pnpm", [
-    "exec", "playwright", "test", "--config=playwright.spaces.config.mjs", "--list", "--reporter=json", "--forbid-only",
+    "exec", "playwright", "test", "--config=playwright.spaces.config.mjs", ...selectionArguments, "--list", "--reporter=json", "--forbid-only",
   ], { cwd: rootDirectory, env, maxBuffer: 16 * 1024 * 1024 });
   let report;
   try { report = JSON.parse(stdout); }

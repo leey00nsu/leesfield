@@ -3,7 +3,9 @@ import userEvent from "@testing-library/user-event";
 import { renderWithIntl } from "@/test-utils/intl";
 import { getOpenApiDocument } from "@/features/api-docs/model/openapi";
 import { getOpenApiTranslations } from "@/features/api-docs/model/openapi-translations";
+import { buildApiSections } from "@/features/api-docs/model/openapi-helpers";
 import { ApiDocsWidget } from "@/widgets/api-docs/ui/api-docs-widget";
+import { ApiDocsSidebar } from "@/widgets/api-docs/ui/api-docs-sidebar";
 import enMessages from "@/shared/i18n/messages/en.json";
 import koMessages from "@/shared/i18n/messages/ko.json";
 
@@ -183,8 +185,7 @@ describe("ApiDocsWidget", () => {
     },
   );
 
-  it("API 문서 주요 섹션이 렌더링된다", async () => {
-    const user = userEvent.setup();
+  it("API 문서 주요 섹션이 렌더링된다", () => {
     const openApiDocument = getOpenApiDocument();
 
     renderWithIntl(
@@ -213,6 +214,14 @@ describe("ApiDocsWidget", () => {
     expect(
       screen.getByRole("navigation", { name: "API 레퍼런스" }),
     ).toBeInTheDocument();
+  });
+
+  it("API 레퍼런스의 접기·모바일 검색·닫기와 포커스가 유지된다", async () => {
+    const user = userEvent.setup();
+    const openApiDocument = getOpenApiDocument();
+    // Keep the real endpoint catalog. Document rendering is checked above and
+    // in both locales; menu interactions need only the actual sidebar subtree.
+    renderWithIntl(<ApiDocsSidebar apiVersion={openApiDocument.info.version} apiSections={buildApiSections(openApiDocument)} />);
     const sidebar = screen.getByRole("complementary");
     const groupToggle = within(sidebar).getByRole("button", { name: "AI 생성" });
     await user.click(groupToggle);
@@ -234,7 +243,12 @@ describe("ApiDocsWidget", () => {
       ).getByPlaceholderText("엔드포인트 검색…"),
     ).toBeInTheDocument();
     const search = within(mobilePanel).getByPlaceholderText("엔드포인트 검색…");
-    await user.type(search, "DELETE /api/external/prompt-presets");
+    // Check incremental keyboard filtering, then insert the remainder as one
+    // native paste. Typing the entire fixture repeated the large document's
+    // rerender for every character without asserting those intermediate states.
+    await user.type(search, "DE");
+    expect(within(mobileNavigation).queryByRole("link", { name: "POST /api/external/generations" })).toBeNull();
+    await user.paste("LETE /api/external/prompt-presets");
     const endpoint = within(mobileNavigation).getByRole("link", {
       name: "DELETE /api/external/prompt-presets/{key}",
     });

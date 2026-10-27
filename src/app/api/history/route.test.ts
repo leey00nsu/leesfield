@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { GET } from "@/app/api/history/route";
 
 const mockGetSession = vi.hoisted(() => vi.fn());

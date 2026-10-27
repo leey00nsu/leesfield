@@ -1,20 +1,13 @@
 import "@testing-library/jest-dom/vitest";
-import {
-  allowAllRateLimitStore,
-  setRateLimitStoreForTests,
-} from "@/server/rate-limit/limiter";
-import {
-  createInMemorySubmissionLedger,
-  setSubmissionLedgerForTests,
-} from "@/server/generation-admission/submission-ledger";
+import { expect } from "vitest";
+import { readFile } from "node:fs/promises";
 
-// Unit and route tests must not consume the shared admission budget, and they
-// must not require a database just to run a handler.
-setRateLimitStoreForTests(allowAllRateLimitStore);
-
-// Route tests keep admission semantics without writing reservations to the
-// shared development database; the ledger has its own PostgreSQL suite.
-setSubmissionLedgerForTests(createInMemorySubmissionLedger());
+const testPath = (expect.getState().testPath ?? "").replaceAll("\\", "/");
+const source = testPath ? await readFile(testPath, "utf8") : "";
+if (/\/src\/(?:server\/|app\/api\/|features\/.*\/api\/)/.test(testPath)
+  || /(?:@\/server\/|(?:\.\.\/)+server\/)/.test(source)) {
+  await import("@/test-utils/server-fixtures");
+}
 
 if (!globalThis.IntersectionObserver) {
   globalThis.IntersectionObserver = class MockIntersectionObserver {

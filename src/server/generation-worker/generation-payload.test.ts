@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildImagePayload, buildVideoPayload, buildAudioPayload, getImageRuntimeState, getVideoRuntimeState, getAudioRuntimeState } from "./generation-payload";
 const mocks = vi.hoisted(() => ({ catalog: vi.fn(), asset: vi.fn(), frozen: vi.fn() }));

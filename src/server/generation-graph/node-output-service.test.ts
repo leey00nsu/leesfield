@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it, vi } from "vitest";
 
 import type { MediaAssetDto, MediaType } from "@/shared/media-assets/media-asset-contract";

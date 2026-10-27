@@ -1,0 +1,197 @@
+{
+  "schemaVersion": 1,
+  "coreExecutions": 12,
+  "extendedExecutions": 26,
+  "cases": [
+    {
+      "title": "500 nodes, 2000 edges and 500 groups survive UI autosave and reload @desktop",
+      "project": "desktop",
+      "tier": "extended"
+    },
+    {
+      "title": "Prompt editor submits, cancels, and isolates Canvas shortcuts",
+      "project": "desktop",
+      "tier": "core"
+    },
+    {
+      "title": "Prompt Constructor expands, resolves variables, reloads and isolates Delete with Undo",
+      "project": "desktop",
+      "tier": "extended"
+    },
+    {
+      "title": "Quickstart lists six presets, creates both content modes and opens the tutorial",
+      "project": "desktop",
+      "tier": "extended"
+    },
+    {
+      "title": "adaptive preview changes with zoom but Input download keeps original bytes",
+      "project": "desktop",
+      "tier": "extended"
+    },
+    {
+      "title": "owner model defaults use model picker and persist only into new Space nodes",
+      "project": "desktop",
+      "tier": "core"
+    },
+    {
+      "title": "canvas clipboard, toolbar drop and media batches persist without stealing form shortcuts",
+      "project": "desktop",
+      "tier": "extended"
+    },
+    {
+      "title": "general groups persist controls, gestures, clipboard and undo",
+      "project": "desktop",
+      "tier": "extended"
+    },
+    {
+      "title": "selected image ZIP downloads original durable bytes through the toolbar",
+      "project": "desktop",
+      "tier": "extended"
+    },
+    {
+      "title": "image port creates video and assistant with automatic compatible models atomically",
+      "project": "desktop",
+      "tier": "extended"
+    },
+    {
+      "title": "port actions upload or select source assets and connect atomically",
+      "project": "desktop",
+      "tier": "core"
+    },
+    {
+      "title": "Spaces list creates, copies, deletes and returns through the Leesfield brand header",
+      "project": "desktop",
+      "tier": "core"
+    },
+    {
+      "title": "real pointer marquee and drag remain bounded and persist a graph change",
+      "project": "desktop",
+      "tier": "core"
+    },
+    {
+      "title": "real generation Run submits image/audio/video jobs, projects durable outputs, and reloads",
+      "project": "desktop",
+      "tier": "core"
+    },
+    {
+      "title": "Image Input history modal selects a durable asset and restores focus for close, Download, and X",
+      "project": "desktop",
+      "tier": "extended"
+    },
+    {
+      "title": "Video Generation connections render Frames and Output immediately and survive reload",
+      "project": "desktop",
+      "tier": "extended"
+    },
+    {
+      "title": "Unavailable edits reject new graphs while toolbar capture records an edited image and its source",
+      "project": "desktop",
+      "tier": "extended"
+    },
+    {
+      "title": "Direct crop and trim create independent durable outputs with original sources and Edited history",
+      "project": "desktop",
+      "tier": "core"
+    },
+    {
+      "title": "Video Frames extracts the selected playback position into one durable image",
+      "project": "desktop",
+      "tier": "extended"
+    },
+    {
+      "title": "Korean IME composition keeps Delete and shortcuts inside Prompt editing",
+      "project": "desktop",
+      "tier": "extended"
+    },
+    {
+      "title": "Prompt editor submits, cancels, and isolates Canvas shortcuts",
+      "project": "mobile-390",
+      "tier": "core"
+    },
+    {
+      "title": "Prompt Constructor expands, resolves variables, reloads and isolates Delete with Undo",
+      "project": "mobile-390",
+      "tier": "extended"
+    },
+    {
+      "title": "Quickstart lists six presets, creates both content modes and opens the tutorial",
+      "project": "mobile-390",
+      "tier": "extended"
+    },
+    {
+      "title": "adaptive preview changes with zoom but Input download keeps original bytes",
+      "project": "mobile-390",
+      "tier": "extended"
+    },
+    {
+      "title": "owner model defaults use model picker and persist only into new Space nodes",
+      "project": "mobile-390",
+      "tier": "extended"
+    },
+    {
+      "title": "canvas clipboard, toolbar drop and media batches persist without stealing form shortcuts",
+      "project": "mobile-390",
+      "tier": "extended"
+    },
+    {
+      "title": "general groups persist controls, gestures, clipboard and undo",
+      "project": "mobile-390",
+      "tier": "extended"
+    },
+    {
+      "title": "selected image ZIP downloads original durable bytes through the toolbar",
+      "project": "mobile-390",
+      "tier": "extended"
+    },
+    {
+      "title": "image port creates video and assistant with automatic compatible models atomically",
+      "project": "mobile-390",
+      "tier": "extended"
+    },
+    {
+      "title": "port actions upload or select source assets and connect atomically",
+      "project": "mobile-390",
+      "tier": "core"
+    },
+    {
+      "title": "Spaces list creates, copies, deletes and returns through the Leesfield brand header",
+      "project": "mobile-390",
+      "tier": "extended"
+    },
+    {
+      "title": "real pointer marquee and drag remain bounded and persist a graph change",
+      "project": "mobile-390",
+      "tier": "extended"
+    },
+    {
+      "title": "Image Input history modal selects a durable asset and restores focus for close, Download, and X",
+      "project": "mobile-390",
+      "tier": "extended"
+    },
+    {
+      "title": "Unavailable edits reject new graphs while toolbar capture records an edited image and its source",
+      "project": "mobile-390",
+      "tier": "extended"
+    },
+    {
+      "title": "Direct crop and trim create independent durable outputs with original sources and Edited history",
+      "project": "mobile-390",
+      "tier": "extended"
+    },
+    {
+      "title": "real login redirects back to a protected Space and survives reload",
+      "project": "desktop",
+      "tier": "core"
+    },
+    {
+      "title": "another owner cannot read or modify a protected Space",
+      "project": "desktop",
+      "tier": "core"
+    },
+    {
+      "title": "Assistant runs through app admission and shared queue then restores its result",
+      "project": "desktop",
+      "tier": "core"
+    }
+  ]
+}

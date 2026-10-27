@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET } from "@/app/api/models/route";
 import type { ModelCatalogItem } from "@/server/model-catalog/catalog-schema";

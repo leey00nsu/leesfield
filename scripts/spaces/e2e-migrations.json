@@ -1,0 +1,364 @@
+{
+  "schemaVersion": 1,
+  "sourceHead": "e6170705",
+  "criterion": "If this contract is removed from full app E2E, is an important integration-only bug left that component/API/DB tests cannot detect?",
+  "sourceExecutions": 69,
+  "migratedExecutions": 34,
+  "retainedExecutions": 35,
+  "migrations": [
+    {
+      "id": "B01",
+      "title": "Space comments navigate node headers and Settings preserves Canvas changes",
+      "projects": [
+        "desktop",
+        "mobile-390"
+      ],
+      "browser": "src/features/node-studio/ui/space-authoring.browser.test.tsx",
+      "browserCase": "B01",
+      "unit": [
+        "src/features/node-studio/hook/use-space-comments.test.tsx",
+        "src/features/node-studio/hook/use-space-preferences.test.tsx"
+      ],
+      "integration": [
+        "src/server/generation-graph/generation-graph-diff-postgres.integration.test.ts"
+      ],
+      "integrationCase": "roundtrips migrated UI node fields and media ports through HTTP and PostgreSQL",
+      "integrationRepresentative": "Core autosave, upload and generation E2E retain real app re-entry. Unit/UI and HTTP/DB assertions share responsibility; removed reload loops are not claimed as component navigation tests."
+    },
+    {
+      "id": "B02",
+      "title": "icon handles replace ports and support click keyboard and drag",
+      "projects": [
+        "desktop",
+        "mobile-390"
+      ],
+      "browser": "src/features/node-studio/ui/space-authoring.browser.test.tsx",
+      "browserCase": "B02",
+      "unit": [
+        "src/features/node-studio/ui/space-edge.test.tsx",
+        "src/features/node-studio/model/space-editor-interactions.test.ts"
+      ],
+      "integration": [
+        "src/server/generation-graph/generation-graph-diff-postgres.integration.test.ts"
+      ],
+      "integrationCase": "roundtrips migrated UI node fields and media ports through HTTP and PostgreSQL",
+      "integrationRepresentative": "Core autosave, upload and generation E2E retain real app re-entry. Unit/UI and HTTP/DB assertions share responsibility; removed reload loops are not claimed as component navigation tests."
+    },
+    {
+      "id": "B03",
+      "title": "connected creation failure uses one public toast without canvas or host error text",
+      "projects": [
+        "desktop",
+        "mobile-390"
+      ],
+      "browser": "src/features/node-studio/ui/space-authoring.browser.test.tsx",
+      "browserCase": "B03",
+      "unit": [
+        "src/features/node-studio/ui/space-editor-tools.test.tsx",
+        "src/features/node-studio/model/space-editor-interactions.test.ts"
+      ],
+      "integration": [
+        "src/server/generation-graph/generation-graph-diff-postgres.integration.test.ts"
+      ],
+      "integrationCase": "roundtrips migrated UI node fields and media ports through HTTP and PostgreSQL",
+      "integrationRepresentative": "Core autosave, upload and generation E2E retain real app re-entry. Unit/UI and HTTP/DB assertions share responsibility; removed reload loops are not claimed as component navigation tests."
+    },
+    {
+      "id": "B04",
+      "title": "model absence and incompatible input block creation with localized public toasts",
+      "projects": [
+        "desktop",
+        "mobile-390"
+      ],
+      "browser": "src/features/node-studio/ui/space-authoring.browser.test.tsx",
+      "browserCase": "B04",
+      "unit": [
+        "src/features/node-studio/model/generation-model-selection-defaults.test.ts",
+        "src/features/node-studio/ui/space-editor-tools.test.tsx"
+      ],
+      "integration": [
+        "src/server/generation-graph/generation-graph-diff-postgres.integration.test.ts"
+      ],
+      "integrationCase": "roundtrips migrated UI node fields and media ports through HTTP and PostgreSQL",
+      "integrationRepresentative": "Core autosave, upload and generation E2E retain real app re-entry. Unit/UI and HTTP/DB assertions share responsibility; removed reload loops are not claimed as component navigation tests."
+    },
+    {
+      "id": "B05",
+      "title": "the available 14-node inventory uses the Space palette, persists, and reloads",
+      "projects": [
+        "desktop",
+        "mobile-390"
+      ],
+      "browser": "src/features/node-studio/ui/space-authoring.browser.test.tsx",
+      "browserCase": "B05",
+      "unit": [
+        "src/shared/generation-graph/node-availability.test.ts",
+        "src/features/node-studio/ui/space-editor-tools.test.tsx"
+      ],
+      "integration": [
+        "src/server/generation-graph/generation-graph-diff-postgres.integration.test.ts"
+      ],
+      "integrationCase": "roundtrips migrated UI node fields and media ports through HTTP and PostgreSQL",
+      "integrationRepresentative": "Core autosave, upload and generation E2E retain real app re-entry. Unit/UI and HTTP/DB assertions share responsibility; removed reload loops are not claimed as component navigation tests."
+    },
+    {
+      "id": "B06",
+      "title": "Memo uses the hosted node resize appearance and preserves its size",
+      "projects": [
+        "desktop",
+        "mobile-390"
+      ],
+      "browser": "src/features/node-studio/ui/space-authoring.browser.test.tsx",
+      "browserCase": "B06",
+      "unit": [
+        "src/features/node-studio/ui/space-memo-inspector.test.tsx",
+        "src/features/node-studio/model/space-editor-interactions.test.ts"
+      ],
+      "integration": [
+        "src/server/generation-graph/generation-graph-diff-postgres.integration.test.ts"
+      ],
+      "integrationCase": "roundtrips migrated UI node fields and media ports through HTTP and PostgreSQL",
+      "integrationRepresentative": "Core autosave, upload and generation E2E retain real app re-entry. Unit/UI and HTTP/DB assertions share responsibility; removed reload loops are not claimed as component navigation tests."
+    },
+    {
+      "id": "B07",
+      "title": "toolbar menus dismiss outside, switch exclusively, and still add nodes",
+      "projects": [
+        "desktop",
+        "mobile-390"
+      ],
+      "browser": "src/features/node-studio/ui/space-authoring.browser.test.tsx",
+      "browserCase": "B07",
+      "unit": [
+        "src/features/node-studio/ui/space-editor-tools.test.tsx"
+      ],
+      "integration": [
+        "src/server/generation-graph/generation-graph-diff-postgres.integration.test.ts"
+      ],
+      "integrationCase": "roundtrips migrated UI node fields and media ports through HTTP and PostgreSQL",
+      "integrationRepresentative": "Core autosave, upload and generation E2E retain real app re-entry. Unit/UI and HTTP/DB assertions share responsibility; removed reload loops are not claimed as component navigation tests."
+    },
+    {
+      "id": "B08",
+      "title": "the Edge toolbar pauses, resumes, deletes, and persists across reload",
+      "projects": [
+        "desktop",
+        "mobile-390"
+      ],
+      "browser": "src/features/node-studio/ui/space-authoring.browser.test.tsx",
+      "browserCase": "B08",
+      "unit": [
+        "src/features/node-studio/ui/space-edge.test.tsx",
+        "src/features/node-studio/model/space-editor-interactions.test.ts"
+      ],
+      "integration": [
+        "src/server/generation-graph/generation-graph-diff-postgres.integration.test.ts"
+      ],
+      "integrationCase": "roundtrips migrated UI node fields and media ports through HTTP and PostgreSQL",
+      "integrationRepresentative": "Core autosave, upload and generation E2E retain real app re-entry. Unit/UI and HTTP/DB assertions share responsibility; removed reload loops are not claimed as component navigation tests."
+    },
+    {
+      "id": "B09",
+      "title": "desktop and 390px dialogs/popovers expose usable focus and stay within the viewport",
+      "projects": [
+        "desktop",
+        "mobile-390"
+      ],
+      "browser": "src/features/node-studio/ui/space-authoring.browser.test.tsx",
+      "browserCase": "B09",
+      "unit": [
+        "src/shared/ui/app-media-detail-dialog.browser.test.tsx",
+        "src/features/node-studio/ui/space-model-browser.test.tsx"
+      ],
+      "integration": [
+        "src/server/generation-graph/generation-graph-diff-postgres.integration.test.ts"
+      ],
+      "integrationCase": "roundtrips migrated UI node fields and media ports through HTTP and PostgreSQL",
+      "integrationRepresentative": "Core autosave, upload and generation E2E retain real app re-entry. Unit/UI and HTTP/DB assertions share responsibility; removed reload loops are not claimed as component navigation tests."
+    },
+    {
+      "id": "B10",
+      "title": "generation Nodes use hosted Browse, explicit Expand, prompt precedence, and durable authoring",
+      "projects": [
+        "desktop"
+      ],
+      "browser": "src/features/node-studio/ui/space-model-boundaries.browser.test.tsx",
+      "browserCase": "B10",
+      "unit": [
+        "src/features/node-studio/ui/nodes/space-node-generation.test.tsx",
+        "src/features/node-studio/model/generation-model-selection-defaults.test.ts"
+      ],
+      "integration": [
+        "src/server/generation-graph/generation-graph-diff-postgres.integration.test.ts"
+      ],
+      "integrationCase": "roundtrips migrated UI node fields and media ports through HTTP and PostgreSQL",
+      "integrationRepresentative": "Core autosave, upload and generation E2E retain real app re-entry. Unit/UI and HTTP/DB assertions share responsibility; removed reload loops are not claimed as component navigation tests."
+    },
+    {
+      "id": "B11",
+      "title": "Cinema camera edits upgrade legacy settings and persist in inline and inspector controls",
+      "projects": [
+        "desktop",
+        "mobile-390"
+      ],
+      "browser": "src/features/node-studio/ui/space-model-boundaries.browser.test.tsx",
+      "browserCase": "B11",
+      "unit": [
+        "src/shared/ui/cinema/cinema-studio-controls.test.tsx",
+        "src/shared/cinema/cinema-prompt.test.ts"
+      ],
+      "integration": [
+        "src/server/generation-graph/generation-graph-diff-postgres.integration.test.ts"
+      ],
+      "integrationCase": "roundtrips migrated UI node fields and media ports through HTTP and PostgreSQL",
+      "integrationRepresentative": "Core autosave, upload and generation E2E retain real app re-entry. Unit/UI and HTTP/DB assertions share responsibility; removed reload loops are not claimed as component navigation tests."
+    },
+    {
+      "id": "B12",
+      "title": "each generation media preserves its source body when inline Settings expands",
+      "projects": [
+        "desktop",
+        "mobile-390"
+      ],
+      "browser": "src/features/node-studio/ui/space-boundaries.browser.test.tsx",
+      "browserCase": "B12",
+      "unit": [
+        "src/features/node-studio/ui/nodes/space-node-generation.test.tsx",
+        "src/features/node-studio/hook/use-space-preferences.test.tsx"
+      ],
+      "integration": [
+        "src/server/generation-graph/generation-graph-diff-postgres.integration.test.ts"
+      ],
+      "integrationCase": "roundtrips migrated UI node fields and media ports through HTTP and PostgreSQL",
+      "integrationRepresentative": "Core autosave, upload and generation E2E retain real app re-entry. Unit/UI and HTTP/DB assertions share responsibility; removed reload loops are not claimed as component navigation tests."
+    },
+    {
+      "id": "B13",
+      "title": "Media choices dismiss safely, keep image dragging, and pan empty canvas with middle mouse",
+      "projects": [
+        "desktop",
+        "mobile-390"
+      ],
+      "browser": "src/features/node-studio/ui/space-media-boundaries.browser.test.tsx",
+      "browserCase": "B13",
+      "unit": [
+        "src/features/node-studio/ui/nodes/space-node-media.test.tsx",
+        "src/features/node-studio/model/space-editor-interactions.test.ts"
+      ],
+      "integration": [
+        "src/server/generation-graph/generation-graph-diff-postgres.integration.test.ts"
+      ],
+      "integrationCase": "roundtrips migrated UI node fields and media ports through HTTP and PostgreSQL",
+      "integrationRepresentative": "Core autosave, upload and generation E2E retain real app re-entry. Unit/UI and HTTP/DB assertions share responsibility; removed reload loops are not claimed as component navigation tests."
+    },
+    {
+      "id": "B14",
+      "title": "Audio generation keeps source prompt and result waveform usable after resizing and reload",
+      "projects": [
+        "desktop",
+        "mobile-390"
+      ],
+      "browser": "src/features/node-studio/ui/space-media-boundaries.browser.test.tsx",
+      "browserCase": "B14",
+      "unit": [
+        "src/features/node-studio/ui/nodes/space-node-generation.test.tsx",
+        "src/features/node-studio/ui/nodes/space-media-preview.test.tsx"
+      ],
+      "integration": [
+        "src/server/generation-graph/generation-graph-diff-postgres.integration.test.ts"
+      ],
+      "integrationCase": "roundtrips migrated UI node fields and media ports through HTTP and PostgreSQL",
+      "integrationRepresentative": "Core autosave, upload and generation E2E retain real app re-entry. Unit/UI and HTTP/DB assertions share responsibility; removed reload loops are not claimed as component navigation tests."
+    },
+    {
+      "id": "B15",
+      "title": "Image Compare consumes two durable inputs and restores without exposing Image Resize",
+      "projects": [
+        "desktop",
+        "mobile-390"
+      ],
+      "browser": "src/features/node-studio/ui/space-boundaries.browser.test.tsx",
+      "browserCase": "B15",
+      "unit": [
+        "src/features/node-studio/ui/nodes/space-node-compare.test.tsx"
+      ],
+      "integration": [
+        "src/server/generation-graph/generation-graph-diff-postgres.integration.test.ts"
+      ],
+      "integrationCase": "roundtrips migrated UI node fields and media ports through HTTP and PostgreSQL",
+      "integrationRepresentative": "Core autosave, upload and generation E2E retain real app re-entry. Unit/UI and HTTP/DB assertions share responsibility; removed reload loops are not claimed as component navigation tests."
+    },
+    {
+      "id": "B16",
+      "title": "Audio Input feeds durable Output and Gallery audio across reload without Audio Edit",
+      "projects": [
+        "desktop",
+        "mobile-390"
+      ],
+      "browser": "src/features/node-studio/ui/space-media-boundaries.browser.test.tsx",
+      "browserCase": "B16",
+      "unit": [
+        "src/features/node-studio/ui/nodes/space-node-output.test.tsx",
+        "src/features/node-studio/ui/nodes/space-node-gallery.test.tsx",
+        "src/shared/generation-graph/media-output.test.ts"
+      ],
+      "integration": [
+        "src/server/generation-graph/generation-graph-diff-postgres.integration.test.ts"
+      ],
+      "integrationCase": "roundtrips migrated UI node fields and media ports through HTTP and PostgreSQL",
+      "integrationRepresentative": "Core autosave, upload and generation E2E retain real app re-entry. Unit/UI and HTTP/DB assertions share responsibility; removed reload loops are not claimed as component navigation tests."
+    },
+    {
+      "id": "B17",
+      "title": "Custom media and Assistant nodes preserve resize, disabled Run, ports and Korean titles",
+      "projects": [
+        "desktop"
+      ],
+      "browser": "src/features/node-studio/ui/space-media-boundaries.browser.test.tsx",
+      "browserCase": "B17",
+      "unit": [
+        "src/features/node-studio/ui/nodes/space-node-frame.test.tsx",
+        "src/features/node-studio/ui/nodes/space-node-assistant.test.tsx"
+      ],
+      "integration": [
+        "src/server/generation-graph/generation-graph-diff-postgres.integration.test.ts"
+      ],
+      "integrationCase": "roundtrips migrated UI node fields and media ports through HTTP and PostgreSQL",
+      "integrationRepresentative": "Core autosave, upload and generation E2E retain real app re-entry. Unit/UI and HTTP/DB assertions share responsibility; removed reload loops are not claimed as component navigation tests."
+    },
+    {
+      "id": "B18",
+      "title": "Assistant shares the media model browser and preserves LLM catalog selection",
+      "projects": [
+        "desktop"
+      ],
+      "browser": "src/features/node-studio/ui/space-model-boundaries.browser.test.tsx",
+      "browserCase": "B18",
+      "unit": [
+        "src/features/node-studio/ui/space-model-browser.test.tsx"
+      ],
+      "integration": [
+        "src/server/generation-graph/generation-graph-diff-postgres.integration.test.ts"
+      ],
+      "integrationCase": "roundtrips migrated UI node fields and media ports through HTTP and PostgreSQL",
+      "integrationRepresentative": "Core autosave, upload and generation E2E retain real app re-entry. Unit/UI and HTTP/DB assertions share responsibility; removed reload loops are not claimed as component navigation tests."
+    },
+    {
+      "id": "B19",
+      "title": "Assistant shows references, LLM browse, durable prompt, and copied result",
+      "projects": [
+        "desktop"
+      ],
+      "browser": "src/features/node-studio/ui/space-media-boundaries.browser.test.tsx",
+      "browserCase": "B19",
+      "unit": [
+        "src/features/node-studio/ui/nodes/space-node-assistant.test.tsx"
+      ],
+      "integration": [
+        "src/server/generation-graph/generation-graph-diff-postgres.integration.test.ts"
+      ],
+      "integrationCase": "roundtrips migrated UI node fields and media ports through HTTP and PostgreSQL",
+      "integrationRepresentative": "Core autosave, upload and generation E2E retain real app re-entry. Unit/UI and HTTP/DB assertions share responsibility; removed reload loops are not claimed as component navigation tests."
+    }
+  ]
+}

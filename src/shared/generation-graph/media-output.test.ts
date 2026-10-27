@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { activeMediaOutputPorts, mediaAssetIdsForPort, mediaOutputPorts } from "./media-output";
 import { videoFrameOutputPortIds } from "./video-frame-extraction";

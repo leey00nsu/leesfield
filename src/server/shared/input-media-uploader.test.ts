@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { buildModalModelDraft } from "@/server/modal-comfyui/importer";
 import { describe, expect, it, vi } from "vitest";
 

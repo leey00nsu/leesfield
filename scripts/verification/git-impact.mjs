@@ -93,10 +93,11 @@ async function sourceFiles(directory) {
 }
 
 export async function readImportGraph(root) {
-  const reverseImports = new Map(), unresolvedImports = [];
+  const reverseImports = new Map(), unresolvedImports = [], storageSdkConsumers = new Set();
   const relative = file => path.relative(root, file).replaceAll(path.sep, "/");
   const exists = async file => { try { return (await lstat(file)).isFile(); } catch { return false; } };
   async function connect(importer, specifier) {
+    if (specifier === "leemage-sdk" || specifier.startsWith("leemage-sdk/")) storageSdkConsumers.add(relative(importer));
     if (!specifier.startsWith("@/") && !specifier.startsWith(".")) return;
     const base = specifier.startsWith("@/") ? path.resolve(root, "src", specifier.slice(2)) : path.resolve(path.dirname(importer), specifier);
     if (!base.startsWith(path.resolve(root) + path.sep)) { unresolvedImports.push({ importer: relative(importer) }); return; }
@@ -133,5 +134,5 @@ export async function readImportGraph(root) {
     visit(parsed);
     for (const specifier of imports) await connect(file, specifier);
   }
-  return { reverseImports, unresolvedImports };
+  return { reverseImports, unresolvedImports, storageSdkConsumers };
 }

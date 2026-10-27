@@ -1,3 +1,4 @@
+// @vitest-environment node
 
 import { describe, expect, it, vi } from "vitest";
 import { getGradioContract, normalizeGradioModel } from "@/shared/model-catalog/gradio-contract";

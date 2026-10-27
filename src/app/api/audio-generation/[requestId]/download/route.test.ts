@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { GET } from "@/app/api/audio-generation/[requestId]/download/route";
 
 const mockGetSession = vi.hoisted(() => vi.fn());

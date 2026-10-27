@@ -1,3 +1,4 @@
+// @vitest-environment node
 vi.hoisted(() => vi.resetModules());
 const mocks = vi.hoisted(() => {
   const tx = {

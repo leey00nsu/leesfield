@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { audioGenerationDefaults } from "@/features/audio-generation/model/audio-generation-schema";
 import { POST } from "@/app/api/audio-generation/route";
 

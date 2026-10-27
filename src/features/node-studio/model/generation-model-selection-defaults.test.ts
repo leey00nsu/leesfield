@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { defaultCinemaSettings } from "@/shared/cinema/cinema-contract";
 import type { RuntimeAudioModel, RuntimeVideoModel } from "@/shared/model-catalog/runtime-utils";

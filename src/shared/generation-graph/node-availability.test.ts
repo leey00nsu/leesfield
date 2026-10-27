@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { canonicalNodeKinds } from "./node-registry";
 import { isTemporarilyHiddenEditNodeKind, isUnavailableEditNodeKind, temporarilyHiddenEditNodeKinds, unavailableEditNodeKinds } from "./node-availability";

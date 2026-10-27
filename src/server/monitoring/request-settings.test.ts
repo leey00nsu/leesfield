@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from "vitest";
 import { requestSettings } from "./request-settings";
 describe("persisted request settings", () => {

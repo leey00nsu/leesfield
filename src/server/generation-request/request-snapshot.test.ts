@@ -1,3 +1,4 @@
+// @vitest-environment node
 import {beforeEach,describe,it,expect,vi} from 'vitest';
 import {requestInputs,restoreRequest,snapshotRequest} from './request-snapshot';
 import {requestSettings} from '@/server/monitoring/request-settings';

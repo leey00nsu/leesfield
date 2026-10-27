@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { videoGenerationDefaults } from "@/features/video-generation/model/video-generation-schema";
 import { POST } from "@/app/api/video-generation/route";
 

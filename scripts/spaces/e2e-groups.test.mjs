@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { mkdtemp, mkdir, readFile, readdir, readlink, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -43,7 +44,7 @@ describe("Spaces compiler isolation", () => {
       await mkdir(join(root, "src"), { recursive: true }); await mkdir(join(root, "node_modules"));
       for (const [name, body] of Object.entries({ "src/page.tsx": "current source", "package.json": "{}", "tsconfig.json": "original types", "next.config.ts": "original config", "next-env.d.ts": "original declarations", ".env.local": "private" })) await writeFile(join(root, name), body);
       await mkdir(join(root, ".next")); await writeFile(join(root, ".next/stale.js"), "stale compiler state");
-      workspace = await createSpacesWorkspace(root);
+      workspace = await createSpacesWorkspace(root, { cold: true });
       expect(await readFile(join(workspace.directory, "src/page.tsx"), "utf8")).toBe("current source");
       expect(await readlink(join(workspace.directory, "node_modules"))).toBe(join(root, "node_modules"));
       expect(workspace.moduleRoot).toBe(parent);
@@ -58,12 +59,19 @@ describe("Spaces compiler isolation", () => {
       expect(await readdir(parent)).toEqual(["app"]);
     } finally { await workspace?.cleanup(); await rm(parent, { recursive: true, force: true }); }
   });
-  it("removes a partial source snapshot when preparation fails", async () => {
+  it.each([true, false])("removes a partial source snapshot when preparation fails (cold: %s)", async cold => {
     const parent = await mkdtemp(join(tmpdir(), "leesfield-isolation-test-")), root = join(parent, "app");
     try {
       await mkdir(join(root, "src"), { recursive: true });
-      await expect(createSpacesWorkspace(root)).rejects.toMatchObject({ code: "ENOENT" });
-      expect(await readdir(parent)).toEqual(["app"]);
+      await expect(createSpacesWorkspace(root, { cold })).rejects.toMatchObject({ code: "ENOENT" });
+      if (cold) expect(await readdir(parent)).toEqual(["app"]);
+      else {
+        expect((await readdir(parent)).sort()).toEqual([".leesfield-verification-cache", "app"]);
+        const cacheRoot = join(parent, ".leesfield-verification-cache");
+        const entries = await readdir(cacheRoot);
+        expect(entries).toHaveLength(1);
+        expect(await readdir(join(cacheRoot, entries[0]))).toEqual(["owner.json"]);
+      }
     } finally { await rm(parent, { recursive: true, force: true }); }
   });
   it("retains bounded HMR failure evidence without recording RSC payloads", () => {

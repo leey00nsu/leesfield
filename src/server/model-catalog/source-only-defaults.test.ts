@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it, vi } from "vitest";
 vi.hoisted(() => vi.resetModules());
 vi.mock("./catalog-service", () => ({ getModelCatalog: vi.fn() }));

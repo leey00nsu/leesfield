@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it, vi } from "vitest";
 const snapshot = vi.hoisted(() => vi.fn());
 vi.mock("@/server/job-queue/job-queue-snapshot", () => ({ getSharedQueueSnapshot: snapshot }));

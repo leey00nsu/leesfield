@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import Ajv2020 from "ajv/dist/2020";
 import { gradioObjectAuthoringSchema, gradioGroupAuthoringSchema } from "./gradio-object-schema";

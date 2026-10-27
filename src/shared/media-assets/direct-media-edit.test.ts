@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { directEditSchema, normalizeCrop, validEditGeometry } from "./direct-media-edit";
 import { matchesEditReservation, displayedEditAsset, type EditGraph } from "@/server/media-edits/direct-edit-target";

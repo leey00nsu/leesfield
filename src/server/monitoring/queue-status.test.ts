@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { getQueueStatus } from "@/server/monitoring/queue-status";
 import { prisma } from "@/server/db/prisma";
 import type {

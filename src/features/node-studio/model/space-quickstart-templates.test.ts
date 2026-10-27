@@ -24,6 +24,8 @@ describe("canonical Space quickstarts", () => {
       expect(draft.edges.every(edge => draft.nodes.some(node => node.id === edge.sourceNodeId) && draft.nodes.some(node => node.id === edge.targetNodeId))).toBe(true);
       expect(draft.nodes.filter(node => node.kind === "generate.image").map(node => node.config)).toEqual([{ prompt: "", modelKey: null, parameters: {} }]);
       expect(draft.nodes.every(node => node.selectedOutputAssetId === null)).toBe(true);
+      expect(draft.nodes.length).toBeGreaterThan(2);
+      for (const node of draft.nodes.filter(node => node.kind === "input.image")) expect(node.config).toMatchObject({ assetId: null });
       expect(draft.nodes.find(node => node.kind === "input.prompt")?.config).toMatchObject({ text: content === "empty" ? "" : expect.any(String) });
       expect(template).toEqual(before);
     }

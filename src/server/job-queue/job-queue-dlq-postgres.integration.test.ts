@@ -294,16 +294,29 @@ describe.skipIf(!postgresIntegrationEnabled)("DLQ operator persistence", () => {
   });
   it("closes groups before cancelling bounded batches and prevents claims between batches", async () => {
     const key = randomUUID();
-    const jobs = await withQueueTransaction(async tx => {
-      const jobs = [];
-      for (let i = 0; i < 105; i++) jobs.push(await enqueueQueueJobTx(tx, { kind: "generate_image", source: { type: "image_generation", id: randomUUID() },
-        ownerScopeDigest: digest(), snapshotRef: "group-fixture", orderKey: key }));
-      return jobs;
+    const first = await withQueueTransaction(tx => enqueueQueueJobTx(tx, { kind: "generate_image",
+      source: { type: "image_generation", id: randomUUID() }, ownerScopeDigest: digest(), snapshotRef: "group-fixture", orderKey: key }));
+    const resources = await prisma.queueJobResource.findMany({ where: { jobId: first.id } });
+    // This case tests cancellation across the 100-job boundary. Register one
+    // real job, then seed the remaining equivalent rows in bounded SQL work;
+    // 105 sequential registrations consumed the fixture's 5-second transaction.
+    const remaining = Array.from({ length: 104 }, (_, index) => {
+      const sourceId = randomUUID();
+      return { id: randomUUID(), kind: first.kind, sourceType: first.sourceType, sourceId,
+        sourceRevision: first.sourceRevision, ownerScopeDigest: first.ownerScopeDigest, snapshotRef: first.snapshotRef,
+        executionType: first.executionType, executionId: sourceId, orderGroupId: first.orderGroupId,
+        sequence: BigInt(index + 2), availableAt: first.availableAt,
+        maxAttempts: first.maxAttempts, retryDelayMs: first.retryDelayMs, policyVersion: first.policyVersion };
     });
-    expect(await operateQueue(actor, "cancel_group", jobs[0].orderGroupId!, command())).toMatchObject({ outcome: "succeeded", result: { requested: 100 } });
+    await withQueueTransaction(async tx => {
+      await tx.queueJob.createMany({ data: remaining });
+      await tx.queueJobResource.createMany({ data: remaining.flatMap(job => resources.map(resource => ({ jobId: job.id, resourceKey: resource.resourceKey }))) });
+      await tx.queueOrderGroup.update({ where: { id: first.orderGroupId! }, data: { nextSequence: BigInt(106) } });
+    });
+    expect(await operateQueue(actor, "cancel_group", first.orderGroupId!, command())).toMatchObject({ outcome: "succeeded", result: { requested: 100 } });
     expect(await claimQueueJob(randomUUID())).toBeNull();
     expect(await cancelClosedQueueGroups()).toBe(5);
-    expect(await prisma.queueJob.count({ where: { orderGroupId: jobs[0].orderGroupId, status: "cancelled" } })).toBe(105);
+    expect(await prisma.queueJob.count({ where: { orderGroupId: first.orderGroupId, status: "cancelled" } })).toBe(105);
   });
   it("keeps a cancelled successor as the blocker after its predecessor succeeds", async () => {
     const key = randomUUID(); const first = await source("image", key); const second = await source("image", key); await source("image", key);
