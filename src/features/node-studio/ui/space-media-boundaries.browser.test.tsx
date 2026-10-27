@@ -2,6 +2,7 @@ import { act } from "@testing-library/react";
 import { expect, test } from "vitest";
 import { commands, page, userEvent } from "vitest/browser";
 import { nodeExecutionKeys } from "../hook/use-node-executions";
+import { mediaAssetKeys } from "@/features/media-assets/hook/use-media-assets";
 import type { NodeExecutionDto } from "../model/node-execution-types";
 import { mountSpace, node, audioModel, llm } from "@/test-utils/space-browser";
 
@@ -9,22 +10,51 @@ const el = (selector: string) => { document.querySelector(selector)!.setAttribut
 const dimensions = [390, 1440];
 const audioEdge = (target: string) => ({ id: target, sourceNodeId: "audio", sourcePortId: "audio", targetNodeId: target, targetPortId: "audio", sortOrder: 0 });
 
+async function decodedAudio(root: Element) {
+  const events = new AbortController();
+  let observer: MutationObserver | undefined;
+  try {
+    return await new Promise<HTMLAudioElement>((resolve, reject) => {
+      let loading: HTMLAudioElement | null = null;
+      const check = () => {
+        if (!root.isConnected) { reject(new Error("Audio preview unmounted while preparing")); return; }
+        const current = root.querySelector("audio");
+        if (!current?.isConnected || !current.getAttribute("src")) return;
+        if (current !== loading) { loading = current; current.load(); }
+        if (current.error) reject(new Error("Native audio decoding failed"));
+        else if (current.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) resolve(current);
+      };
+      // Sources are assigned after visibility and can replace their native node.
+      // Observe those events within the existing test budget, not a cached node
+      // sampled against the unrelated expect.poll default deadline.
+      observer = new MutationObserver(check);
+      observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["src"] });
+      root.addEventListener("loadeddata", check, { capture: true, signal: events.signal });
+      root.addEventListener("canplay", check, { capture: true, signal: events.signal });
+      root.addEventListener("error", check, { capture: true, signal: events.signal });
+      check();
+    });
+  } finally { observer?.disconnect(); events.abort(); }
+}
+
 test.each(dimensions)("B14/B16 real audio projects into Output/Gallery and fits after native resize at %ipx", async width => {
   await page.viewport(width, 844);
-  const { session } = await mountSpace({ selected: "generation", nodes: [
+  const { session, client, assets } = await mountSpace({ selected: "generation", nodes: [
     node("generation", "generate.audio", { prompt: "A short deterministic spoken tone", modelKey: audioModel.key, parameters: {} }),
     node("audio", "input.audio", { assetId: "audio" }, 440),
     node("output", "output.single", { mediaType: "audio" }, 880),
     node("gallery", "output.gallery", { mediaType: null }, 880, 440),
   ], edges: [audioEdge("output"), audioEdge("gallery")] });
   expect(document.querySelector('[data-space-node-id="generation"] audio, [data-space-node-id="generation"] canvas')).toBeNull();
+  const previous = ["audio", "output"].map(id => document.querySelector<HTMLAudioElement>('[data-space-node-id="' + id + '"] audio')!);
+  const asset = assets.find(item => item.id === "audio")!;
+  await act(async () => { client.setQueryData(mediaAssetKeys.detail(asset.id), { ...asset, version: asset.version + 1 }); });
+  for (const old of previous) { expect(old.isConnected).toBe(false); expect(old.getAttribute("src")).toBeNull(); }
   for (const id of ["audio", "output"]) {
-    const player = document.querySelector<HTMLAudioElement>('[data-space-node-id="' + id + '"] audio');
-    expect(player).not.toBeNull();
-    await expect.poll(() => Boolean(player!.getAttribute("src"))).toBe(true);
-    player!.load();
-    await expect.poll(() => player!.readyState).toBeGreaterThanOrEqual(2);
-    expect(player!.currentSrc).toBe(new URL("/assets/storybook/tone.wav", location.href).href);
+    const root = document.querySelector('[data-space-node-id="' + id + '"]')!;
+    const current = await decodedAudio(root);
+    expect(current).toBe(root.querySelector("audio"));
+    expect(current.currentSrc).toBe(new URL("/assets/storybook/tone.wav", location.href).href);
   }
   await expect.element(el('[data-space-node-id="gallery"]').getByRole("button", { name: "View full size · Audio 1", exact: true })).toBeVisible();
   const source = session.getDocument();

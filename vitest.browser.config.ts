@@ -7,8 +7,8 @@ export default defineConfig({
   // developer credentials or server environment variables.
   define: { "process.env": { NODE_ENV: "test" } },
   esbuild: { jsx: "automatic" },
-  resolve: { alias: { "@": path.resolve(__dirname, "src") } },
-  optimizeDeps: { include: ["@tanstack/react-query", "sonner", "zustand/vanilla", "react-dom", "zustand", "zod",
+  resolve: { alias: { "@": path.resolve(__dirname, "src") }, dedupe: ["react", "react-dom"] },
+  optimizeDeps: { include: ["react", "react-dom/client", "next/image", "@tanstack/react-query", "sonner", "zustand/vanilla", "react-dom", "zustand", "zod",
     "@base-ui/react/slider", "@xyflow/react", "zustand/shallow", "@base-ui/react/popover", "react-compare-slider",
     "jszip", "framer-motion", "@asteasolutions/zod-to-openapi", "@base-ui/react/switch", "ajv", "ajv/dist/2020",
     "@base-ui/react/tooltip", "@base-ui/react/input", "@base-ui/react/select", "@radix-ui/react-slot", "react-hook-form",

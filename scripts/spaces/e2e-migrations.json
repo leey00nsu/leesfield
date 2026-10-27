@@ -360,5 +360,38 @@
       "integrationCase": "roundtrips migrated UI node fields and media ports through HTTP and PostgreSQL",
       "integrationRepresentative": "Core autosave, upload and generation E2E retain real app re-entry. Unit/UI and HTTP/DB assertions share responsibility; removed reload loops are not claimed as component navigation tests."
     }
+  ],
+  "assertionMigrations": [
+    {
+      "id": "L01",
+      "retainedE2E": "Spaces list creates, copies, deletes and returns through the Leesfield brand header",
+      "browser": "src/features/node-studio/ui/space-layout.browser.test.tsx",
+      "browserCase": "L01",
+      "contracts": [
+        "brand mark vertical alignment within 2px",
+        "no decorative pipe separator",
+        "Spaces dialog stays within viewport without horizontal overflow",
+        "footer buttons wrap or retain at least 4px horizontal separation"
+      ],
+      "viewports": [
+        390,
+        1440
+      ],
+      "retainedResponsibility": "Real app create/copy/delete/navigation and active Space projection remain in E2E."
+    },
+    {
+      "id": "L02",
+      "retainedE2E": "Prompt Constructor expands, resolves variables, reloads and isolates Delete with Undo",
+      "browser": "src/features/node-studio/ui/space-layout.browser.test.tsx",
+      "browserCase": "L02",
+      "contracts": [
+        "default Prompt Constructor layout width is 340px"
+      ],
+      "viewports": [
+        390,
+        1440
+      ],
+      "retainedResponsibility": "Real app prompt expansion, canonical persistence, reload and undo remain in E2E."
+    }
   ]
 }

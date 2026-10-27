@@ -6,7 +6,7 @@ import { prisma } from "@/server/db/prisma";
 import { postgresIntegrationEnabled } from "@/test-utils/postgres-integration";
 import { enqueueQueueJobTx } from "./job-queue-registration";
 import { claimQueueJob, type ClaimedQueueJob } from "./job-queue-scheduler";
-import { withQueueTransaction } from "./job-queue-transaction";
+import { queueDatabaseNow, withQueueTransaction } from "./job-queue-transaction";
 
 describe.skipIf(!postgresIntegrationEnabled)("shared queue registration and dispatch", () => {
   const digest = "c".repeat(64);
@@ -19,7 +19,7 @@ describe.skipIf(!postgresIntegrationEnabled)("shared queue registration and disp
     await withQueueTransaction(async tx => {
       const jobs = await tx.queueJob.findMany({ where: { ownerScopeDigest: digest }, select: { id: true } });
       const ids = jobs.map(j => j.id);
-      await tx.queueAttempt.updateMany({ where: { jobId: { in: ids }, finishedAt: null }, data: { phase: "ended", outcome: "cancelled", finishedAt: new Date() } });
+      await tx.queueAttempt.updateMany({ where: { jobId: { in: ids }, finishedAt: null }, data: { phase: "ended", outcome: "cancelled", finishedAt: await queueDatabaseNow(tx) } });
       await tx.queueJob.updateMany({ where: { id: { in: ids } }, data: { status: "cancelled", currentAttemptId: null } });
       await tx.queueOrderGroup.updateMany({ where: { ownerScopeDigest: digest }, data: { blockedByJobId: null } });
       await tx.queueReservation.deleteMany({ where: { attempt: { jobId: { in: ids } } } });
@@ -45,8 +45,8 @@ describe.skipIf(!postgresIntegrationEnabled)("shared queue registration and disp
 
   async function finish(claimed: ClaimedQueueJob) {
     await withQueueTransaction(async tx => {
-      await tx.queueAttempt.update({ where: { id: claimed.attemptId }, data: { phase: "ended", outcome: "succeeded", finishedAt: new Date() } });
-      await tx.queueReservation.updateMany({ where: { attemptId: claimed.attemptId }, data: { releasedAt: new Date() } });
+      await tx.queueAttempt.update({ where: { id: claimed.attemptId }, data: { phase: "ended", outcome: "succeeded", finishedAt: await queueDatabaseNow(tx) } });
+      await tx.queueReservation.updateMany({ where: { attemptId: claimed.attemptId }, data: { releasedAt: await queueDatabaseNow(tx) } });
       await tx.queueJob.update({ where: { id: claimed.job.id }, data: { status: "succeeded" } });
       if (claimed.job.orderGroupId) await tx.queueOrderGroup.update({ where: { id: claimed.job.orderGroupId }, data: { headSequence: { increment: 1 } } });
     });
@@ -88,7 +88,7 @@ describe.skipIf(!postgresIntegrationEnabled)("shared queue registration and disp
     expect(new Set(claims.map(c => c.job.id)).size).toBe(4);
     const c = claims[0]!;
     await withQueueTransaction(async tx => {
-      await tx.queueAttempt.update({ where: { id: c.attemptId }, data: { phase: "ended", outcome: "reconciliation_required", finishedAt: new Date() } });
+      await tx.queueAttempt.update({ where: { id: c.attemptId }, data: { phase: "ended", outcome: "reconciliation_required", finishedAt: await queueDatabaseNow(tx) } });
       await tx.queueJob.update({ where: { id: c.job.id }, data: { status: "reconciliation_required" } });
       await tx.queueReservation.updateMany({ where: { attemptId: c.attemptId }, data: { disposition: "uncertain" } });
     });

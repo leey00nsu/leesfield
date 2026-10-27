@@ -20,9 +20,12 @@ describe.skipIf(!postgresIntegrationEnabled)("common queue observability", () =>
     async failTx() {}, classifyFailure() { return { code: "TEST_FAILED", phase: "execute", disposition: "terminal", executionStopped: true }; } };
   beforeAll(async () => { await prisma.queueRuntime.update({ where: { id: 1 }, data: { mode: "shared", migrationVerified: true } }); });
   afterAll(async () => {
-    await removeFixtureQueueJobs(ids);
-    await prisma.queueOrderGroup.deleteMany({ where: { ownerScopeDigest: digest } });
-    await prisma.queueRuntime.update({ where: { id: 1 }, data: { mode: "paused", migrationVerified: false } });
+    try {
+      await removeFixtureQueueJobs(ids);
+      await prisma.queueOrderGroup.deleteMany({ where: { ownerScopeDigest: digest } });
+    } finally {
+      await prisma.queueRuntime.update({ where: { id: 1 }, data: { mode: "paused", migrationVerified: false } });
+    }
   });
   async function register(kind: QueueJobKind, type: QueueSourceType, key?: string, suspended = false) {
     const id = randomUUID(); ids.push(id);
@@ -42,6 +45,12 @@ describe.skipIf(!postgresIntegrationEnabled)("common queue observability", () =>
       await settleQueueFailure(claim.lease, handler, { code: "TEST_FAILED", phase: "execute", disposition: "terminal", executionStopped: true });
       const released = await prisma.queueReservation.findMany({ where: { attemptId: claim.attemptId } });
       expect(released.every(r => r.releasedAt && r.releasedAt >= r.createdAt)).toBe(true);
+      const unfinished = await register("generate_image", "image_generation");
+      const active = await claimQueueJob(randomUUID());
+      expect(active?.job.id).toBe(unfinished.id);
+      // Teardown must also use the DB clock while this worker clock is offset.
+      await removeFixtureQueueJobs([unfinished.sourceId]);
+      expect(await prisma.queueJob.findUnique({ where: { id: unfinished.id } })).toBeNull();
     } finally { vi.useRealTimers(); await removeFixtureQueueJobs([job.sourceId]); }
   });
   it("counts all six kinds, retry/block/uncertain resources and DLQ history once", async () => {
@@ -60,7 +69,8 @@ describe.skipIf(!postgresIntegrationEnabled)("common queue observability", () =>
     await register("generate_video", "video_generation"); await claimQueueJob(randomUUID());
     await register("generate_audio", "audio_generation");
     const assistant = await register("assistant", "assistant_execution");
-    await prisma.queueJob.update({ where: { id: assistant.id }, data: { createdAt: new Date(Date.now() - 180_000) } });
+    const databaseNow = await withQueueTransaction(queueDatabaseNow);
+    await prisma.queueJob.update({ where: { id: assistant.id }, data: { createdAt: new Date(databaseNow.getTime() - 180_000) } });
     await register("storage_cleanup", "storage_cleanup", undefined, true);
     const snapshot = await getSharedQueueSnapshot();
     expect(snapshot.pending).toBe(4); expect(snapshot.processing).toBe(1);

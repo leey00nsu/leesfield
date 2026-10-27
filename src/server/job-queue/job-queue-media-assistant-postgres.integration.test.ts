@@ -9,7 +9,7 @@ import { mediaAssetRepository } from "@/server/media-assets/media-asset-reposito
 import { assistantQueueHandler } from "./handlers/assistant-handler";
 import { mediaOperationQueueHandler } from "./handlers/media-operation-handler";
 import { createQueueRunner } from "./job-queue-runner";
-import { withQueueTransaction } from "./job-queue-transaction";
+import { queueDatabaseNow, withQueueTransaction } from "./job-queue-transaction";
 
 const stubs = vi.hoisted(() => ({ llm: vi.fn(), frames: vi.fn(), upload: vi.fn() }));
 vi.mock("@/server/model-catalog/catalog-service", () => ({ getModelCatalog: async () => [{
@@ -41,7 +41,7 @@ describe.skipIf(!postgresIntegrationEnabled)("media and assistant shared executi
     ];
     await withQueueTransaction(async tx => {
       const ids = (await tx.queueJob.findMany({ where: { sourceId: { in: sources } } })).map(j => j.id);
-      await tx.queueAttempt.updateMany({ where: { jobId: { in: ids }, finishedAt: null }, data: { phase: "ended", outcome: "cancelled", finishedAt: new Date() } });
+      await tx.queueAttempt.updateMany({ where: { jobId: { in: ids }, finishedAt: null }, data: { phase: "ended", outcome: "cancelled", finishedAt: await queueDatabaseNow(tx) } });
       await tx.queueJob.updateMany({ where: { id: { in: ids } }, data: { status: "cancelled", currentAttemptId: null } });
       await tx.queueDeadLetter.deleteMany({ where: { jobId: { in: ids } } });
       await tx.queueReservation.deleteMany({ where: { attempt: { jobId: { in: ids } } } });
@@ -57,9 +57,12 @@ describe.skipIf(!postgresIntegrationEnabled)("media and assistant shared executi
     vi.resetAllMocks();
   });
   afterAll(async () => {
-    await prisma.generationGraph.delete({ where: { id: graphId } });
-    await prisma.mediaAsset.delete({ where: { id: assetId } });
-    await prisma.queueRuntime.update({ where: { id: 1 }, data: { mode: "paused", migrationVerified: false } });
+    try {
+      await prisma.generationGraph.delete({ where: { id: graphId } });
+      await prisma.mediaAsset.delete({ where: { id: assetId } });
+    } finally {
+      await prisma.queueRuntime.update({ where: { id: 1 }, data: { mode: "paused", migrationVerified: false } });
+    }
   });
   async function assistant() {
     const node = await prisma.generationGraphNode.create({ data: { id: randomUUID(), graphId, kind: "generate.assistant", x: 0, y: 0, configVersion: 1, config: {} } });

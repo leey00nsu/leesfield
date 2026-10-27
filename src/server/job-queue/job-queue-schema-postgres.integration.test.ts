@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { Client } from "pg";
 import { afterAll, describe, expect, it } from "vitest";
 import { prisma } from "@/server/db/prisma";
+import { queueDatabaseNow } from "./job-queue-transaction";
 import { postgresIntegrationEnabled } from "@/test-utils/postgres-integration";
 
 describe.skipIf(!postgresIntegrationEnabled)("shared queue database invariants", () => {
@@ -21,7 +22,7 @@ describe.skipIf(!postgresIntegrationEnabled)("shared queue database invariants",
   };
   afterAll(async () => {
     await prisma.$transaction(async tx => {
-      await tx.queueAttempt.updateMany({ where: { jobId: { in: ids }, finishedAt: null }, data: { phase: "ended", outcome: "cancelled", finishedAt: new Date() } });
+      await tx.queueAttempt.updateMany({ where: { jobId: { in: ids }, finishedAt: null }, data: { phase: "ended", outcome: "cancelled", finishedAt: await queueDatabaseNow(tx) } });
       await tx.queueJob.updateMany({ where: { id: { in: ids } }, data: { currentAttemptId: null, status: "cancelled" } });
     });
     await prisma.queueDeadLetter.deleteMany({ where: { jobId: { in: ids } } });
@@ -90,7 +91,7 @@ describe.skipIf(!postgresIntegrationEnabled)("shared queue database invariants",
     } })).rejects.toThrow();
     await prisma.$transaction(async tx => {
       await tx.queueAttempt.update({ where: { id: attemptId }, data: {
-        phase: "ended", outcome: "failed", finishedAt: new Date(),
+        phase: "ended", outcome: "failed", finishedAt: await queueDatabaseNow(tx),
       } });
       await tx.queueJob.update({ where: { id: a.id }, data: { status: "dead_letter" } });
       await tx.queueDeadLetter.create({ data: {

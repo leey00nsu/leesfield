@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import { commands, page, userEvent } from "vitest/browser";
 import { browserCatalog, mountSpace, node, imageModel, videoModel } from "@/test-utils/space-browser";
+import { settledBounds } from "@/test-utils/browser-layout";
 
 const dimensions = [390, 1440];
 const el = (selector: string) => {
@@ -14,8 +15,8 @@ const edge = (id: string, source: string, sourcePort: string, target: string, ta
   id, sourceNodeId: source, sourcePortId: sourcePort, targetNodeId: target, targetPortId: targetPort, sortOrder: 0, hasPause: false,
 });
 const focusCanvas = () => (document.querySelector("[data-space-canvas]") as HTMLElement).focus();
-function within(element: Element, width: number) {
-  const box = element.getBoundingClientRect();
+async function within(element: Element, width: number) {
+  const box = await settledBounds(element);
   expect(box.x).toBeGreaterThanOrEqual(-1);
   expect(box.right).toBeLessThanOrEqual(width + 1);
   expect(box.y).toBeGreaterThanOrEqual(-1);
@@ -42,7 +43,7 @@ test.each(dimensions)("B01/B09 comments, settings drafts and dialog focus at %ip
   const settingsButton = page.getByRole("button", { name: "Space settings", exact: true });
   await settingsButton.click();
   const settings = page.getByRole("dialog", { name: "Space Settings", exact: true });
-  await expect.element(settings).toBeVisible(); within(settings.element(), width);
+  await expect.element(settings).toBeVisible(); await within(settings.element(), width);
   await settings.getByRole("tab", { name: "Canvas", exact: true }).click();
   await settings.getByRole("radio", { name: "Middle Mouse", exact: true }).click();
   await settings.getByRole("tab", { name: "Space", exact: true }).click();
@@ -55,11 +56,11 @@ test.each(dimensions)("B01/B09 comments, settings drafts and dialog focus at %ip
   await userEvent.keyboard("{Escape}");
   await expect.element(settingsButton).toHaveFocus();
   await page.getByRole("button", { name: "All nodes", exact: true }).click();
-  within(el("[data-space-node-menu]").element(), width);
+  await within(el("[data-space-node-menu]").element(), width);
   await userEvent.keyboard("{Escape}");
   await page.getByRole("button", { name: "All models", exact: true }).click();
   const models = page.getByRole("dialog", { name: "All models", exact: true });
-  await expect.element(models).toBeVisible(); within(models.element(), width);
+  await expect.element(models).toBeVisible(); await within(models.element(), width);
   await userEvent.keyboard("{Escape}");
   await expect.element(models).not.toBeInTheDocument();
 });
@@ -99,7 +100,7 @@ test.each(["en", "ko"] as const)("B03/B04 missing and incompatible models use on
     focusCanvas(); await userEvent.keyboard("{Shift>}" + key + "{/Shift}");
     const toast = el('[data-sonner-toast][data-type="error"]');
     await expect.element(toast).toHaveTextContent(locale === "ko" ? korean + " 모델이 없습니다" : "There are no " + type + " models");
-    await expect.element(toast).toHaveAttribute("data-mounted", "true"); await expect.poll(() => toast.element().getBoundingClientRect().y).toBeGreaterThanOrEqual(0); within(toast.element(), 390);
+    await expect.element(toast).toHaveAttribute("data-mounted", "true"); await expect.poll(() => toast.element().getBoundingClientRect().y).toBeGreaterThanOrEqual(0); await within(toast.element(), 390);
     expect(document.querySelector("[data-space-canvas] > [role=alert]")).toBeNull();
     await el('[data-sonner-toast] button[data-close-button]').click();
     await expect.poll(() => document.querySelectorAll("[data-sonner-toast]").length).toBe(0);
@@ -178,7 +179,7 @@ test.each(dimensions)("B08 edge toolbar bounds, pause, resume and delete at %ipx
     edges: [edge("wire", "source", "image", "target", "before")] });
   await el(".react-flow__edge-interaction").click({ force: true });
   const toolbar = page.getByRole("toolbar", { name: "Selected edge", exact: true });
-  await expect.element(toolbar).toBeVisible(); within(toolbar.element(), width);
+  await expect.element(toolbar).toBeVisible(); await within(toolbar.element(), width);
   await toolbar.getByRole("button", { name: "Add pause", exact: true }).click();
   expect(session.getDocument().edges[0].hasPause).toBe(true);
   await toolbar.getByRole("button", { name: "Remove pause", exact: true }).click();

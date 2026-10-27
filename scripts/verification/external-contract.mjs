@@ -67,12 +67,16 @@ export async function readStorageDependencyImpact(root, impact) {
   }
   if (!paths.includes("package.json")) return { required: false, reason: "의존 manifest 변경 없음" };
   try {
-    if (!/^[a-f0-9]{40,64}$/.test(impact.base ?? "")) throw new Error("Unknown manifest baseline");
-    const previous = JSON.parse((await exec("git", ["show", impact.base + ":package.json"], { cwd: root })).stdout);
+    const bases = impact.bases ?? [impact.base];
+    if (!bases.length || bases.some(base => !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(base ?? ""))) throw new Error("Unknown manifest baseline");
     const current = JSON.parse(await readFile(root + "/package.json", "utf8"));
-    // Only a scripts-only edit is proven independent of SDK resolution.
-    delete previous.scripts; delete current.scripts;
-    const onlyScripts = JSON.stringify(previous) === JSON.stringify(current);
+    delete current.scripts;
+    let onlyScripts = true;
+    for (const base of bases) {
+      const previous = JSON.parse((await exec("git", ["show", base + ":package.json"], { cwd: root })).stdout);
+      delete previous.scripts;
+      onlyScripts &&= JSON.stringify(previous) === JSON.stringify(current);
+    }
     return { required: !onlyScripts, reason: onlyScripts ? "manifest의 명령만 변경됨" : "manifest의 SDK/의존 해석 영향 재확인" };
   } catch { return { required: true, reason: "의존 manifest 비교가 불확실함" }; }
 }

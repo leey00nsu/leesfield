@@ -54,7 +54,7 @@ export function ownership(file) {
 }
 
 function broadChange(file) {
-  return /^(?:package\.json|pnpm-(?:lock|workspace)\.yaml|(?:next|vitest(?:\.browser)?|playwright\.[^.]+|postcss|tailwind|eslint)\.config\.[^/]+|tsconfig[^/]*\.json|instrumentation\.[jt]s|(?:middleware|proxy)\.[jt]s)$/.test(file)
+  return file === ".husky/pre-push" || /^(?:package\.json|pnpm-(?:lock|workspace)\.yaml|(?:next|vitest(?:\.browser)?|playwright\.[^.]+|postcss|tailwind|eslint)\.config\.[^/]+|tsconfig[^/]*\.json|instrumentation\.[jt]s|(?:middleware|proxy)\.[jt]s)$/.test(file)
     || /^(?:prisma\/|configs\/|scripts\/verification\/|scripts\/spaces\/|scripts\/production\/test-(?:suite|production)|src\/(?:middleware|proxy|instrumentation)\.)/.test(file);
 }
 

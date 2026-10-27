@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/server/db/prisma";
 import { postgresIntegrationEnabled } from "@/test-utils/postgres-integration";
-import { useSharedQueueFixture } from "@/test-utils/job-queue-postgres";
+import { expireFixtureQueueAttempt, useSharedQueueFixture } from "@/test-utils/job-queue-postgres";
 import { createStorageCleanupIntent, queueStorageCleanup, MEDIA_CLEANUP_MAX_ATTEMPTS } from "./media-cleanup-repository";
 import { createStorageCleanupHandler } from "@/server/job-queue/handlers/storage-cleanup-handler";
 import { createQueueRunner } from "@/server/job-queue/job-queue-runner";
@@ -46,7 +46,7 @@ describe.skipIf(!postgresIntegrationEnabled)("Media cleanup ledger PostgreSQL li
     const claimed = (await Promise.all([claim(), claim()])).filter(c => c !== null);
     expect(claimed).toHaveLength(1); expect(claimed[0]!.job.sourceId).toBe(task.id);
     expect(await prisma.mediaCleanupTask.findUnique({ where: { id: task.id } })).toMatchObject({ status: "processing", attempts: 1 });
-    await prisma.queueAttempt.update({ where: { id: claimed[0]!.attemptId }, data: { leaseUntil: new Date(Date.now() - 1) } });
+    await expireFixtureQueueAttempt(claimed[0]!.attemptId);
     await recoverExpiredQueueAttempts(new Map([[handler.kind, handler]]));
     expect(await claim()).toBeNull();
     expect(await prisma.queueDeadLetter.count({ where: { jobId: claimed[0]!.job.id, safeErrorCode: "QUEUE_LEASE_EXPIRED" } })).toBe(1);

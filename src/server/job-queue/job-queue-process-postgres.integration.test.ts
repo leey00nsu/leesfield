@@ -9,7 +9,7 @@ import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import { prisma } from "@/server/db/prisma";
 import { postgresIntegrationEnabled } from "@/test-utils/postgres-integration";
-import { removeFixtureQueueJobs } from "@/test-utils/job-queue-postgres";
+import { expireFixtureQueueAttempts, removeFixtureQueueJobs } from "@/test-utils/job-queue-postgres";
 import { withQueueTransaction } from "./job-queue-transaction";
 import { enqueueQueueJobTx } from "./job-queue-registration";
 
@@ -75,8 +75,10 @@ describe.skipIf(!postgresIntegrationEnabled)("queue OS-process crash and shutdow
       const independent = await register("assistant");
       await expect.poll(async () => (await prisma.queueJob.findUniqueOrThrow({ where: { id: independent.id } })).status, { timeout: 15_000 }).toBe("succeeded");
       expect((await trace()).find(e => e.jobId === independent.id && e.event === "start")?.pid).toBe(second.child.pid);
-      await prisma.queueAttempt.updateMany({ where: { job: { ownerScopeDigest: digest, kind: "generate_image" }, finishedAt: null },
-        data: { leaseUntil: new Date(Date.now() - 1) } });
+      const liveAttempts = await prisma.queueAttempt.findMany({
+        where: { job: { ownerScopeDigest: digest, kind: "generate_image" }, finishedAt: null }, select: { id: true },
+      });
+      await expireFixtureQueueAttempts(liveAttempts.map(attempt => attempt.id));
       await expect.poll(async () => (await prisma.queueJob.findUniqueOrThrow({ where: { id: head.id } })).status, { timeout: 5000 }).toBe("reconciliation_required");
       expect(await prisma.queueDeadLetter.count({ where: { job: { ownerScopeDigest: digest }, classification: "reconciliation" } })).toBe(4);
       expect(await prisma.queueReservation.count({ where: { resourceKey: "generation", releasedAt: null, disposition: "uncertain" } })).toBe(4);

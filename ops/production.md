@@ -100,6 +100,14 @@ pnpm queue:transition activate --expected-epoch=1
 
 Feature 완료 검증은 `pnpm verify`가 변경 범위에 맞게 선택하며, 로컬 전체 회귀는 `pnpm verify:full`, 실제 저장소까지 포함한 릴리스 전 검증은 `pnpm verify:release`를 실행한다. 일반 테스트·typecheck·lint·build·보안·격리 DB·의존성·라이선스는 기본 검사이고 UI/전체 검증에는 브라우저 컴포넌트·Storybook이, full/release에는 확장을 포함한 전체 브라우저가 추가된다. 릴리스 검증은 새 production 핵심 흐름도 실행한다. 실제 Leemage 계약은 저장소 연결부/SDK·관련 의존 변경 또는 release에서 별도로 필수 실행한다. production integration script는 호출자가 가진 `DATABASE_URL`을 사용하지 않고 1 GiB tmpfs의 PostgreSQL 16 컨테이너를 만들며 migration과 전체 테스트가 끝나면 `--rm` 컨테이너를 stop한다. Docker나 PostgreSQL image를 사용할 수 없는 환경에서는 통합 검사를 성공으로 건너뛰지 않는다.
 
+공식 검증은 설치 패키지를 읽기 전에 현재 checkout에서 `pnpm install --frozen-lockfile --prefer-offline --prod=false`를 한 번 실행한다. 기존 store와 정상 설치를 재사용하며 lockfile을 갱신하지 않는다. 준비 실패·필수 패키지 누락·선언 변경은 후속 검사 전에 실패한다. `verify:plan`은 설치하지 않으며 준비가 부족하면 오류로 알린다. 직접 실행하는 test/typecheck/build와 개발용 quick은 이 준비 단계를 자동 실행하지 않는다.
+
+pre-push는 `pnpm verify:push`에 Git의 ref 입력을 전달한다. 실제 remote/local commit 차이를 기존 정책에 적용하며 main 자체와 비교하지 않는다. 여러 ref의 변경은 합치고 새 ref·알 수 없는 remote는 전체 정책으로 확대한다. 검사 대상이 현재 HEAD와 다르거나 미커밋 변경이 있으면 중단한다. 삭제만 보내는 경우는 검사 통과와 구분한다. 이 명령을 수동 호출할 때도 실제 hook 형식의 stdin이 필요하다.
+
+로컬 통합은 Feature의 `pnpm verify` 성공과 별도로 실제 main에서 `pnpm verify:post-merge`를 실행한다. 이 경로는 준비·typecheck·production build만 확인하고 전체 E2E를 반복하지 않는다. 실패하면 현재 통합 도구가 `git reset --keep`으로 통합 전 main에 복귀하며 Feature 브랜치/작업 공간과 실패 기록을 남긴다. 파일·커밋이 검사 중 바뀌었거나 복귀가 실패하면 상태를 보존하고 중단한다. 완료/cleanup으로 넘어가지 않고 반환된 workflow 복구 단계를 따른다. 로컬 통합은 원격 push나 Coolify 배포를 수행하지 않는다.
+
+실행 위치·commit/tree·선언 hash·도구/패키지 버전·준비 및 검사 exit/time은 `.next/verification`에 남는다. Feature는 `last-run.json`, push는 `last-push-run.json`, main은 `last-post-merge-run.json`으로 구분한다. 최종 main 검사의 command/cwd/targetSha/exit은 통합 receipt의 `postMergeVerification`에서도 확인한다.
+
 검증 실행기는 Prisma 생성과 타입 검사를 먼저 마친다. 정상 환경은 일반 테스트·lint·보안·격리 DB·의존성·라이선스를 함께 실행하고, 메모리 제약 환경은 unit2worker를 독립 배치로 먼저 실행한다. DB suite 내부는1개 작업자로 순차 실행하며, build와 후속 검사는 이 그룹이 모두 종료된 뒤 시작한다. 실패·중단은 같은 그룹에 전파하고 각 결과를 보존한다. `.next/verification/last-run.json`의 durationMs는 실제 경과시간이며 summedCheckDurationMs는 겹친 명령별 시간의 합이다.
 
 스페이스의 일상/PR 검증은 `pnpm e2e:spaces:core`, 확장 회귀와 배포 전 검증은 `pnpm e2e:spaces:isolated` 또는 `pnpm verify:release`를 사용한다. `verify`도 핵심 E2E를 선택하며, 명시적 full/release·삭제·불확실한 영향 범위에서는 확장을 포함한다. `verify:plan`의 browser.tier와 selected/total로 실제 범위를 확인한다. 매 실행마다 현재 소스를 별도 임시 작업 공간에 복사하고 독립 Next 컴파일 공간·새 PostgreSQL·로컬 파일 저장소를 사용한다. 패키지만 공유하고 원본 `.env`·`next-env.d.ts`·빌드 산출물을 복사하지 않으며 생성 타입/설정은 임시 공간 안에 남긴다. 사용자 개발 서버를 종료하거나 이전 검사 캐시를 지울 필요가 없다. 별도 소유자의 준비용 스페이스에서 실제 canvas·설정 준비까지 확인한 뒤 병렬 사례를 시작하며, API200만으로 편집기 준비를 판단하지 않는다. 준비용 graph/browser도 정리하고 readiness.json에 결과를 기록한다. 종료·실패·중단 시 임시 자원을 정리하고 보고서는 `.next/spaces-e2e/<run>/`에 보존한다. 실패 보고서의 `hmr-diagnostics`와 `hmr-counters`에서 재탐색·restart·강제 새로고침을 구분한다. timeout 증가·worker 축소·재실행으로 통과시키기 전에 원인을 확인한다.

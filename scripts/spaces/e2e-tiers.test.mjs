@@ -25,4 +25,8 @@ test("the actual Playwright collection has exactly 12 core and 26 extended owned
     expect(await readFile(item.browser, "utf8")).toContain(item.browserCase);
     for (const file of [...item.unit, ...item.integration]) expect((await readFile(file, "utf8")).length).toBeGreaterThan(0);
   }
+  for (const item of migration.assertionMigrations) {
+    expect(all.some(test => test.title.endsWith(item.retainedE2E))).toBe(true);
+    expect(await readFile(item.browser, "utf8")).toContain(item.browserCase);
+  }
 });

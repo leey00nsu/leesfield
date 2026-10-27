@@ -800,7 +800,6 @@ test.describe("Spaces native editor Chromium regression", () => {
       ], [fixtureId(graph, "named"), fixtureId(graph, "inline")].map((id, sortOrder) => ({ id: fixtureId(graph, `edge-${id}`), sourceNodeId: id, sourcePortId: "text", targetNodeId: fixtureId(graph, "constructor"), targetPortId: "text", sortOrder, hasPause: false })));
       await waitForFreshWorkflow(page, graph);
       const body = nodeBody(page, "Prompt Constructor");
-      await expect(page.locator(`.react-flow__node[data-id="${fixtureId(graph, "constructor")}"]`)).toHaveCSS("width", "340px");
       await activateEditor(body.locator("textarea"));
       const expand = page.locator(`[data-space-node-header="${fixtureId(graph, "constructor")}"]`).getByTitle("Expand editor");
       await expand.click();
@@ -1443,24 +1442,11 @@ test.describe("Spaces native editor Chromium regression", () => {
       await expect(page.locator('[data-space-canvas]')).toBeVisible({ timeout: 30_000 });
       await expect(page.locator('[data-app-brand-logo]')).toContainText("leesfield");
       const header = page.locator('[data-space-workspace-header]');
-      const headerBounds = await header.boundingBox();
-      const markBounds = await header.locator('[data-app-brand-logo] > span:first-child').boundingBox();
-      expect(Math.abs((markBounds.y - headerBounds.y) - (headerBounds.y + headerBounds.height - markBounds.y - markBounds.height))).toBeLessThanOrEqual(2);
-      await expect(header.getByText("|", { exact: true })).toHaveCount(0);
+      // Header/dialog layout belongs to the L01 Chrome component contract.
       await captureEvidenceScreenshot(page, test.info(), "t35-header-alignment");
       await header.getByRole("button", { name: "Open space", exact: true }).click();
       const spacesDialog = page.getByRole("dialog", { name: "Spaces", exact: true });
       await expect(spacesDialog).toBeVisible();
-      const bounds = await spacesDialog.boundingBox();
-      expect(bounds.x).toBeGreaterThanOrEqual(0);
-      expect(bounds.x + bounds.width).toBeLessThanOrEqual(page.viewportSize().width);
-      expect(await spacesDialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
-      const footerButtons = await spacesDialog.locator("footer button").all();
-      for (let index = 1; index < footerButtons.length; index += 1) {
-        const previous = await footerButtons[index - 1].boundingBox();
-        const next = await footerButtons[index].boundingBox();
-        expect(next.y >= previous.y + previous.height || next.x >= previous.x + previous.width + 4).toBe(true);
-      }
       await expect(spacesDialog.locator('[aria-current="page"]')).toContainText(title);
       await captureEvidenceScreenshot(page, test.info(), "t35-open-space-modal");
       await spacesDialog.getByRole("button", { name: "New space", exact: true }).click();

@@ -80,7 +80,7 @@ describe("verification impact decisions", () => {
     expect(plan.level).toBe("related"); expect(plan.areas).toEqual(["media", "assistant"]);
   });
   it.each([
-    "prisma/schema.prisma", "pnpm-lock.yaml", "next.config.ts", "scripts/verification/policy.mjs",
+    "prisma/schema.prisma", "pnpm-lock.yaml", "next.config.ts", "scripts/verification/policy.mjs", ".husky/pre-push",
     "scripts/spaces/e2e/spaces.spec.mjs", "src/features/node-studio/model/space-editor-document.ts",
     "src/server/generation-graph/generation-graph-service.ts", "src/features/node-studio/ui/unknown-new-owner.tsx",
     "src/app/api/models/route.ts", "src/app/api/history/[historyId]/route.ts",

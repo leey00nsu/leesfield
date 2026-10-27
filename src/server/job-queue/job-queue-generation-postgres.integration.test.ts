@@ -9,7 +9,7 @@ import { createVideoGenerationRecord } from "@/server/video-generation/video-gen
 import { createAudioGenerationRecord } from "@/server/audio-generation/audio-generation-repository";
 import { generationQueueHandlers } from "./handlers/generation-handler";
 import { createQueueRunner } from "./job-queue-runner";
-import { withQueueTransaction } from "./job-queue-transaction";
+import { queueDatabaseNow, withQueueTransaction } from "./job-queue-transaction";
 import { claimPendingGenerationJobs } from "@/server/generation-worker/execution-lease";
 import { nodeExecutionRepository } from "@/server/node-executions/node-execution-repository";
 import { createStorageCleanupIntent } from "@/server/media-assets/media-cleanup-repository";
@@ -57,7 +57,7 @@ describe.skipIf(!postgresIntegrationEnabled)("generation common queue integratio
     ] } } });
     const ids = jobs.map(j => j.id);
     await withQueueTransaction(async tx => {
-      await tx.queueAttempt.updateMany({ where: { jobId: { in: ids }, finishedAt: null }, data: { phase: "ended", outcome: "cancelled", finishedAt: new Date() } });
+      await tx.queueAttempt.updateMany({ where: { jobId: { in: ids }, finishedAt: null }, data: { phase: "ended", outcome: "cancelled", finishedAt: await queueDatabaseNow(tx) } });
       await tx.queueJob.updateMany({ where: { id: { in: ids } }, data: { status: "cancelled", currentAttemptId: null } });
       await tx.queueDeadLetter.deleteMany({ where: { jobId: { in: ids } } });
       await tx.queueReservation.deleteMany({ where: { attempt: { jobId: { in: ids } } } });
@@ -74,9 +74,12 @@ describe.skipIf(!postgresIntegrationEnabled)("generation common queue integratio
     mocks.resolve.mockReset();
   });
   afterAll(async () => {
-    await prisma.queueResource.deleteMany({ where: { modelKey: { startsWith: modelKey } } });
-    await prisma.modelCatalog.deleteMany({ where: { key: { startsWith: modelKey } } });
-    await prisma.queueRuntime.update({ where: { id: 1 }, data: { mode: "paused", migrationVerified: false } });
+    try {
+      await prisma.queueResource.deleteMany({ where: { modelKey: { startsWith: modelKey } } });
+      await prisma.modelCatalog.deleteMany({ where: { key: { startsWith: modelKey } } });
+    } finally {
+      await prisma.queueRuntime.update({ where: { id: 1 }, data: { mode: "paused", migrationVerified: false } });
+    }
   });
   function artifact(type: "image" | "video" | "audio") {
     return { type, storageProvider: "leemage" as const, storageObjectId: randomUUID(),

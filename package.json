@@ -17,6 +17,8 @@
     "test": "vitest run",
     "test:production-integration": "node scripts/production/test-production-integration.mjs",
     "verify": "node scripts/verification/run.mjs",
+    "verify:push": "node scripts/verification/run.mjs --pre-push",
+    "verify:post-merge": "node scripts/verification/run.mjs --post-merge",
     "verify:plan": "node scripts/verification/run.mjs --plan",
     "verify:full": "node scripts/verification/run.mjs --full",
     "load:stub-smoke": "node scripts/load/stub-smoke.mjs",

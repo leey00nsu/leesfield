@@ -5,6 +5,7 @@ import { readFile, readdir, lstat, realpath } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import ts from "typescript";
+import { resolvePushRange } from "./push-range.mjs";
 
 const execute = promisify(execFile);
 const sourceExtensions = [".ts", ".tsx", ".mjs", ".js", ".jsx", ".mts", ".cts", ".cjs", ".json", ".css", ".scss", ".svg"];
@@ -46,6 +47,16 @@ export function parseNameStatus(value) {
     } else changes.push({ status, path: first });
   }
   return changes;
+}
+
+export async function readPushImpact(root, range) {
+  const current = await resolvePushRange(root, range.input);
+  if (current.fingerprint !== range.fingerprint) throw new Error("PUSH_SOURCE_CHANGED");
+  const changes = [];
+  for (const base of current.bases) changes.push(...parseNameStatus(await git(root, ["diff", "--name-status", "-z", "--find-renames", base, current.head, "--"])));
+  return { head: current.head, baseRef: "pre-push", base: current.bases.length === 1 ? current.bases[0] : null,
+    bases: current.bases, changes: [...new Map(changes.map(change => [JSON.stringify(change), change])).values()],
+    fingerprint: current.fingerprint, rangeProblem: current.rangeProblem, refs: current.refs, mode: "push" };
 }
 
 export async function readGitImpact(root, baseRef = "main") {

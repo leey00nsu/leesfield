@@ -3,13 +3,14 @@ import { randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/server/db/prisma";
 import { postgresIntegrationEnabled } from "@/test-utils/postgres-integration";
+import { expireFixtureQueueAttempt } from "@/test-utils/job-queue-postgres";
 import { enqueueQueueJobTx } from "./job-queue-registration";
 import { claimQueueJob } from "./job-queue-scheduler";
 import { createQueueRunner } from "./job-queue-runner";
 import { recoverExpiredQueueAttempts, requestQueueCancellationTx } from "./job-queue-recovery";
 import { markQueueExternalStart, renewQueueLease } from "./job-queue-lease";
 import { settleQueueSuccess } from "./job-queue-settlement";
-import { withQueueTransaction } from "./job-queue-transaction";
+import { queueDatabaseNow, withQueueTransaction } from "./job-queue-transaction";
 import type { QueueHandler } from "./job-queue-handler";
 
 describe.skipIf(!postgresIntegrationEnabled)("shared runner execution and recovery", () => {
@@ -31,7 +32,7 @@ describe.skipIf(!postgresIntegrationEnabled)("shared runner execution and recove
     await Promise.all(runners.splice(0).map(r => r.stop({ drainTimeoutMs: 10 })));
     await withQueueTransaction(async tx => {
       const ids = (await tx.queueJob.findMany({ where: { ownerScopeDigest: digest } })).map(j => j.id);
-      await tx.queueAttempt.updateMany({ where: { jobId: { in: ids }, finishedAt: null }, data: { phase: "ended", outcome: "cancelled", finishedAt: new Date() } });
+      await tx.queueAttempt.updateMany({ where: { jobId: { in: ids }, finishedAt: null }, data: { phase: "ended", outcome: "cancelled", finishedAt: await queueDatabaseNow(tx) } });
       await tx.queueJob.updateMany({ where: { id: { in: ids } }, data: { status: "cancelled", currentAttemptId: null } });
       await tx.queueOrderGroup.updateMany({ where: { ownerScopeDigest: digest }, data: { blockedByJobId: null } });
       await tx.queueDeadLetter.deleteMany({ where: { jobId: { in: ids } } });
@@ -84,9 +85,7 @@ describe.skipIf(!postgresIntegrationEnabled)("shared runner execution and recove
     return r;
   }
   async function expire(attemptId: string) {
-    await prisma.queueAttempt.update({ where: { id: attemptId }, data: {
-      startedAt: new Date(Date.now() - 120_000), leaseUntil: new Date(Date.now() - 1_000),
-    } });
+    await expireFixtureQueueAttempt(attemptId);
   }
 
   it("two runners execute a group sequentially with an independent start/end ledger", async () => {

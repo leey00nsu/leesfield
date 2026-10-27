@@ -79,17 +79,23 @@ test.each(dimensions)("B15 Compare decodes distinct sides and keeps native slide
 
 test.each(dimensions)("B16 real audio decoding, seek, speed, volume and keyboard stay in the player at %ipx", async width => {
   await page.viewport(width, 844);
-  render(intl(<AppAudioPlayer src="/assets/storybook/tone.wav" preload="metadata" />));
+  // Keep the short fixture playing until the explicit Pause action.
+  render(intl(<AppAudioPlayer src="/assets/storybook/tone.wav" preload="metadata" loop />));
   const audio = document.querySelector("audio")!;
-  await expect.poll(() => audio.readyState).toBeGreaterThanOrEqual(2);
   const playbackEvents = new AbortController();
-  // Latch real progress before the click. A short clip can end and reset to
-  // zero between automation samples, and audio device startup is asynchronous.
-  const advanced = new Promise<number>((resolve, reject) => {
-    audio.addEventListener("timeupdate", () => { if (audio.currentTime > .1) resolve(audio.currentTime); }, { signal: playbackEvents.signal });
-    audio.addEventListener("error", () => reject(new Error("Native audio playback failed")), { signal: playbackEvents.signal });
-  });
   try {
+    // Metadata preload does not promise a decoded frame before explicit play.
+    await new Promise<void>((resolve, reject) => {
+      audio.addEventListener("loadedmetadata", () => resolve(), { once: true, signal: playbackEvents.signal });
+      audio.addEventListener("error", () => reject(new Error("Native audio metadata failed")), { signal: playbackEvents.signal });
+      if (audio.error) reject(new Error("Native audio metadata failed"));
+      else if (audio.readyState >= HTMLMediaElement.HAVE_METADATA) resolve();
+    });
+    // Latch progress before the click; a short clip can end between samples.
+    const advanced = new Promise<number>((resolve, reject) => {
+      audio.addEventListener("timeupdate", () => { if (audio.currentTime > .1) resolve(audio.currentTime); }, { signal: playbackEvents.signal });
+      audio.addEventListener("error", () => reject(new Error("Native audio playback failed")), { signal: playbackEvents.signal });
+    });
     await page.getByRole("button", { name: "Play", exact: true }).click();
     expect(await advanced).toBeGreaterThan(.1);
   } finally { playbackEvents.abort(); }

@@ -4,6 +4,7 @@ import { expect, test, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { SpaceModelBrowser } from "./space-model-browser";
 import { intl, mountSpace, node, imageModel, audioModel, videoModel, llm } from "@/test-utils/space-browser";
+import { settledBounds } from "@/test-utils/browser-layout";
 
 const el = (selector: string) => { document.querySelector(selector)!.setAttribute("data-testid", selector); return page.getByTestId(selector); };
 
@@ -66,7 +67,7 @@ test.each([390, 1440])("B18 active/recent LLM catalog, provider and id search, r
   const trigger = page.getByRole("button", { name: "Browse", exact: true });
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: "Browse Models", exact: true });
-  const initial = dialog.element().getBoundingClientRect();
+  const initial = await settledBounds(dialog.element());
   expect(initial.x).toBeGreaterThanOrEqual(0); expect(initial.right).toBeLessThanOrEqual(width + 1);
   expect(dialog.getByText("Inactive LLM", { exact: true }).query()).toBeNull();
   await expect.element(dialog.getByRole("heading", { name: "Recently Used", exact: true })).toBeVisible();
@@ -88,6 +89,7 @@ test.each([390, 1440])("B18 active/recent LLM catalog, provider and id search, r
   await expect.element(trigger).toHaveFocus();
   await trigger.click();
   await expect.element(dialog.getByRole("button", { name: llm.label, exact: true }).first()).toHaveAttribute("aria-pressed", "true");
-  expect(Math.abs(dialog.element().getBoundingClientRect().height - initial.height)).toBeLessThan(2);
+  const reopened = await settledBounds(dialog.element());
+  expect(Math.abs(reopened.height - initial.height)).toBeLessThan(2);
   await userEvent.keyboard("{Escape}"); await expect.element(trigger).toHaveFocus();
 });
